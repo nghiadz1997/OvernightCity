@@ -84,7 +84,6 @@
         #toast.show { transform: translateX(-50%) translateY(0); }
         #toast.error { background: #ef4444; }
 
-        /* Modal Đăng nhập tùy chỉnh để ẩn ký tự mật khẩu đẹp hơn */
         #loginModal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.85); z-index: 400; justify-content: center; align-items: center;
@@ -97,23 +96,23 @@
 </head>
 <body>
 
-    <!-- 1. GIAO DIỆN USER (MẶC ĐỊNH HIỂN THỊ) -->
+    <!-- 1. GIAO DIỆN USER -->
     <div class="card" id="userCard">
         <div class="header">
-            <img src="https://via.placeholder.com/150" alt="Logo" class="logo">
+            <img src="/img/nsg.png" alt="Logo" class="logo">
             <h1>Phản ánh, kiến nghị về cơ sở vật chất phục vụ đào tạo của nhà trường</h1>
             <div class="sub-description">
                 Giảng viên, người học báo trục trặc, hư hỏng trang thiết bị cần sửa chữa hoặc hỗ trợ kỹ thuật.
                 <span class="hotline-note">Trường hợp khẩn cấp liên hệ hotline: 0909.927.7944 (Thầy Quang Trung).</span>
             </div>
-            <div id="roomBadge" style="display:none; background: rgba(56,189,248,0.1); border: 1px dashed #38bdf8; padding: 8px; border-radius: 8px; color: #38bdf8; font-size: 13px;"></div>
+            <div id="roomBadge" style="display:none; background: rgba(56,189,248,0.1); border: 1px dashed #38bdf8; padding: 8px; border-radius: 8px; color: #38bdf8; font-size: 13px; margin-bottom: 12px;"></div>
         </div>
 
         <form id="feedbackForm">
             <div class="row-2" id="roomSelectionContainer">
                 <div class="group">
                     <label>🏢 Khu vực</label>
-                    <select id="area" required onchange="filterRooms()">
+                    <select id="area" onchange="filterRooms()">
                         <option value="" disabled selected>-- Chọn khu --</option>
                         <option value="Khu A">Khu A</option>
                         <option value="Khu B">Khu B</option>
@@ -123,7 +122,7 @@
                 </div>
                 <div class="group">
                     <label>🚪 Phòng</label>
-                    <select id="roomSelect" required>
+                    <select id="roomSelect">
                         <option value="" disabled selected>-- Chọn khu trước --</option>
                     </select>
                 </div>
@@ -162,11 +161,10 @@
             <button type="submit" class="btn" id="submitBtn">Gửi phản ánh</button>
         </form>
 
-        <!-- Nút mở khung đăng nhập Admin -->
         <div class="admin-trigger" onclick="openAdminLogin()">🔐 Quản trị hệ thống</div>
     </div>
 
-    <!-- Modal Nhập Mật Khẩu Tùy Chỉnh (Ẩn Ký Tự Thay Cho Prompt) -->
+    <!-- Modal Nhập Mật Khẩu Admin -->
     <div id="loginModal">
         <div class="login-box">
             <h3 style="font-size: 16px; margin-bottom: 12px; color: #38bdf8;">🔐 Đăng Nhập Quản Trị</h3>
@@ -181,7 +179,7 @@
         </div>
     </div>
 
-    <!-- 2. GIAO DIỆN QUẢN TRỊ ADMIN (ẨN HOÀN TOÀN KHỎI USER) -->
+    <!-- 2. GIAO DIỆN QUẢN TRỊ ADMIN -->
     <div id="adminPanel">
         <div class="admin-container">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
@@ -189,7 +187,6 @@
                 <button onclick="closeAdmin()" style="background: #ef4444; border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">Đóng / Thoát</button>
             </div>
 
-            <!-- Thẻ Thống Kê -->
             <div class="stats-grid">
                 <div class="stat-card" style="border-left: 4px solid #eab308;">
                     <span style="font-size: 12px; color: #94a3b8;">🟡 TIẾP NHẬN</span>
@@ -209,13 +206,11 @@
                 </div>
             </div>
 
-            <!-- Biểu đồ -->
             <div class="charts-grid">
                 <div class="chart-box"><canvas id="areaChart"></canvas></div>
                 <div class="chart-box"><canvas id="typeChart"></canvas></div>
             </div>
 
-            <!-- Quản lý phòng học & Tạo QR -->
             <div style="background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px;">
                 <h3 style="font-size: 14px; margin-bottom: 10px; color: #cbd5e1;">🏫 Thêm Phòng Học Mới & Tạo Mã QR</h3>
                 <div style="display: flex; gap: 10px; max-width: 450px; margin-bottom: 10px; flex-wrap: wrap;">
@@ -230,7 +225,6 @@
                 <div id="qrcode" style="background:#fff; padding:10px; display:inline-block; border-radius:6px; text-align:center;"></div>
             </div>
 
-            <!-- Bảng Phản Ánh -->
             <div style="background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
                 <h3 style="font-size: 14px; margin-bottom: 10px; color: #cbd5e1;">📋 Danh Sách Phản Ánh</h3>
                 <div style="overflow-x: auto;">
@@ -264,9 +258,27 @@
         const db = firebase.database();
 
         let allRooms = [];
-        let currentSelectedRoomKey = null; // Theo dõi phòng đang hiển thị QR
+        let currentSelectedRoomKey = null;
+        let fixedRoom = null;
+        let fixedArea = null;
 
-        // Lắng nghe danh sách phòng từ Firebase để đồng bộ sang giao diện User
+        // Xử lý quét QR trên URL cho User ngay từ đầu
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomParam = urlParams.get('room');
+        const areaParam = urlParams.get('area');
+
+        if (roomParam) {
+            fixedRoom = roomParam;
+            fixedArea = areaParam || 'Khu A';
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('roomSelectionContainer').style.display = 'none';
+                const badge = document.getElementById('roomBadge');
+                badge.style.display = 'block';
+                badge.innerHTML = `📍 Phản ánh tại phòng: <b style="color:#fff; font-size:14px;">${roomParam} (${fixedArea})</b>`;
+            });
+        }
+
+        // Lắng nghe danh sách phòng từ Firebase
         db.ref('rooms').on('value', (snapshot) => {
             const data = snapshot.val();
             allRooms = [];
@@ -295,36 +307,23 @@
                 });
             }
 
-            // Nếu phòng đang chọn hiển thị QR bị xóa, tự động xóa sạch khung QR
             if (currentSelectedRoomKey && !roomKeyExists) {
                 currentSelectedRoomKey = null;
                 document.getElementById('qrcode').innerHTML = '';
-            } 
-            // Nếu chưa có phòng nào được chọn mà Admin panel đang mở, hiển thị QR phòng đầu tiên
-            else if (!currentSelectedRoomKey && firstRoom && document.getElementById('adminPanel').style.display === 'block') {
+            } else if (!currentSelectedRoomKey && firstRoom && document.getElementById('adminPanel').style.display === 'block') {
                 makeQR(firstRoom.room, firstRoom.area, firstRoom.key);
             }
 
             filterRooms();
         });
 
-        // Xử lý quét QR trên URL cho User
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomParam = urlParams.get('room');
-        const areaParam = urlParams.get('area');
-
-        if (roomParam) {
-            document.getElementById('roomSelectionContainer').style.display = 'none';
-            const badge = document.getElementById('roomBadge');
-            badge.style.display = 'block';
-            badge.innerHTML = `📍 Phản ánh tại phòng: <b style="color:#fff; font-size:14px;">${roomParam}</b>`;
-            window.fixedRoom = roomParam;
-            window.fixedArea = areaParam || 'Khu A';
-        }
-
         function filterRooms() {
-            const area = document.getElementById('area').value;
+            if (fixedRoom) return; // Nếu quét QR thì bỏ qua việc lọc select
+            const areaElem = document.getElementById('area');
             const select = document.getElementById('roomSelect');
+            if (!areaElem || !select) return;
+            
+            const area = areaElem.value;
             select.innerHTML = '<option value="" disabled selected>-- Chọn phòng --</option>';
             allRooms.filter(r => r.area === area).forEach(r => {
                 const opt = document.createElement('option');
@@ -339,15 +338,29 @@
             setTimeout(() => t.className = '', 3500);
         }
 
-        // Gửi phản ánh từ User
+        // Gửi phản ánh từ User (Đã tối ưu hóa cho cả quét QR và chọn thủ công)
         document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            let selectedArea = fixedArea;
+            let selectedRoom = fixedRoom;
+
+            if (!selectedRoom) {
+                selectedArea = document.getElementById('area').value;
+                selectedRoom = document.getElementById('roomSelect').value;
+            }
+
+            if (!selectedArea || !selectedRoom) {
+                showToast('Vui lòng chọn khu vực và phòng!', true);
+                return;
+            }
+
             const btn = document.getElementById('submitBtn');
             btn.disabled = true; btn.innerText = 'Đang gửi...';
 
             const payload = {
-                area: window.fixedArea || document.getElementById('area').value,
-                room: window.fixedRoom || document.getElementById('roomSelect').value,
+                area: selectedArea,
+                room: selectedRoom,
                 issueType: document.getElementById('issueType').value,
                 priority: document.getElementById('priority').value,
                 content: document.getElementById('content').value,
@@ -357,25 +370,31 @@
 
             try {
                 await db.ref('feedbacks').push().set(payload);
-                await fetch('/api/telegram', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                
+                // Gọi API Telegram an toàn, bắt lỗi tránh làm hỏng luồng gửi của user nếu mất mạng/lỗi serverless
+                try {
+                    await fetch('/api/telegram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (telegramErr) {
+                    console.warn('Telegram notification skipped:', telegramErr);
+                }
+
                 showToast('Gửi phản ánh thành công!');
-                document.getElementById('feedbackForm').reset();
-                if(roomParam) {
-                    window.fixedRoom = roomParam;
-                    window.fixedArea = areaParam;
+                document.getElementById('content').value = '';
+                if (!fixedRoom) {
+                    document.getElementById('feedbackForm').reset();
                 }
             } catch (err) {
-                showToast('Lỗi gửi phản ánh, thử lại!', true);
+                showToast('Lỗi gửi phản ánh, vui lòng thử lại!', true);
             } finally {
                 btn.disabled = false; btn.innerText = 'Gửi phản ánh';
             }
         });
 
-        // Đăng nhập Admin tùy chỉnh (Ẩn ký tự mật khẩu)
+        // Đăng nhập Admin
         function openAdminLogin() {
             document.getElementById('loginModal').style.display = 'flex';
             document.getElementById('adminPasswordInput').value = '';
@@ -398,14 +417,12 @@
                 document.getElementById('adminPasswordInput').focus();
             }
         }
-        // Cho phép nhấn Enter để xác thực đăng nhập nhanh
         document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') submitAdminLogin();
         });
 
         function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
 
-        // Thêm phòng học mới đồng bộ Firebase
         async function addRoom() {
             const roomInput = document.getElementById('newRoom');
             const areaSelect = document.getElementById('newArea');
@@ -421,7 +438,7 @@
             try {
                 const newRef = await db.ref('rooms').push({ room, area });
                 roomInput.value = '';
-                makeQR(room, area, newRef.key); // Tự động tạo QR ngay khi thêm thành công
+                makeQR(room, area, newRef.key);
                 showToast('Thêm phòng thành công!');
             } catch (error) {
                 showToast('Lỗi khi thêm phòng!', true);
@@ -434,7 +451,6 @@
             } 
         }
 
-        // Hàm tạo mã QR trực tiếp và lưu khóa định danh phòng đang chọn
         function makeQR(room, area, key) {
             currentSelectedRoomKey = key;
             const box = document.getElementById('qrcode');
@@ -443,7 +459,6 @@
             new QRCode(box, { text: targetUrl, width: 140, height: 140 });
         }
 
-        // Tải Dashboard Admin & Biểu đồ
         let areaChart = null, typeChart = null;
         const statuses = ["🟡 Tiếp nhận", "🔵 Đã phân công", "🟠 Đang xử lý", "🟢 Hoàn thành", "⚪ Đóng phản ánh"];
 
@@ -451,6 +466,7 @@
             db.ref('feedbacks').on('value', (snap) => {
                 const data = snap.val();
                 const tbody = document.getElementById('feedbackTableBody');
+                if(!tbody) return;
                 tbody.innerHTML = '';
                 let total = 0, p1 = 0, p2 = 0, p3 = 0;
                 let aStats = { 'Khu A': 0, 'Khu B': 0, 'Khu C': 0, 'Khu D': 0 };
@@ -498,11 +514,13 @@
             await db.ref('feedbacks/' + key).update({ status: newSt });
             db.ref('feedbacks/' + key).once('value', async (s) => {
                 const item = s.val();
-                await fetch('/api/telegram', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...item, content: `[CẬP NHẬT]\nTrạng thái: ${newSt}\nND: ${item.content}` })
-                });
+                try {
+                    await fetch('/api/telegram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...item, content: `[CẬP NHẬT]\nTrạng thái: ${newSt}\nND: ${item.content}` })
+                    });
+                } catch (e) {}
             });
         }
         async function delFb(k) { if(confirm('Xóa?')) await db.ref('feedbacks/'+k).remove(); }
