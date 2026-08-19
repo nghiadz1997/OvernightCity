@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     
     // Thay thế Bot Token và Chat ID của bạn vào đây (hoặc cấu hình qua biến môi trường Environment Variables)
     const BOT_TOKEN = '8657313024:AAH5ptu0wyzabFvhrefuJulkkS7IPuRF5Nc';
-    const CHAT_ID = '6159104725';
+    const CHAT_ID = '-1004390873430';
 
     const message = `🔔 *PHẢN ÁNH CƠ SỞ VẬT CHẤT*\n\n` +
                     `🏢 *Khu/Phòng:* ${room} (${area})\n` +
