@@ -1,8 +1,7 @@
 {
-  "name": "quan-ly-csvc",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "node-fetch": "^2.6.7"
-  }
+  "version": 2,
+  "public": true,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ]
 }
