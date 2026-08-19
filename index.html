@@ -83,6 +83,16 @@
         }
         #toast.show { transform: translateX(-50%) translateY(0); }
         #toast.error { background: #ef4444; }
+
+        /* Modal Đăng nhập tùy chỉnh để ẩn ký tự mật khẩu đẹp hơn */
+        #loginModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85); z-index: 400; justify-content: center; align-items: center;
+        }
+        .login-box {
+            background: #1e293b; padding: 25px; border-radius: 16px; border: 1px solid #334155;
+            width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
@@ -152,8 +162,23 @@
             <button type="submit" class="btn" id="submitBtn">Gửi phản ánh</button>
         </form>
 
-        <!-- Nút ẩn để Admin truy cập nhanh khi cần -->
+        <!-- Nút mở khung đăng nhập Admin -->
         <div class="admin-trigger" onclick="openAdminLogin()">🔐 Quản trị hệ thống</div>
+    </div>
+
+    <!-- Modal Nhập Mật Khẩu Tùy Chỉnh (Ẩn Ký Tự Thay Cho Prompt) -->
+    <div id="loginModal">
+        <div class="login-box">
+            <h3 style="font-size: 16px; margin-bottom: 12px; color: #38bdf8;">🔐 Đăng Nhập Quản Trị</h3>
+            <div class="group" style="text-align: left;">
+                <label>Mật khẩu hệ thống</label>
+                <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu..." autofocus>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="submitAdminLogin()" style="flex: 1; background: #0284c7; border: none; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold;">Xác nhận</button>
+                <button onclick="closeAdminLogin()" style="flex: 1; background: #475569; border: none; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer;">Hủy</button>
+            </div>
+        </div>
     </div>
 
     <!-- 2. GIAO DIỆN QUẢN TRỊ ADMIN (ẨN HOÀN TOÀN KHỎI USER) -->
@@ -225,7 +250,6 @@
     <div id="toast">Thành công!</div>
 
     <script>
-        // Cấu hình Firebase chính xác của dự án csvc-c27b7
         const firebaseConfig = {
             apiKey: "AIzaSyA3BSxBewE-Wm_2VLO3h7jXbvutGzVk-8Y",
             authDomain: "csvc-c27b7.firebaseapp.com",
@@ -240,6 +264,7 @@
         const db = firebase.database();
 
         let allRooms = [];
+        let currentSelectedRoomKey = null; // Theo dõi phòng đang hiển thị QR
 
         // Lắng nghe danh sách phòng từ Firebase để đồng bộ sang giao diện User
         db.ref('rooms').on('value', (snapshot) => {
@@ -248,19 +273,38 @@
             const roomListEl = document.getElementById('roomList');
             if(roomListEl) roomListEl.innerHTML = '';
 
+            let firstRoom = null;
+            let roomKeyExists = false;
+
             if (data) {
                 Object.keys(data).forEach(key => {
                     const item = data[key];
-                    allRooms.push(item);
-                    if(roomListEl) {
-                        roomListEl.innerHTML += `<span style="background:#0f172a; border:1px solid #334155; padding:4px 8px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-                            <b>${item.room}</b> (${item.area}) 
-                            <button onclick="makeQR('${item.room}', '${item.area}')" style="background:#0284c7; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">QR</button>
-                            <button onclick="delRoom('${key}')" style="background:#ef4444; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">X</button>
-                        </span>`;
+                    if (item && item.room) {
+                        allRooms.push({ key, ...item });
+                        if(!firstRoom) firstRoom = { key, ...item };
+                        if(key === currentSelectedRoomKey) roomKeyExists = true;
+
+                        if(roomListEl) {
+                            roomListEl.innerHTML += `<span style="background:#0f172a; border:1px solid #334155; padding:4px 8px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+                                <b>${item.room}</b> (${item.area}) 
+                                <button onclick="makeQR('${item.room}', '${item.area}', '${key}')" style="background:#0284c7; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">QR</button>
+                                <button onclick="delRoom('${key}')" style="background:#ef4444; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">X</button>
+                            </span>`;
+                        }
                     }
                 });
             }
+
+            // Nếu phòng đang chọn hiển thị QR bị xóa, tự động xóa sạch khung QR
+            if (currentSelectedRoomKey && !roomKeyExists) {
+                currentSelectedRoomKey = null;
+                document.getElementById('qrcode').innerHTML = '';
+            } 
+            // Nếu chưa có phòng nào được chọn mà Admin panel đang mở, hiển thị QR phòng đầu tiên
+            else if (!currentSelectedRoomKey && firstRoom && document.getElementById('adminPanel').style.display === 'block') {
+                makeQR(firstRoom.room, firstRoom.area, firstRoom.key);
+            }
+
             filterRooms();
         });
 
@@ -331,32 +375,71 @@
             }
         });
 
-        // Đăng nhập Admin ẩn
+        // Đăng nhập Admin tùy chỉnh (Ẩn ký tự mật khẩu)
         function openAdminLogin() {
-            const pass = prompt('Nhập mật khẩu quản trị:');
-            if (pass === '123456') {
+            document.getElementById('loginModal').style.display = 'flex';
+            document.getElementById('adminPasswordInput').value = '';
+            document.getElementById('adminPasswordInput').focus();
+        }
+        function closeAdminLogin() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+        function submitAdminLogin() {
+            const pass = document.getElementById('adminPasswordInput').value;
+            if (pass === 'Nsg@2026') {
+                closeAdminLogin();
                 document.getElementById('adminPanel').style.display = 'block';
                 loadAdminData();
-            } else if (pass !== null) {
+                if (allRooms.length > 0) {
+                    makeQR(allRooms[0].room, allRooms[0].area, allRooms[0].key);
+                }
+            } else {
                 alert('Sai mật khẩu!');
+                document.getElementById('adminPasswordInput').focus();
             }
         }
+        // Cho phép nhấn Enter để xác thực đăng nhập nhanh
+        document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitAdminLogin();
+        });
+
         function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
 
-        // Thêm / Xóa phòng
+        // Thêm phòng học mới đồng bộ Firebase
         async function addRoom() {
-            const room = document.getElementById('newRoom').value.trim();
-            const area = document.getElementById('newArea').value;
-            if(!room) return alert('Nhập tên phòng!');
-            await db.ref('rooms').push({ room, area });
-            document.getElementById('newRoom').value = '';
-        }
-        async function delRoom(k) { if(confirm('Xóa phòng này?')) await db.ref('rooms/'+k).remove(); }
+            const roomInput = document.getElementById('newRoom');
+            const areaSelect = document.getElementById('newArea');
+            const room = roomInput.value.trim();
+            const area = areaSelect.value;
+            
+            if (!room) {
+                alert('Vui lòng nhập tên phòng!');
+                roomInput.focus();
+                return;
+            }
 
-        function makeQR(room, area) {
+            try {
+                const newRef = await db.ref('rooms').push({ room, area });
+                roomInput.value = '';
+                makeQR(room, area, newRef.key); // Tự động tạo QR ngay khi thêm thành công
+                showToast('Thêm phòng thành công!');
+            } catch (error) {
+                showToast('Lỗi khi thêm phòng!', true);
+            }
+        }
+
+        async function delRoom(k) { 
+            if(confirm('Xóa phòng này?')) {
+                await db.ref('rooms/'+k).remove();
+            } 
+        }
+
+        // Hàm tạo mã QR trực tiếp và lưu khóa định danh phòng đang chọn
+        function makeQR(room, area, key) {
+            currentSelectedRoomKey = key;
             const box = document.getElementById('qrcode');
             box.innerHTML = '';
-            const targetUrl = `${window.location.origin}/index.html?room=${room}&area=${area}`;
+            const targetUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&area=${encodeURIComponent(area)}`;
             new QRCode(box, { text: targetUrl, width: 140, height: 140 });
         }
 
