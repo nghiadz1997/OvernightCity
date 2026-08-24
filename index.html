@@ -6,6 +6,7 @@
     <title>Phản Ánh Cơ Sở Vật Chất | Nam Saigon Polytechnic</title>
     <!-- Firebase SDK v8 -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,53 +16,52 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
         
+        /* Đã tăng max-width lên 700px và padding lên 40px để PC nhìn to và cân đối hơn */
         .card {
-            background: #1e293b;
-            width: 100%;
-            max-width: 520px;
-            padding: 30px;
-            border-radius: 24px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
-            border: 1px solid #334155;
-            position: relative;
+            background: #1e293b; width: 100%; max-width: 700px; padding: 40px;
+            border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            border: 1px solid #334155; position: relative;
         }
 
-        .header { text-align: center; margin-bottom: 20px; }
-        .logo { width: 70px; height: 70px; object-fit: contain; margin-bottom: 10px; border-radius: 50%; background: #fff; padding: 4px; }
-        .header h1 { color: #f8fafc; font-size: 16px; font-weight: 700; line-height: 1.4; text-transform: uppercase; margin-bottom: 8px; }
+        @media (max-width: 768px) {
+            .card { padding: 25px; } /* Giữ padding nhỏ lại cho mobile */
+        }
+
+        .header { text-align: center; margin-bottom: 25px; }
+        .logo { width: 75px; height: 75px; object-fit: contain; margin-bottom: 15px; border-radius: 50%; background: #fff; padding: 4px; }
+        .header h1 { color: #f8fafc; font-size: 18px; font-weight: 700; line-height: 1.4; text-transform: uppercase; margin-bottom: 10px; }
         
         .sub-description {
-            color: #94a3b8; font-size: 12px; line-height: 1.5; margin-bottom: 12px; text-align: left;
-            background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155;
+            color: #94a3b8; font-size: 13px; line-height: 1.5; margin-bottom: 15px; text-align: left;
+            background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;
         }
         .hotline-note { color: #ef4444; font-weight: bold; display: block; margin-top: 4px; }
 
-        .group { margin-bottom: 14px; }
-        .group label { display: block; color: #cbd5e1; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+        .group { margin-bottom: 16px; }
+        .group label { display: block; color: #cbd5e1; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
         
         input, select, textarea {
-            width: 100%; padding: 10px 12px; background: #0f172a; border: 1px solid #334155;
-            border-radius: 10px; color: #f8fafc; font-size: 14px; transition: all 0.2s ease;
+            width: 100%; padding: 12px 14px; background: #0f172a; border: 1px solid #334155;
+            border-radius: 10px; color: #f8fafc; font-size: 15px; transition: all 0.2s ease;
         }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
-        textarea { resize: none; height: 80px; }
-        .row-2 { display: flex; gap: 10px; }
+        textarea { resize: none; height: 100px; } /* Tăng chiều cao ô nhập nội dung */
+        .row-2 { display: flex; gap: 15px; }
         .row-2 .group { flex: 1; }
 
         .btn {
-            width: 100%; padding: 12px; background: #0284c7; color: white; border: none;
-            border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; text-transform: uppercase;
+            width: 100%; padding: 14px; background: #0284c7; color: white; border: none;
+            border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; text-transform: uppercase;
+            margin-top: 5px;
         }
         .btn:hover { background: #0369a1; }
         .btn:disabled { background: #475569; cursor: not-allowed; }
 
-        /* Nút ẩn Admin ở góc dưới chân trang */
         .admin-trigger {
-            text-align: center; margin-top: 15px; font-size: 11px; color: #64748b; cursor: pointer; user-select: none;
+            text-align: center; margin-top: 20px; font-size: 12px; color: #64748b; cursor: pointer; user-select: none;
         }
         .admin-trigger:hover { color: #38bdf8; text-decoration: underline; }
 
-        /* Giao diện Dashboard Admin (Mặc định ẩn hoàn toàn) */
         #adminPanel {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #0f172a; z-index: 200; overflow-y: auto; padding: 20px;
@@ -74,7 +74,18 @@
         table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
         th, td { padding: 10px; border-bottom: 1px solid #334155; }
         th { background: #0f172a; color: #94a3b8; }
-        select.status-select { padding: 4px 8px; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 6px; }
+        select.status-select { padding: 4px 8px; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 6px; outline: none; }
+
+        .room-manager-layout {
+            display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start;
+        }
+        @media (max-width: 768px) { .room-manager-layout { grid-template-columns: 1fr; } }
+        .area-section { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .area-title { font-size: 14px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 6px; }
+        .room-table-mini { width: 100%; border-collapse: collapse; }
+        .room-table-mini td { padding: 6px 8px; border-bottom: 1px solid #1e293b; font-size: 13px; }
+        .room-table-mini tr:last-child td { border-bottom: none; }
+        .action-btns { display: flex; gap: 6px; justify-content: flex-end; }
 
         #toast {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
@@ -89,8 +100,8 @@
             background: rgba(15, 23, 42, 0.85); z-index: 400; justify-content: center; align-items: center;
         }
         .login-box {
-            background: #1e293b; padding: 25px; border-radius: 16px; border: 1px solid #334155;
-            width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            background: #1e293b; padding: 30px; border-radius: 16px; border: 1px solid #334155;
+            width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -100,12 +111,12 @@
     <div class="card" id="userCard">
         <div class="header">
             <img src="/img/nsg.png" alt="Logo" class="logo">
-            <h1>Phản ánh, kiến nghị về cơ sở vật chất phục vụ đào tạo của nhà trường</h1>
+            <h1>Phản ánh, kiến nghị về cơ sở vật chất phục vụ đào tạo</h1>
             <div class="sub-description">
                 Giảng viên, người học phản ánh sự cố, hư hỏng trang thiết bị cần sửa chữa hoặc yêu cầu hỗ trợ kỹ thuật.
-                <span class="hotline-note">Trường hợp khẩn cấp liên hệ hotline: 0909.927.7944 (Thầy Quang Trung).</span>
+                <span class="hotline-note">Trường hợp khẩn cấp liên hệ hotline: 0909.277.944 (Thầy Quang Trung).</span>
             </div>
-            <div id="roomBadge" style="display:none; background: rgba(56,189,248,0.1); border: 1px dashed #38bdf8; padding: 8px; border-radius: 8px; color: #38bdf8; font-size: 13px; margin-bottom: 12px;"></div>
+            <div id="roomBadge" style="display:none; background: rgba(56,189,248,0.1); border: 1px dashed #38bdf8; padding: 10px; border-radius: 8px; color: #38bdf8; font-size: 14px; margin-bottom: 15px;"></div>
         </div>
 
         <form id="feedbackForm">
@@ -118,6 +129,9 @@
                         <option value="Khu B">Khu B</option>
                         <option value="Khu C">Khu C</option>
                         <option value="Khu D">Khu D</option>
+                        <option value="Khu KTX">Khu KTX</option>
+                        <option value="Phân Hiệu Cơ Khí">Phân Hiệu Cơ Khí</option>
+                        <option value="Phân Hiệu Bùi Minh Trực">Phân Hiệu Bùi Minh Trực</option> <!-- Đã thêm Khu KTX -->
                     </select>
                 </div>
                 <div class="group">
@@ -156,7 +170,7 @@
 
             <div class="group">
                 <label>📝 Nội dung phản ánh</label>
-                <textarea id="content" placeholder="Mô tả chi tiết..." required></textarea>
+                <textarea id="content" placeholder="Mô tả chi tiết tình trạng hư hỏng hoặc sự cố..." required></textarea>
             </div>
 
             <button type="submit" class="btn" id="submitBtn">Gửi phản ánh</button>
@@ -168,14 +182,18 @@
     <!-- Modal Nhập Mật Khẩu Admin -->
     <div id="loginModal">
         <div class="login-box">
-            <h3 style="font-size: 16px; margin-bottom: 12px; color: #38bdf8;">🔐 Đăng Nhập Quản Trị</h3>
+            <h3 style="font-size: 18px; margin-bottom: 15px; color: #38bdf8;">🔐 Đăng Nhập Quản Trị</h3>
             <div class="group" style="text-align: left;">
-                <label>Mật khẩu hệ thống</label>
-                <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu..." autofocus>
+                <label>Email hệ thống</label>
+                <input type="email" id="adminEmailInput" placeholder="Nhập email admin..." autofocus>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button onclick="submitAdminLogin()" style="flex: 1; background: #0284c7; border: none; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold;">Xác nhận</button>
-                <button onclick="closeAdminLogin()" style="flex: 1; background: #475569; border: none; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer;">Hủy</button>
+            <div class="group" style="text-align: left;">
+                <label>Mật khẩu</label>
+                <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu...">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="submitAdminLogin()" id="btnLogin" style="flex: 1; background: #0284c7; border: none; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold;">Đăng nhập</button>
+                <button onclick="closeAdminLogin()" style="flex: 1; background: #475569; border: none; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold;">Hủy</button>
             </div>
         </div>
     </div>
@@ -185,25 +203,25 @@
         <div class="admin-container">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
                 <h2 style="color: #38bdf8; font-size: 18px;">📊 Bảng Quản Trị & Thống Kê CSVC</h2>
-                <button onclick="closeAdmin()" style="background: #ef4444; border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">Đóng / Thoát</button>
+                <button onclick="closeAdmin()" style="background: #ef4444; border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">Đăng xuất / Thoát</button>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card" style="border-left: 4px solid #eab308;">
                     <span style="font-size: 12px; color: #94a3b8;">🟡 TIẾP NHẬN</span>
-                    <div id="c-pending" style="font-size: 24px; font-weight: bold; margin-top: 5px;">0</div>
+                    <div id="c-pending" style="font-size: 26px; font-weight: bold; margin-top: 5px;">0</div>
                 </div>
                 <div class="stat-card" style="border-left: 4px solid #38bdf8;">
                     <span style="font-size: 12px; color: #94a3b8;">🔵 ĐANG XỬ LÝ</span>
-                    <div id="c-processing" style="font-size: 24px; font-weight: bold; margin-top: 5px;">0</div>
+                    <div id="c-processing" style="font-size: 26px; font-weight: bold; margin-top: 5px;">0</div>
                 </div>
                 <div class="stat-card" style="border-left: 4px solid #22c55e;">
-                    <span style="font-size: 12px; color: #94a3b8;">🟢 HOÀN THÀNH</span>
-                    <div id="c-completed" style="font-size: 24px; font-weight: bold; margin-top: 5px;">0</div>
+                    <span style="font-size: 12px; color: #94a3b8;">🟢 ĐÃ XỬ LÝ (HOÀN THÀNH)</span>
+                    <div id="c-completed" style="font-size: 26px; font-weight: bold; margin-top: 5px;">0</div>
                 </div>
                 <div class="stat-card" style="border-left: 4px solid #a855f7;">
-                    <span style="font-size: 12px; color: #94a3b8;">📊 TỔNG SỐ</span>
-                    <div id="c-total" style="font-size: 24px; font-weight: bold; margin-top: 5px;">0</div>
+                    <span style="font-size: 12px; color: #94a3b8;">📊 TỔNG CỘNG</span>
+                    <div id="c-total" style="font-size: 26px; font-weight: bold; margin-top: 5px;">0</div>
                 </div>
             </div>
 
@@ -212,27 +230,58 @@
                 <div class="chart-box"><canvas id="typeChart"></canvas></div>
             </div>
 
-            <div style="background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px;">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #cbd5e1;">🏫 Thêm Phòng Học Mới & Tạo Mã QR</h3>
-                <div style="display: flex; gap: 10px; max-width: 450px; margin-bottom: 10px; flex-wrap: wrap;">
-                    <input type="text" id="newRoom" placeholder="Tên phòng (VD: A0.5)" style="flex:1; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:6px;">
-                    <select id="newArea" style="padding:8px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:6px;">
-                        <option value="Khu A">Khu A</option><option value="Khu B">Khu B</option>
-                        <option value="Khu C">Khu C</option><option value="Khu D">Khu D</option>
-                    </select>
-                    <button onclick="addRoom()" style="background: #22c55e; border:none; color:#fff; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold;">Thêm</button>
-                </div>
-                <div id="roomList" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;"></div>
-                <div id="qrcode" style="background:#fff; padding:10px; display:inline-block; border-radius:6px; text-align:center;"></div>
-            </div>
+            <!-- PHẦN QUẢN LÝ PHÒNG -->
+            <details style="background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px;">
+                <summary style="font-size: 15px; font-weight: bold; margin-bottom: 5px; color: #cbd5e1; cursor: pointer; outline: none; list-style: none; display: flex; align-items: center; justify-content: space-between;">
+                    <span>🏫 Quản Lý Phòng Học & Tạo Mã QR</span>
+                    <span style="font-size: 12px; color: #38bdf8; font-weight: normal;">Nhấn để Mở / Thu gọn ▾</span>
+                </summary>
+                
+                <div style="margin-top: 15px;">
+                    <!-- Form thêm phòng -->
+                    <div style="display: flex; gap: 10px; max-width: 500px; margin-bottom: 15px; flex-wrap: wrap;">
+                        <input type="text" id="newRoom" placeholder="Tên phòng (VD: A0.5)" style="flex:1; padding:10px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:8px;">
+                        <select id="newArea" style="padding:10px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:8px;">
+                            <option value="Khu A">Khu A</option><option value="Khu B">Khu B</option>
+                            <option value="Khu C">Khu C</option><option value="Khu D">Khu D</option>
+                            <option value="Khu KTX">Khu KTX</option>
+                            <option value="Phân Hiệu Cơ Khí">Phân Hiệu Cơ Khí</option>
+                            <option value="Phân Hiệu Bùi Minh Trực">Phân Hiệu Bùi Minh Trực</option> <!-- Đã thêm Khu KTX -->
+                        </select>
+                        <button onclick="addRoom()" style="background: #22c55e; border:none; color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-weight:bold;">Thêm</button>
+                    </div>
 
+                    <div class="room-manager-layout">
+                        <div id="roomListContainer" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <!-- Các nhóm khu vực được sinh tự động bằng JS -->
+                        </div>
+                        <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; text-align: center;">
+                            <div style="font-size: 13px; font-weight: bold; color: #cbd5e1; margin-bottom: 8px;">Mã QR phòng đang chọn:</div>
+                            <div id="qrcode" style="background:#fff; padding:10px; display:inline-block; border-radius:8px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- BẢNG DANH SÁCH & XUẤT EXCEL -->
             <div style="background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #cbd5e1;">📋 Danh Sách Phản Ánh</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size: 15px; color: #cbd5e1; font-weight: bold;">📋 Danh Sách Phản Ánh Chi Tiết</h3>
+                    <button onclick="exportToExcel()" style="background: #10b981; border: none; color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                        📥 Xuất báo cáo Excel
+                    </button>
+                </div>
                 <div style="overflow-x: auto;">
                     <table>
                         <thead>
                             <tr>
-                                <th>Thời gian</th><th>Phòng</th><th>Sự cố</th><th>Mức độ</th><th>Nội dung</th><th>Trạng thái (5 bước)</th><th>Xóa</th>
+                                <th>Thời gian</th>
+                                <th>Phòng (Khu vực)</th>
+                                <th>Sự cố</th>
+                                <th>Mức độ</th>
+                                <th>Nội dung</th>
+                                <th>Trạng thái xử lý</th>
+                                <th>Xóa</th>
                             </tr>
                         </thead>
                         <tbody id="feedbackTableBody"></tbody>
@@ -257,13 +306,14 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        const auth = firebase.auth();
 
         let allRooms = [];
         let currentSelectedRoomKey = null;
         let fixedRoom = null;
         let fixedArea = null;
+        let currentFeedbacks = []; 
 
-        // Xử lý quét QR trên URL cho User ngay từ đầu
         const urlParams = new URLSearchParams(window.location.search);
         const roomParam = urlParams.get('room');
         const areaParam = urlParams.get('area');
@@ -275,38 +325,65 @@
                 document.getElementById('roomSelectionContainer').style.display = 'none';
                 const badge = document.getElementById('roomBadge');
                 badge.style.display = 'block';
-                badge.innerHTML = `📍 Phản ánh tại phòng: <b style="color:#fff; font-size:14px;">${roomParam} (${fixedArea})</b>`;
+                badge.innerHTML = `📍 Phản ánh tại phòng: <b style="color:#fff; font-size:15px;">${roomParam} (${fixedArea})</b>`;
             });
         }
 
-        // Lắng nghe danh sách phòng từ Firebase
         db.ref('rooms').on('value', (snapshot) => {
             const data = snapshot.val();
             allRooms = [];
-            const roomListEl = document.getElementById('roomList');
-            if(roomListEl) roomListEl.innerHTML = '';
+            const roomListContainer = document.getElementById('roomListContainer');
+            if(roomListContainer) roomListContainer.innerHTML = '';
 
             let firstRoom = null;
             let roomKeyExists = false;
+            // Bổ sung Khu KTX vào biến phân loại dữ liệu phòng
+            let groupedRooms = { 'Khu A': [], 'Khu B': [], 'Khu C': [], 'Khu D': [], 'Khu KTX': [] };
 
             if (data) {
                 Object.keys(data).forEach(key => {
                     const item = data[key];
                     if (item && item.room) {
-                        allRooms.push({ key, ...item });
-                        if(!firstRoom) firstRoom = { key, ...item };
-                        if(key === currentSelectedRoomKey) roomKeyExists = true;
-
-                        if(roomListEl) {
-                            roomListEl.innerHTML += `<span style="background:#0f172a; border:1px solid #334155; padding:4px 8px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-                                <b>${item.room}</b> (${item.area}) 
-                                <button onclick="makeQR('${item.room}', '${item.area}', '${key}')" style="background:#0284c7; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">QR</button>
-                                <button onclick="delRoom('${key}')" style="background:#ef4444; border:none; color:#fff; padding:2px 5px; border-radius:4px; cursor:pointer;">X</button>
-                            </span>`;
+                        const roomObj = { key, ...item };
+                        allRooms.push(roomObj);
+                        if(groupedRooms[item.area]) {
+                            groupedRooms[item.area].push(roomObj);
+                        } else {
+                            if(!groupedRooms['Khác']) groupedRooms['Khác'] = [];
+                            groupedRooms['Khác'].push(roomObj);
                         }
+
+                        if(!firstRoom) firstRoom = roomObj;
+                        if(key === currentSelectedRoomKey) roomKeyExists = true;
                     }
                 });
             }
+
+            Object.keys(groupedRooms).forEach(areaName => {
+                const list = groupedRooms[areaName];
+                if(list.length > 0 && roomListContainer) {
+                    let rowsHtml = list.map(r => `
+                        <tr>
+                            <td><b>${r.room}</b></td>
+                            <td>
+                                <div class="action-btns">
+                                    <button onclick="makeQR('${r.room}', '${r.area}', '${r.key}')" style="background:#0284c7; border:none; color:#fff; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold;">QR</button>
+                                    <button onclick="delRoom('${r.key}')" style="background:#ef4444; border:none; color:#fff; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold;">Xóa</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    roomListContainer.innerHTML += `
+                        <div class="area-section">
+                            <div class="area-title">🏢 ${areaName} (${list.length} phòng)</div>
+                            <table class="room-table-mini">
+                                ${rowsHtml}
+                            </table>
+                        </div>
+                    `;
+                }
+            });
 
             if (currentSelectedRoomKey && !roomKeyExists) {
                 currentSelectedRoomKey = null;
@@ -319,7 +396,7 @@
         });
 
         function filterRooms() {
-            if (fixedRoom) return; // Nếu quét QR thì bỏ qua việc lọc select
+            if (fixedRoom) return; 
             const areaElem = document.getElementById('area');
             const select = document.getElementById('roomSelect');
             if (!areaElem || !select) return;
@@ -339,7 +416,6 @@
             setTimeout(() => t.className = '', 3500);
         }
 
-        // Gửi phản ánh từ User (Đã tối ưu hóa cho cả quét QR và chọn thủ công)
         document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -372,16 +448,13 @@
             try {
                 await db.ref('feedbacks').push().set(payload);
                 
-                // Gọi API Telegram an toàn, bắt lỗi tránh làm hỏng luồng gửi của user nếu mất mạng/lỗi serverless
                 try {
                     await fetch('/api/telegram', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                } catch (telegramErr) {
-                    console.warn('Telegram notification skipped:', telegramErr);
-                }
+                } catch (telegramErr) {}
 
                 showToast('Gửi phản ánh thành công!');
                 document.getElementById('content').value = '';
@@ -395,34 +468,70 @@
             }
         });
 
-        // Đăng nhập Admin
         function openAdminLogin() {
-            document.getElementById('loginModal').style.display = 'flex';
-            document.getElementById('adminPasswordInput').value = '';
-            document.getElementById('adminPasswordInput').focus();
+            if (auth.currentUser) {
+                document.getElementById('adminPanel').style.display = 'block';
+                loadAdminData();
+            } else {
+                document.getElementById('loginModal').style.display = 'flex';
+                document.getElementById('adminEmailInput').value = '';
+                document.getElementById('adminPasswordInput').value = '';
+                document.getElementById('adminEmailInput').focus();
+            }
         }
+        
         function closeAdminLogin() {
             document.getElementById('loginModal').style.display = 'none';
         }
+
         function submitAdminLogin() {
+            const email = document.getElementById('adminEmailInput').value;
             const pass = document.getElementById('adminPasswordInput').value;
-            if (pass === 'Nsg@2026') {
-                closeAdminLogin();
-                document.getElementById('adminPanel').style.display = 'block';
-                loadAdminData();
-                if (allRooms.length > 0) {
-                    makeQR(allRooms[0].room, allRooms[0].area, allRooms[0].key);
-                }
-            } else {
-                alert('Sai mật khẩu!');
-                document.getElementById('adminPasswordInput').focus();
+            const btnLogin = document.getElementById('btnLogin');
+            
+            if (!email || !pass) {
+                alert('Vui lòng nhập đầy đủ Email và Mật khẩu!');
+                return;
             }
+
+            btnLogin.innerText = "Đang xử lý...";
+            btnLogin.disabled = true;
+
+            auth.signInWithEmailAndPassword(email, pass)
+                .then((userCredential) => {
+                    closeAdminLogin();
+                    document.getElementById('adminPanel').style.display = 'block';
+                    loadAdminData();
+                    btnLogin.innerText = "Đăng nhập";
+                    btnLogin.disabled = false;
+                    
+                    if (allRooms.length > 0) {
+                        makeQR(allRooms[0].room, allRooms[0].area, allRooms[0].key);
+                    }
+                })
+                .catch((error) => {
+                    alert('Đăng nhập thất bại. Vui lòng kiểm tra lại Email và Mật khẩu quản trị!');
+                    btnLogin.innerText = "Đăng nhập";
+                    btnLogin.disabled = false;
+                });
         }
+
         document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') submitAdminLogin();
         });
 
-        function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
+        function closeAdmin() { 
+            auth.signOut().then(() => {
+                document.getElementById('adminPanel').style.display = 'none';
+                showToast("Đã đăng xuất thành công!");
+            });
+        }
+
+        auth.onAuthStateChanged((user) => {
+            if (user && document.getElementById('adminPanel').style.display === 'block') {
+                loadAdminData();
+            }
+        });
 
         async function addRoom() {
             const roomInput = document.getElementById('newRoom');
@@ -457,7 +566,7 @@
             const box = document.getElementById('qrcode');
             box.innerHTML = '';
             const targetUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&area=${encodeURIComponent(area)}`;
-            new QRCode(box, { text: targetUrl, width: 140, height: 140 });
+            new QRCode(box, { text: targetUrl, width: 140, height: 140 }); // QR to hơn xíu cho dễ quét
         }
 
         let areaChart = null, typeChart = null;
@@ -469,39 +578,45 @@
                 const tbody = document.getElementById('feedbackTableBody');
                 if(!tbody) return;
                 tbody.innerHTML = '';
+                currentFeedbacks = []; 
+                
                 let total = 0, p1 = 0, p2 = 0, p3 = 0;
-                let aStats = { 'Khu A': 0, 'Khu B': 0, 'Khu C': 0, 'Khu D': 0 };
+                // Bổ sung Khu KTX vào biểu đồ khu vực
+                let aStats = { 'Khu A': 0, 'Khu B': 0, 'Khu C': 0, 'Khu D': 0, 'Khu KTX': 0 };
                 let tStats = { 'Điện': 0, 'Nước': 0, 'Máy lạnh': 0, 'Máy chiếu': 0, 'Máy tính': 0, 'Bàn ghế': 0, 'Mạng Internet': 0, 'Khác': 0 };
 
                 if (data) {
                     Object.keys(data).reverse().forEach(key => {
                         const item = data[key];
+                        currentFeedbacks.push(item); 
                         total++;
+                        
                         const st = item.status || "🟡 Tiếp nhận";
                         if(st.includes("Tiếp nhận")) p1++;
                         else if(st.includes("phân công") || st.includes("Đang xử lý")) p2++;
-                        else if(st.includes("Hoàn thành")) p3++;
+                        else if(st.includes("Hoàn thành") || st.includes("Đóng")) p3++; 
 
                         if(aStats[item.area] !== undefined) aStats[item.area]++;
                         if(tStats[item.issueType] !== undefined) tStats[item.issueType]++;
 
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${new Date(item.timestamp).toLocaleTimeString('vi-VN')}</td>
-                            <td><b>${item.room}</b><br><small>${item.area}</small></td>
+                            <td>${new Date(item.timestamp).toLocaleTimeString('vi-VN')} <br> <small style="color:#94a3b8;">${new Date(item.timestamp).toLocaleDateString('vi-VN')}</small></td>
+                            <td><b style="color:#38bdf8;">${item.room}</b><br><small>${item.area}</small></td>
                             <td>${item.issueType}</td>
                             <td>${item.priority}</td>
-                            <td>${item.content}</td>
+                            <td style="max-width: 250px; word-wrap: break-word;">${item.content}</td>
                             <td>
                                 <select class="status-select" onchange="updateSt('${key}', this.value)">
                                     ${statuses.map(s => `<option value="${s}" ${st===s?'selected':''}>${s}</option>`).join('')}
                                 </select>
                             </td>
-                            <td><button onclick="delFb('${key}')" style="background:#ef4444; border:none; color:#fff; padding:4px 8px; border-radius:4px; cursor:pointer;">X</button></td>
+                            <td><button onclick="delFb('${key}')" style="background:#ef4444; border:none; color:#fff; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:bold;">X</button></td>
                         `;
                         tbody.appendChild(tr);
                     });
                 }
+                
                 document.getElementById('c-pending').innerText = p1;
                 document.getElementById('c-processing').innerText = p2;
                 document.getElementById('c-completed').innerText = p3;
@@ -524,7 +639,42 @@
                 } catch (e) {}
             });
         }
-        async function delFb(k) { if(confirm('Xóa?')) await db.ref('feedbacks/'+k).remove(); }
+        async function delFb(k) { if(confirm('Bạn có chắc chắn muốn xóa phản ánh này?')) await db.ref('feedbacks/'+k).remove(); }
+
+        function exportToExcel() {
+            if (currentFeedbacks.length === 0) {
+                alert('Không có dữ liệu phản ánh để xuất báo cáo!');
+                return;
+            }
+
+            let csvContent = "\uFEFF"; 
+            csvContent += "Thời gian,Khu vực,Phòng,Sự cố,Mức độ ưu tiên,Nội dung phản ánh,Trạng thái\n";
+
+            currentFeedbacks.forEach(item => {
+                const dateObj = new Date(item.timestamp);
+                const timeString = `${dateObj.toLocaleTimeString('vi-VN')} ${dateObj.toLocaleDateString('vi-VN')}`.replace(/,/g, '');
+                
+                const area = `"${item.area || ''}"`;
+                const room = `"${item.room || ''}"`;
+                const issueType = `"${item.issueType || ''}"`;
+                const priority = `"${item.priority || ''}"`;
+                const content = `"${(item.content || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+                const status = `"${item.status || '🟡 Tiếp nhận'}"`;
+
+                csvContent += `${timeString},${area},${room},${issueType},${priority},${content},${status}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            
+            const dateStr = new Date().toISOString().split('T')[0];
+            link.setAttribute("download", `ThongKePhanAnh_CSVC_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
         function renderCharts(aStats, tStats) {
             const ctxA = document.getElementById('areaChart').getContext('2d');
