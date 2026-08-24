@@ -16,7 +16,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
         
-        /* Đã tăng max-width lên 700px và padding lên 40px để PC nhìn to và cân đối hơn */
+        /* Giao diện PC rộng rãi */
         .card {
             background: #1e293b; width: 100%; max-width: 700px; padding: 40px;
             border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
@@ -24,7 +24,7 @@
         }
 
         @media (max-width: 768px) {
-            .card { padding: 25px; } /* Giữ padding nhỏ lại cho mobile */
+            .card { padding: 25px; } 
         }
 
         .header { text-align: center; margin-bottom: 25px; }
@@ -45,7 +45,7 @@
             border-radius: 10px; color: #f8fafc; font-size: 15px; transition: all 0.2s ease;
         }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
-        textarea { resize: none; height: 100px; } /* Tăng chiều cao ô nhập nội dung */
+        textarea { resize: none; height: 100px; } 
         .row-2 { display: flex; gap: 15px; }
         .row-2 .group { flex: 1; }
 
@@ -130,8 +130,6 @@
                         <option value="Khu C">Khu C</option>
                         <option value="Khu D">Khu D</option>
                         <option value="Khu KTX">Khu KTX</option>
-                        <option value="Phân Hiệu Cơ Khí">Phân Hiệu Cơ Khí</option>
-                        <option value="Phân Hiệu Bùi Minh Trực">Phân Hiệu Bùi Minh Trực</option> <!-- Đã thêm Khu KTX -->
                     </select>
                 </div>
                 <div class="group">
@@ -166,6 +164,14 @@
                         <option value="Khẩn cấp">🔴 Khẩn cấp</option>
                     </select>
                 </div>
+            </div>
+            
+            <div class="group">
+                <label>📸 Hình ảnh minh họa (Tùy chọn)</label>
+                <input type="file" id="imageInput" accept="image/png, image/jpeg, image/jpg" style="padding: 8px; background: #1e293b; cursor: pointer;">
+                <span style="font-size: 12px; color: #94a3b8; display: block; margin-top: 6px;">
+                    * Ảnh sẽ gửi trực tiếp qua Telegram cho bộ phận kỹ thuật để dễ hình dung, không lưu trên hệ thống.
+                </span>
             </div>
 
             <div class="group">
@@ -245,8 +251,6 @@
                             <option value="Khu A">Khu A</option><option value="Khu B">Khu B</option>
                             <option value="Khu C">Khu C</option><option value="Khu D">Khu D</option>
                             <option value="Khu KTX">Khu KTX</option>
-                            <option value="Phân Hiệu Cơ Khí">Phân Hiệu Cơ Khí</option>
-                            <option value="Phân Hiệu Bùi Minh Trực">Phân Hiệu Bùi Minh Trực</option> <!-- Đã thêm Khu KTX -->
                         </select>
                         <button onclick="addRoom()" style="background: #22c55e; border:none; color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-weight:bold;">Thêm</button>
                     </div>
@@ -337,7 +341,6 @@
 
             let firstRoom = null;
             let roomKeyExists = false;
-            // Bổ sung Khu KTX vào biến phân loại dữ liệu phòng
             let groupedRooms = { 'Khu A': [], 'Khu B': [], 'Khu C': [], 'Khu D': [], 'Khu KTX': [] };
 
             if (data) {
@@ -435,33 +438,65 @@
             const btn = document.getElementById('submitBtn');
             btn.disabled = true; btn.innerText = 'Đang gửi...';
 
+            const issueType = document.getElementById('issueType').value;
+            const priority = document.getElementById('priority').value;
+            const content = document.getElementById('content').value;
+
+            // Payload lưu vào Firebase (Chỉ lưu Text để thống kê)
             const payload = {
                 area: selectedArea,
                 room: selectedRoom,
-                issueType: document.getElementById('issueType').value,
-                priority: document.getElementById('priority').value,
-                content: document.getElementById('content').value,
+                issueType: issueType,
+                priority: priority,
+                content: content,
                 status: '🟡 Tiếp nhận',
                 timestamp: Date.now()
             };
 
             try {
+                // 1. Lưu data vào Firebase Database
                 await db.ref('feedbacks').push().set(payload);
                 
-                try {
-                    await fetch('/api/telegram', {
+                // 2. Cấu hình gửi ảnh/tin nhắn qua Telegram
+                const botToken = '8657313024:AAH5ptu0wyzabFvhrefuJulkkS7IPuRF5Nc'; // Thay token bot của bạn
+                const chatId = '-1004390873430';     // Thay Chat ID nhóm/cá nhân
+                
+                const messageCaption = `🚨 CÓ PHẢN ÁNH MỚI 🚨\n🏢 Khu vực: ${selectedArea}\n🚪 Phòng: ${selectedRoom}\n🔧 Sự cố: ${issueType}\n🔴 Mức độ: ${priority}\n📝 Nội dung: ${content}`;
+                
+                const imageFile = document.getElementById('imageInput').files[0];
+
+                if (imageFile) {
+                    // Nếu người dùng có đính kèm ảnh -> Dùng API sendPhoto qua FormData
+                    const formData = new FormData();
+                    formData.append('chat_id', chatId);
+                    formData.append('photo', imageFile);
+                    formData.append('caption', messageCaption);
+
+                    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Nếu người dùng không kèm ảnh -> Dùng API sendMessage bình thường
+                    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            text: messageCaption
+                        })
                     });
-                } catch (telegramErr) {}
+                }
 
                 showToast('Gửi phản ánh thành công!');
                 document.getElementById('content').value = '';
+                document.getElementById('imageInput').value = ''; // Reset khung chọn ảnh
+                
                 if (!fixedRoom) {
                     document.getElementById('feedbackForm').reset();
                 }
             } catch (err) {
+                console.error(err);
                 showToast('Lỗi gửi phản ánh, vui lòng thử lại!', true);
             } finally {
                 btn.disabled = false; btn.innerText = 'Gửi phản ánh';
@@ -566,7 +601,7 @@
             const box = document.getElementById('qrcode');
             box.innerHTML = '';
             const targetUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}&area=${encodeURIComponent(area)}`;
-            new QRCode(box, { text: targetUrl, width: 140, height: 140 }); // QR to hơn xíu cho dễ quét
+            new QRCode(box, { text: targetUrl, width: 140, height: 140 });
         }
 
         let areaChart = null, typeChart = null;
@@ -581,7 +616,6 @@
                 currentFeedbacks = []; 
                 
                 let total = 0, p1 = 0, p2 = 0, p3 = 0;
-                // Bổ sung Khu KTX vào biểu đồ khu vực
                 let aStats = { 'Khu A': 0, 'Khu B': 0, 'Khu C': 0, 'Khu D': 0, 'Khu KTX': 0 };
                 let tStats = { 'Điện': 0, 'Nước': 0, 'Máy lạnh': 0, 'Máy chiếu': 0, 'Máy tính': 0, 'Bàn ghế': 0, 'Mạng Internet': 0, 'Khác': 0 };
 
@@ -628,17 +662,8 @@
 
         async function updateSt(key, newSt) {
             await db.ref('feedbacks/' + key).update({ status: newSt });
-            db.ref('feedbacks/' + key).once('value', async (s) => {
-                const item = s.val();
-                try {
-                    await fetch('/api/telegram', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ...item, content: `[CẬP NHẬT]\nTrạng thái: ${newSt}\nND: ${item.content}` })
-                    });
-                } catch (e) {}
-            });
         }
+        
         async function delFb(k) { if(confirm('Bạn có chắc chắn muốn xóa phản ánh này?')) await db.ref('feedbacks/'+k).remove(); }
 
         function exportToExcel() {
