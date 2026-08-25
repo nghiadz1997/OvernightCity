@@ -469,8 +469,21 @@
             });
         }
 
-        document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // ==========================================
+            // 1. TÍNH NĂNG CHỐNG SPAM (COOLDOWN TIMER)
+            // ==========================================
+            const lastSubmit = localStorage.getItem('lastSubmitTime');
+            const cooldownTime = 600000; // 600.000 milliseconds = 10 phút (Bạn có thể sửa thành 120000 cho 2 phút)
+
+            if (lastSubmit && (Date.now() - parseInt(lastSubmit) < cooldownTime)) {
+                const timeLeft = Math.ceil((cooldownTime - (Date.now() - parseInt(lastSubmit))) / 1000);
+                showToast(`Spam! Vui lòng đợi ${timeLeft} giây nữa để gửi phản ánh tiếp theo.`, true);
+                return; // Chặn không cho code chạy tiếp xuống dưới
+            }
+            // ==========================================
 
             let selectedArea = fixedArea;
             let selectedRoom = fixedRoom;
@@ -504,35 +517,37 @@
             };
 
             try {
-                
+                // Lưu dữ liệu chữ vào Firebase Database
                 await db.ref('feedbacks').push().set(payload);
                 
+                // Chuẩn bị dữ liệu gửi qua Google Apps Script
                 const messageCaption = `🚨 CÓ PHẢN ÁNH MỚI 🚨\n🏢 Khu vực: ${selectedArea}\n🚪 Phòng: ${selectedRoom}\n🔧 Sự cố: ${issueType}\n🔴 Mức độ: ${priority}\n📝 Nội dung: ${content}`;
                 const imageFile = document.getElementById('imageInput').files[0];
                 let base64String = null;
 
                 if (imageFile) {
                     btn.innerText = 'Đang nén ảnh...';
-                    // Nén ảnh xuống tối đa 800px, chất lượng 70%
                     const compressedFile = await compressImage(imageFile, 800, 800, 0.7);
-                    // Mã hóa ảnh sang dạng chuỗi
                     base64String = await blobToBase64(compressedFile);
                 }
 
                 btn.innerText = 'Đang gửi thông báo...';
                 
-              
+                // NHỚ DÁN LẠI LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY NHÉ
                 const gasUrl = "https://script.google.com/macros/s/AKfycbzJ4Jrn0UL9oqjR9JpmqPx80BRH79ckM7yaVm9_-IHPL7mPOkqk48G0WdZvsImXmcz2/exec"; 
 
                 await fetch(gasUrl, {
                     method: 'POST',
                     mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Dùng text/plain để tránh lỗi CORS
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
                         caption: messageCaption,
                         imageBase64: base64String
                     })
                 });
+
+                // Ghi nhận thời gian gửi thành công để bắt đầu tính giờ chống Spam
+                localStorage.setItem('lastSubmitTime', Date.now().toString());
 
                 showToast('Gửi phản ánh thành công!');
                 document.getElementById('content').value = '';
@@ -549,7 +564,6 @@
                 btn.innerText = 'Gửi phản ánh';
             }
         });
-
         function openAdminLogin() {
             if (auth.currentUser) {
                 document.getElementById('adminPanel').style.display = 'block';
