@@ -504,10 +504,9 @@
             };
 
             try {
-                // 1. Lưu dữ liệu chữ vào Firebase Database
+                
                 await db.ref('feedbacks').push().set(payload);
                 
-                // 2. Chuẩn bị dữ liệu gửi qua Google Apps Script (Bảo mật thông tin Telegram)
                 const messageCaption = `🚨 CÓ PHẢN ÁNH MỚI 🚨\n🏢 Khu vực: ${selectedArea}\n🚪 Phòng: ${selectedRoom}\n🔧 Sự cố: ${issueType}\n🔴 Mức độ: ${priority}\n📝 Nội dung: ${content}`;
                 const imageFile = document.getElementById('imageInput').files[0];
                 let base64String = null;
@@ -522,7 +521,7 @@
 
                 btn.innerText = 'Đang gửi thông báo...';
                 
-                // DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY
+              
                 const gasUrl = "https://script.google.com/macros/s/AKfycbzJ4Jrn0UL9oqjR9JpmqPx80BRH79ckM7yaVm9_-IHPL7mPOkqk48G0WdZvsImXmcz2/exec"; 
 
                 await fetch(gasUrl, {
