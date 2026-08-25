@@ -461,6 +461,15 @@
             });
         }
 
+// Hàm phụ trợ chuyển đổi File ảnh thành chuỗi Base64
+        function blobToBase64(blob) {
+            return new Promise((resolve, _) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+        }
+
         document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -496,42 +505,35 @@
             };
 
             try {
-                // 1. Lưu DB Firebase
+                // 1. Lưu dữ liệu chữ vào Firebase Database
                 await db.ref('feedbacks').push().set(payload);
                 
-                // 2. Gửi Telegram
-                const botToken = '8657313024:AAH5ptu0wyzabFvhrefuJulkkS7IPuRF5Nc'; // Thay token bot của bạn
-                const chatId = '-1004390873430';     // Thay Chat ID nhóm/cá nhân
-                
+                // 2. Chuẩn bị dữ liệu gửi qua Google Apps Script (Bảo mật thông tin Telegram)
                 const messageCaption = `🚨 CÓ PHẢN ÁNH MỚI 🚨\n🏢 Khu vực: ${selectedArea}\n🚪 Phòng: ${selectedRoom}\n🔧 Sự cố: ${issueType}\n🔴 Mức độ: ${priority}\n📝 Nội dung: ${content}`;
-                
                 const imageFile = document.getElementById('imageInput').files[0];
+                let base64String = null;
 
                 if (imageFile) {
                     btn.innerText = 'Đang nén ảnh...';
+                    // Nén ảnh xuống tối đa 800px, chất lượng 70%
                     const compressedFile = await compressImage(imageFile, 800, 800, 0.7);
-                    
-                    btn.innerText = 'Đang gửi qua Telegram...';
-                    const formData = new FormData();
-                    formData.append('chat_id', chatId);
-                    formData.append('photo', compressedFile);
-                    formData.append('caption', messageCaption);
-
-                    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                } else {
-                    btn.innerText = 'Đang gửi qua Telegram...';
-                    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: chatId,
-                            text: messageCaption
-                        })
-                    });
+                    // Mã hóa ảnh sang dạng chuỗi
+                    base64String = await blobToBase64(compressedFile);
                 }
+
+                btn.innerText = 'Đang gửi thông báo...';
+                
+                // DÁN LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY
+                const gasUrl = "https://script.google.com/macros/s/AKfycbzJ4Jrn0UL9oqjR9JpmqPx80BRH79ckM7yaVm9_-IHPL7mPOkqk48G0WdZvsImXmcz2/exec"; 
+
+                await fetch(gasUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Dùng text/plain để tránh lỗi CORS
+                    body: JSON.stringify({
+                        caption: messageCaption,
+                        imageBase64: base64String
+                    })
+                });
 
                 showToast('Gửi phản ánh thành công!');
                 document.getElementById('content').value = '';
