@@ -526,6 +526,7 @@
 
                 await fetch(gasUrl, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Dùng text/plain để tránh lỗi CORS
                     body: JSON.stringify({
                         caption: messageCaption,
