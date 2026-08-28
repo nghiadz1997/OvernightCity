@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NSG SUPPORT - Phản Ánh & Hỗ Trợ Kỹ Thuật</title>
+  
+  <!-- SEO & PWA Meta Tags -->
+  <meta name="description" content="Cổng tiếp nhận phản ánh, hỗ trợ kỹ thuật và điều phối quản lý công việc nội bộ NSG">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NSG Support">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%232563eb'/><path d='M30 45 L50 65 L70 35' stroke='white' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Trình bắt lỗi và tự phục hồi an toàn -->
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      console.error('JS Error:', msg, url, line);
+      setTimeout(function() {
+        const main = document.getElementById('app-main');
+        if (main && !main.innerHTML.trim() && typeof HomePage !== 'undefined') {
+          main.innerHTML = HomePage.render();
+        }
+      }, 50);
+    };
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+              950: '#0f172a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- SheetJS (XLSX) for Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase Client SDKs (Compat v10 for maximum reliable client-side execution) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="h-full bg-slate-50 text-slate-800 antialiased flex flex-col">
+
+  <!-- App Navbar Container -->
+  <div id="app-navbar"></div>
+
+  <!-- Main Dynamic Layout (Adjusts for Admin Sidebar vs Public Layout) -->
+  <div id="app-layout" class="min-h-screen flex flex-col bg-slate-50">
+    <main id="app-main" class="flex-1"></main>
+  </div>
+
+  <!-- Notification Slide-out Drawer Container -->
+  <div id="notification-drawer-container"></div>
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-container"></div>
+
+  <!-- ========================================================
+       APPLICATION SCRIPTS (Theo thứ tự phụ thuộc chính xác)
+       ======================================================== -->
+  <!-- 1. Config & Core Helpers -->
+  <script src="/assets/js/config.js?v=4.3"></script>
+  <script src="/assets/js/sound.js?v=4.3"></script>
+  <script src="/assets/js/utils.js?v=4.3"></script>
+  <script src="/assets/js/auth.js?v=4.3"></script>
+  <script src="/assets/js/api.js?v=4.3"></script>
+  <script src="/assets/js/realtime.js?v=4.3"></script>
+
+  <!-- 2. UI Components -->
+  <script src="/components/navbar.js?v=4.3"></script>
+  <script src="/components/sidebar.js?v=4.3"></script>
+  <script src="/components/taskCard.js?v=4.3"></script>
+  <script src="/components/taskModal.js?v=4.3"></script>
+  <script src="/components/notificationDrawer.js?v=4.3"></script>
+
+  <!-- 3. Application Pages -->
+  <script src="/pages/home.js?v=4.3"></script>
+  <script src="/pages/reportForm.js?v=4.3"></script>
+  <script src="/pages/tracking.js?v=4.3"></script>
+  <script src="/pages/login.js?v=4.3"></script>
+  <script src="/pages/dashboard.js?v=4.3"></script>
+  <script src="/pages/pendingTasks.js?v=4.3"></script>
+  <script src="/pages/tasks.js?v=4.3"></script>
+  <script src="/pages/createTask.js?v=4.3"></script>
+  <script src="/pages/staffDashboard.js?v=4.3"></script>
+  <script src="/pages/reportsExport.js?v=4.3"></script>
+  <script src="/pages/departments.js?v=4.3"></script>
+  <script src="/pages/locationsManagement.js?v=4.3"></script>
+  <script src="/pages/categoriesManagement.js?v=4.3"></script>
+  <script src="/pages/userManagement.js?v=4.3"></script>
+  <script src="/pages/settings.js?v=4.3"></script>
+
+  <!-- 4. Main App Controller & Router -->
+  <script src="/app.js?v=4.3"></script>
+
+  <!-- Kích hoạt trực tiếp đảm bảo giao diện luôn được vẽ 100% -->
+  <script>
+    if (typeof App !== 'undefined' && typeof App.init === 'function') {
+      App.init();
+    }
+  </script>
+</body>
+</html>
