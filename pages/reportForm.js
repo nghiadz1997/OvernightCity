@@ -7,8 +7,87 @@
 const ReportFormPage = {
   selectedFiles: [],
   isSubmitting: false,
+  COOLDOWN_MS: 5 * 60 * 1000, // 5 phút (300 giây)
+  spamInterval: null,
+
+  getRemainingCooldown() {
+    const user = AuthService.getCurrentUser();
+    // Tài khoản nội bộ (KTV, Trưởng phòng, Admin) được miễn giới hạn chống spam
+    if (user && (AuthService.isStaff() || AuthService.isManager() || AuthService.isAdmin())) {
+      return 0;
+    }
+
+    try {
+      const lastSubmit = localStorage.getItem('nsg_last_report_submit_time');
+      if (!lastSubmit) return 0;
+      const elapsed = Date.now() - parseInt(lastSubmit, 10);
+      if (elapsed < this.COOLDOWN_MS) {
+        return Math.ceil((this.COOLDOWN_MS - elapsed) / 1000);
+      }
+    } catch (e) {}
+    return 0;
+  },
+
+  checkAndStartSpamTimer() {
+    const remaining = this.getRemainingCooldown();
+    const btn = document.getElementById('btn-submit-report');
+    const warningBox = document.getElementById('rep-spam-warning');
+
+    if (remaining > 0) {
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+      }
+      if (warningBox) {
+        warningBox.classList.remove('hidden');
+      }
+
+      this.updateCountdownUI(remaining);
+
+      if (this.spamInterval) clearInterval(this.spamInterval);
+      this.spamInterval = setInterval(() => {
+        const rem = this.getRemainingCooldown();
+        if (rem <= 0) {
+          clearInterval(this.spamInterval);
+          this.spamInterval = null;
+          if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-60', 'cursor-not-allowed');
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane text-lg"></i><span>GỬI PHẢN ÁNH NGAY</span>';
+          }
+          if (warningBox) warningBox.classList.add('hidden');
+        } else {
+          this.updateCountdownUI(rem);
+        }
+      }, 1000);
+    } else {
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane text-lg"></i><span>GỬI PHẢN ÁNH NGAY</span>';
+      }
+      if (warningBox) warningBox.classList.add('hidden');
+    }
+  },
+
+  updateCountdownUI(remSec) {
+    const mins = Math.floor(remSec / 60);
+    const secs = remSec % 60;
+    const timeStr = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+    const timerSpan = document.getElementById('rep-spam-countdown');
+    if (timerSpan) timerSpan.innerText = timeStr;
+
+    const btn = document.getElementById('btn-submit-report');
+    if (btn) {
+      btn.innerHTML = `<i class="fa-solid fa-hourglass-half text-lg animate-pulse text-amber-300"></i><span>VUI LÒNG ĐỢI ${timeStr} ĐỂ GỬI TIẾP</span>`;
+    }
+  },
 
   async init() {
+    // Kiểm tra giới hạn 5 phút chống spam
+    this.checkAndStartSpamTimer();
+
     // 1. Tải danh sách phòng ban động
     try {
       const depts = await ApiService.loadDepartments();
@@ -278,6 +357,17 @@ const ReportFormPage = {
               </div>
             </div>
 
+            <!-- Spam Cooldown Warning -->
+            <div id="rep-spam-warning" class="hidden mb-4 p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 flex items-center gap-3 text-xs text-amber-950 shadow-2xs animate-fade-in">
+              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div class="flex-1">
+                <h4 class="font-extrabold text-amber-950 uppercase tracking-wide">Giới hạn chống gửi trùng lặp / Spam</h4>
+                <p class="text-amber-800 mt-0.5">Mỗi thiết bị gửi phản ánh cách nhau <strong>5 phút</strong>. Vui lòng đợi <strong id="rep-spam-countdown" class="font-mono font-black text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded">05:00</strong> để gửi tiếp phiếu mới.</p>
+              </div>
+            </div>
+
             <!-- Submit Button -->
             <div class="border-t border-slate-200 pt-6">
               <button type="submit" id="btn-submit-report" class="w-full py-4 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-3 cursor-pointer">
@@ -340,6 +430,16 @@ const ReportFormPage = {
   async handleSubmit(e) {
     e.preventDefault();
     if (this.isSubmitting) return;
+
+    // Kiểm tra giới hạn 5 phút chống spam
+    const remaining = this.getRemainingCooldown();
+    if (remaining > 0) {
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      const timeStr = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      Utils.showToast(`Để chống spam, vui lòng đợi ${timeStr} nữa để gửi tiếp phản ánh!`, 'warning');
+      return;
+    }
 
     // Chống honeypot bot trap
     const hp = document.getElementById('_hp_website')?.value;
@@ -415,6 +515,12 @@ const ReportFormPage = {
       const result = await ApiService.submitReport(payload);
 
       if (result.success) {
+        // Ghi nhận thời gian gửi để kích hoạt giới hạn 5 phút chống spam cho thiết bị này
+        const user = AuthService.getCurrentUser();
+        if (!user || (!AuthService.isStaff() && !AuthService.isManager() && !AuthService.isAdmin())) {
+          localStorage.setItem('nsg_last_report_submit_time', Date.now().toString());
+        }
+
         // Cập nhật realtime engine cho client an toàn
         if (result.data) {
           try {
@@ -436,8 +542,7 @@ const ReportFormPage = {
       Utils.showToast(err.message || 'Không thể gửi phản ánh. Vui lòng kiểm tra lại kết nối.', 'error');
     } finally {
       if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane text-lg"></i><span>GỬI PHẢN ÁNH NGAY</span>';
+        this.checkAndStartSpamTimer();
       }
       this.isSubmitting = false;
     }
