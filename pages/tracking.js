@@ -149,10 +149,33 @@ const TrackingPage = {
             </div>
             <h2 class="text-xl font-bold mt-2">${report.title}</h2>
           </div>
-          <div class="text-right">
-            <span class="text-xs text-slate-400 block mb-1">Trạng thái hiện tại:</span>
-            ${Utils.renderStatusBadge(report.status, report.isOverdue)}
+          <div class="flex items-center gap-3 flex-wrap">
+            <button type="button" onclick="document.getElementById('tracking-chat-section')?.scrollIntoView({ behavior: 'smooth' }); document.getElementById('tracking-chat-input')?.focus();" class="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 border border-white/20">
+              <i class="fa-solid fa-comments text-amber-300 text-sm"></i>
+              <span>💬 NHẮN TIN VỚI KỸ THUẬT</span>
+            </button>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block mb-1">Trạng thái hiện tại:</span>
+              ${Utils.renderStatusBadge(report.status, report.isOverdue)}
+            </div>
           </div>
+        </div>
+
+        <!-- Banner mời gọi nhắn tin trực tiếp -->
+        <div class="mx-6 p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-2xl flex items-center justify-between gap-4 flex-wrap shadow-2xs">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+              <i class="fa-solid fa-headset"></i>
+            </div>
+            <div>
+              <h4 class="font-black text-xs text-blue-950 uppercase tracking-wide">Bạn cần hỗ trợ thêm hoặc có việc GẤP?</h4>
+              <p class="text-xs text-blue-800">Nhắn tin trực tiếp với Kỹ thuật viên & Quản trị viên ở khung chat bên dưới.</p>
+            </div>
+          </div>
+          <button type="button" onclick="document.getElementById('tracking-chat-section')?.scrollIntoView({ behavior: 'smooth' }); document.getElementById('tracking-chat-input')?.focus();" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0">
+            <span>Cuộn xuống Khung Chat</span>
+            <i class="fa-solid fa-arrow-down"></i>
+          </button>
         </div>
 
         <!-- Timeline 5 bước chuẩn mục 8 -->
@@ -173,7 +196,7 @@ const TrackingPage = {
           <div class="space-y-3">
             <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1">Chi tiết phản ánh</h4>
             <div><span class="text-slate-500">Người gửi:</span> <strong class="text-slate-800">${report.senderName} (${report.senderDept || 'Khách'})</strong></div>
-            <div><span class="text-slate-500">Số điện thoại:</span> <strong class="text-slate-800">${report.senderPhone}</strong></div>
+            <div><span class="text-slate-500">Số điện thoại:</span> <strong class="text-slate-800">${report.senderPhone || 'Không có'}</strong></div>
             <div><span class="text-slate-500">Địa điểm:</span> <strong class="text-slate-800">${report.location} ${report.room ? `- ${report.room}` : ''}</strong></div>
             <div><span class="text-slate-500">Danh mục:</span> <strong class="text-slate-800">${report.categoryName || 'Kỹ thuật'}</strong></div>
             <div><span class="text-slate-500">Ngày gửi:</span> <strong class="text-slate-800">${Utils.formatDateTime(report.createdAt)}</strong></div>
@@ -197,21 +220,24 @@ const TrackingPage = {
         </div>
 
         <!-- Live Chat Section: Trao đổi & Nhắn tin trực tiếp với Kỹ thuật / Quản trị -->
-        <div class="mx-6 mb-6 bg-slate-50 border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+        <div id="tracking-chat-section" class="mx-6 mb-6 bg-slate-50 border-2 border-indigo-200 rounded-3xl overflow-hidden shadow-md">
           <!-- Chat Header -->
-          <div class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-4 sm:p-5 flex items-center justify-between flex-wrap gap-2">
+          <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 text-white p-4 sm:p-5 flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-xl text-white">
                 <i class="fa-solid fa-comments"></i>
               </div>
               <div>
-                <h3 class="font-extrabold text-sm sm:text-base tracking-tight">TRAO ĐỔI VỚI BỘ PHẬN KỸ THUẬT & QUẢN TRỊ</h3>
-                <p class="text-[11px] text-blue-100">Kênh nhắn tin trực tuyến 2 chiều. Có thể gửi yêu cầu gấp để kỹ thuật xử lý ngay.</p>
+                <h3 class="font-extrabold text-sm sm:text-base tracking-tight flex items-center gap-2">
+                  <span>KHUNG TRAO ĐỔI VỚI BỘ PHẬN KỸ THUẬT & QUẢN TRỊ</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">2 Chiều</span>
+                </h3>
+                <p class="text-[11px] text-blue-100">Kênh nhắn tin trực tuyến. Có thể gửi yêu cầu gấp để kỹ thuật phản hồi xử lý ngay.</p>
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Trực tuyến
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang kết nối Realtime
               </span>
             </div>
           </div>
