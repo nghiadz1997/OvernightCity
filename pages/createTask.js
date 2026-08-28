@@ -371,32 +371,46 @@ const CreateTaskPage = {
           if (u.isActive !== false) allUsers.push(u);
         });
 
-        // Trưởng phòng chỉ được phân công Phó phòng và Kỹ thuật viên (STAFF, STAFF_KTX)
-        const allowedRoles = AuthService.isSuperAdmin() 
-          ? ['MANAGER', 'DEPUTY_MANAGER', 'STAFF', 'STAFF_KTX'] 
-          : ['DEPUTY_MANAGER', 'STAFF', 'STAFF_KTX'];
+        const isSuperAdmin = AuthService.isSuperAdmin();
+        const isSchoolAdmin = AuthService.isSchoolAdmin(); // Ban Giám Hiệu
+        const isHead = AuthService.isDepartmentHead(); // Trưởng phòng
+
+        let allowedRoles = [];
+        if (isSchoolAdmin) {
+          // Ban Giám Hiệu giao trực tiếp cho Trưởng phòng / Phó phòng Phòng Quản trị Thiết bị & CSVC
+          allowedRoles = ['MANAGER', 'DEPUTY_MANAGER'];
+          const deptSelect = document.getElementById('task-department');
+          if (deptSelect) deptSelect.value = 'Phòng Quản trị Thiết bị và Cơ sở vật chất';
+        } else if (isHead || isSuperAdmin) {
+          allowedRoles = isSuperAdmin 
+            ? ['MANAGER', 'DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX']
+            : ['DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+        } else {
+          allowedRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+        }
 
         const eligibleStaff = allUsers.filter(u => allowedRoles.includes(u.role || 'STAFF'));
 
         if (eligibleStaff.length === 0) {
-          container.innerHTML = '<div class="p-3 text-center text-xs text-slate-400">Không có kỹ thuật viên khả dụng.</div>';
+          container.innerHTML = '<div class="p-3 text-center text-xs text-slate-400">Không có nhân sự khả dụng.</div>';
           return;
         }
 
         container.innerHTML = eligibleStaff.map(s => {
-          const roleBadge = s.role === 'DEPUTY_MANAGER' ? 'Phó Trưởng phòng' : s.role === 'STAFF_KTX' ? 'KTV Ký Túc Xá' : s.role === 'MANAGER' ? 'Trưởng phòng' : 'Kỹ thuật viên';
-          const roleColor = s.role === 'DEPUTY_MANAGER' ? 'bg-purple-100 text-purple-800' : s.role === 'STAFF_KTX' ? 'bg-cyan-100 text-cyan-800' : 'bg-blue-100 text-blue-800';
+          const roleBadgeHtml = Utils.renderRoleBadge(s.role);
+          const isDep = s.role === 'DEPUTY_MANAGER';
+          const isMgr = s.role === 'MANAGER';
 
           return `
-            <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer shadow-2xs hover:bg-indigo-50/30">
+            <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border ${isDep ? 'border-purple-200 bg-purple-50/20' : (isMgr ? 'border-blue-200 bg-blue-50/20' : 'border-slate-200')} hover:border-indigo-300 transition-all cursor-pointer shadow-2xs hover:bg-indigo-50/30">
               <div class="flex items-center gap-3 min-w-0">
                 <input type="checkbox" name="create_task_staff_checkbox" value="${s.uid}" data-name="${s.displayName || s.email}" data-role="${s.role || 'STAFF'}" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" onchange="CreateTaskPage.updateCreateTaskSelectionCount()">
                 <div class="truncate">
                   <div class="flex items-center gap-2">
                     <span class="text-xs font-extrabold text-slate-900 truncate">${s.displayName || s.email}</span>
-                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${roleColor}">${roleBadge}</span>
+                    ${roleBadgeHtml}
                   </div>
-                  <span class="text-[10px] text-slate-500">${s.departmentName ? s.departmentName : 'Bộ phận Kỹ thuật'} ${s.phone ? '• SĐT: ' + s.phone : ''}</span>
+                  <span class="text-[10px] text-slate-500">${s.departmentName ? s.departmentName : 'Phòng Quản trị Thiết bị & CSVC'} ${s.phone ? '• SĐT: ' + s.phone : ''}</span>
                 </div>
               </div>
             </label>

@@ -248,13 +248,17 @@ const UserManagementPage = {
             ${canEditThisUser ? `
               <select class="py-1.5 px-3 rounded-xl text-xs font-bold border border-slate-300 ${this.getRoleSelectStyle(u.role)} cursor-pointer shadow-2xs" onchange="UserManagementPage.changeRoleDirect('${u.uid}', this.value)">
                 ${isSuperAdmin ? `
-                  <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>🏛️ ADMIN (Ban Giám Hiệu)</option>
-                  <option value="MANAGER" ${u.role === 'MANAGER' ? 'selected' : ''}>👔 MANAGER (Trưởng phòng)</option>
+                  <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>🏛️ Ban Giám Hiệu</option>
+                  <option value="MANAGER" ${u.role === 'MANAGER' ? 'selected' : ''}>👔 Trưởng phòng</option>
                 ` : ''}
-                <option value="DEPUTY_MANAGER" ${u.role === 'DEPUTY_MANAGER' ? 'selected' : ''}>🎖️ DEPUTY_MANAGER (Phó Trưởng phòng)</option>
-                <option value="STAFF" ${u.role === 'STAFF' ? 'selected' : ''}>🔧 STAFF (KTV Khoa / GD)</option>
-                <option value="STAFF_KTX" ${u.role === 'STAFF_KTX' ? 'selected' : ''}>🏢 STAFF_KTX (KTV Ký Túc Xá)</option>
-                <option value="USER" ${u.role === 'USER' ? 'selected' : ''}>🎓 USER (Cán bộ / GV / SV)</option>
+                <option value="DEPUTY_MANAGER" ${u.role === 'DEPUTY_MANAGER' ? 'selected' : ''}>🎖️ Phó Trưởng phòng</option>
+                <option value="STAFF_IT" ${u.role === 'STAFF_IT' ? 'selected' : ''}>💻 Chuyên Viên IT</option>
+                <option value="STAFF_MAINTENANCE" ${u.role === 'STAFF_MAINTENANCE' ? 'selected' : ''}>🛠️ Chuyên Viên Bảo Trì</option>
+                <option value="STAFF_GREEN" ${u.role === 'STAFF_GREEN' ? 'selected' : ''}>🌿 Cây Xanh</option>
+                <option value="STAFF_CLEANING" ${u.role === 'STAFF_CLEANING' ? 'selected' : ''}>🧹 Tạp Vụ</option>
+                <option value="STAFF_KTX" ${u.role === 'STAFF_KTX' ? 'selected' : ''}>🏢 KTV Ký túc xá</option>
+                <option value="STAFF" ${u.role === 'STAFF' ? 'selected' : ''}>🔧 Kỹ thuật viên (Chung)</option>
+                <option value="USER" ${u.role === 'USER' ? 'selected' : ''}>🎓 Cán bộ / Giảng viên / SV</option>
               </select>
             ` : `
               <span class="py-1.5 px-3 rounded-xl text-xs font-bold ${this.getRoleSelectStyle(u.role)} inline-block">
@@ -426,13 +430,17 @@ const UserManagementPage = {
               <label class="block text-xs font-bold text-slate-700 mb-1">Phân quyền Vai trò hệ thống (Role RBAC) <span class="text-red-500">*</span></label>
               <select id="modal-role" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" onchange="UserManagementPage.handleRoleSelectChange(this.value)">
                 ${isSuperAdmin ? `
-                  <option value="ADMIN" class="text-purple-700 font-bold">🏛️ ADMIN (Ban Giám Hiệu / Ban Lãnh Đạo)</option>
-                  <option value="MANAGER" class="text-blue-700 font-bold">👔 MANAGER (Trưởng phòng - Điều hành kỹ thuật)</option>
+                  <option value="ADMIN" class="text-amber-800 font-bold">🏛️ Ban Giám Hiệu</option>
+                  <option value="MANAGER" class="text-blue-700 font-bold">👔 Trưởng phòng</option>
                 ` : ''}
-                <option value="DEPUTY_MANAGER" class="text-indigo-700 font-bold">🎖️ DEPUTY_MANAGER (Phó Trưởng phòng - Giao việc & Nghiệm thu)</option>
-                <option value="STAFF" class="text-blue-700 font-bold">🔧 STAFF (Kỹ thuật viên Khoa / Giảng đường)</option>
-                <option value="STAFF_KTX" class="text-cyan-700 font-bold">🏢 STAFF_KTX (Kỹ thuật viên Ký Túc Xá)</option>
-                <option value="USER" class="text-emerald-700 font-bold">🎓 USER (Cán bộ / Giảng viên / SV - Gửi phản ánh)</option>
+                <option value="DEPUTY_MANAGER" class="text-purple-700 font-bold">🎖️ Phó Trưởng phòng</option>
+                <option value="STAFF_IT" class="text-cyan-700 font-bold">💻 Chuyên Viên IT</option>
+                <option value="STAFF_MAINTENANCE" class="text-orange-700 font-bold">🛠️ Chuyên Viên Bảo Trì</option>
+                <option value="STAFF_GREEN" class="text-emerald-700 font-bold">🌿 Cây Xanh</option>
+                <option value="STAFF_CLEANING" class="text-teal-700 font-bold">🧹 Tạp Vụ</option>
+                <option value="STAFF_KTX" class="text-indigo-700 font-bold">🏢 Kỹ thuật viên Ký túc xá</option>
+                <option value="STAFF" class="text-blue-700 font-bold">🔧 Kỹ thuật viên (Chung)</option>
+                <option value="USER" class="text-slate-700 font-bold">🎓 Cán bộ / Giảng viên / Sinh viên</option>
               </select>
             </div>
 
@@ -453,8 +461,14 @@ const UserManagementPage = {
 
   handleRoleSelectChange(role) {
     const deptSelect = document.getElementById('modal-dept');
-    if (deptSelect && role === 'ADMIN') {
-      deptSelect.value = 'Ban Giám Hiệu';
+    if (deptSelect) {
+      if (role === 'ADMIN') {
+        deptSelect.value = 'Ban Giám Hiệu';
+      } else if (['MANAGER', 'DEPUTY_MANAGER', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF'].includes(role)) {
+        deptSelect.value = 'Phòng Quản trị Thiết bị và Cơ sở vật chất';
+      } else if (role === 'STAFF_KTX') {
+        deptSelect.value = 'Ban Quản lý Ký túc xá';
+      }
     }
   },
 
@@ -479,19 +493,19 @@ const UserManagementPage = {
           </button>
 
           <div class="flex items-center gap-3 mb-6">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl shrink-0">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
               <i class="fa-solid fa-user-pen"></i>
             </div>
             <div>
-              <h3 class="text-xl font-black text-slate-900">CHỈNH SỬA & PHÂN QUYỀN</h3>
-              <p class="text-xs text-slate-500 font-mono">${u.email}</p>
+              <h3 class="text-xl font-black text-slate-900">CHỈNH SỬA TÀI KHOẢN</h3>
+              <p class="text-xs text-slate-500 font-semibold">${u.email}</p>
             </div>
           </div>
 
           <form class="space-y-4" onsubmit="UserManagementPage.handleEditSubmit(event, '${u.uid}')">
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Họ và tên nhân sự <span class="text-red-500">*</span></label>
-              <input type="text" id="edit-name" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-semibold" value="${u.displayName || ''}" required>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Họ và tên <span class="text-red-500">*</span></label>
+              <input type="text" id="edit-name" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" value="${u.displayName || ''}" required>
             </div>
 
             <div>
@@ -509,15 +523,19 @@ const UserManagementPage = {
 
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-1">Vai trò & Phân quyền hệ thống <span class="text-red-500">*</span></label>
-              <select id="edit-role" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" onchange="if(this.value==='ADMIN') { const d=document.getElementById('edit-dept'); if(d) d.value='Ban Giám Hiệu'; }">
+              <select id="edit-role" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" onchange="UserManagementPage.handleRoleSelectChange(this.value)">
                 ${isSuperAdmin ? `
-                  <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>🏛️ ADMIN (Ban Giám Hiệu / Ban Lãnh Đạo)</option>
-                  <option value="MANAGER" ${u.role === 'MANAGER' ? 'selected' : ''}>👔 MANAGER (Trưởng phòng)</option>
+                  <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>🏛️ Ban Giám Hiệu</option>
+                  <option value="MANAGER" ${u.role === 'MANAGER' ? 'selected' : ''}>👔 Trưởng phòng</option>
                 ` : ''}
-                <option value="DEPUTY_MANAGER" ${u.role === 'DEPUTY_MANAGER' ? 'selected' : ''}>🎖️ DEPUTY_MANAGER (Phó Trưởng phòng)</option>
-                <option value="STAFF" ${u.role === 'STAFF' ? 'selected' : ''}>🔧 STAFF (KTV Khoa / Giảng đường)</option>
-                <option value="STAFF_KTX" ${u.role === 'STAFF_KTX' ? 'selected' : ''}>🏢 STAFF_KTX (KTV Ký Túc Xá)</option>
-                <option value="USER" ${u.role === 'USER' ? 'selected' : ''}>🎓 USER (Cán bộ / GV / SV)</option>
+                <option value="DEPUTY_MANAGER" ${u.role === 'DEPUTY_MANAGER' ? 'selected' : ''}>🎖️ Phó Trưởng phòng</option>
+                <option value="STAFF_IT" ${u.role === 'STAFF_IT' ? 'selected' : ''}>💻 Chuyên Viên IT</option>
+                <option value="STAFF_MAINTENANCE" ${u.role === 'STAFF_MAINTENANCE' ? 'selected' : ''}>🛠️ Chuyên Viên Bảo Trì</option>
+                <option value="STAFF_GREEN" ${u.role === 'STAFF_GREEN' ? 'selected' : ''}>🌿 Cây Xanh</option>
+                <option value="STAFF_CLEANING" ${u.role === 'STAFF_CLEANING' ? 'selected' : ''}>🧹 Tạp Vụ</option>
+                <option value="STAFF_KTX" ${u.role === 'STAFF_KTX' ? 'selected' : ''}>🏢 Kỹ thuật viên Ký túc xá</option>
+                <option value="STAFF" ${u.role === 'STAFF' ? 'selected' : ''}>🔧 Kỹ thuật viên (Chung)</option>
+                <option value="USER" ${u.role === 'USER' ? 'selected' : ''}>🎓 Cán bộ / Giảng viên / Sinh viên</option>
               </select>
             </div>
 

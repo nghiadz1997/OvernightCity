@@ -152,6 +152,28 @@ const Utils = {
   },
 
   /**
+   * Render HTML Badge Vai trò người dùng (Role)
+   */
+  renderRoleBadge(role) {
+    const r = role || 'USER';
+    const map = {
+      'SUPER_ADMIN': { text: 'Super Admin', color: 'bg-rose-100 text-rose-800 border-rose-200' },
+      'ADMIN': { text: 'Ban Giám Hiệu', color: 'bg-amber-100 text-amber-900 border-amber-300 font-bold' },
+      'MANAGER': { text: 'Trưởng phòng', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+      'DEPUTY_MANAGER': { text: 'Phó Trưởng phòng', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+      'STAFF_IT': { text: 'Chuyên Viên IT', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+      'STAFF_MAINTENANCE': { text: 'Chuyên Viên Bảo Trì', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+      'STAFF_GREEN': { text: 'Cây Xanh', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+      'STAFF_CLEANING': { text: 'Tạp Vụ', color: 'bg-teal-100 text-teal-800 border-teal-200' },
+      'STAFF_KTX': { text: 'KTV Ký Túc Xá', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+      'STAFF': { text: 'Kỹ thuật viên', color: 'bg-sky-100 text-sky-800 border-sky-200' },
+      'USER': { text: 'Cán bộ / Giảng viên', color: 'bg-slate-100 text-slate-700 border-slate-200' }
+    };
+    const item = map[r] || { text: r, color: 'bg-slate-100 text-slate-700 border-slate-200' };
+    return `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold border ${item.color}">${item.text}</span>`;
+  },
+
+  /**
    * Hiển thị Toast Notification trên màn hình
    */
   showToast(message, type = 'info', duration = 4000) {

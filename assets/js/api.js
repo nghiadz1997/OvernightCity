@@ -477,12 +477,15 @@ const ApiService = {
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
-      botToken: '',
+      botToken: '', // Bot 1: Báo sự cố mới
       chatId: '',
+      reviewBotToken: '', // Bot 2: Nghiệm thu công việc (nếu để trống tự dùng Bot 1)
+      reviewChatId: '',
       isEnabled: true,
       notifyOnNewReport: true,
       notifyOnUrgent: true,
       notifyOnAssign: true,
+      notifyOnReview: true,
       notifyOnComplete: true
     };
   },
@@ -514,10 +517,23 @@ const ApiService = {
     }
   },
 
-  async sendTelegramNotification(messageHtml, customToken = null, customChatId = null, photoData = null) {
+  async sendTelegramNotification(messageHtml, customToken = null, customChatId = null, photoData = null, channel = 'INCIDENT') {
     const config = this.getTelegramConfig();
-    const token = (customToken || config.botToken || '').trim();
-    const chatId = (customChatId || config.chatId || '').trim();
+    
+    // Phân loại Token và ChatId theo kênh (INCIDENT: Báo sự cố mới | REVIEW: Nghiệm thu hoàn tất)
+    let token = '';
+    let chatId = '';
+
+    if (customToken) {
+      token = customToken.trim();
+      chatId = (customChatId || '').trim();
+    } else if (channel === 'REVIEW') {
+      token = (config.reviewBotToken || config.botToken || '').trim();
+      chatId = (config.reviewChatId || config.chatId || '').trim();
+    } else {
+      token = (config.botToken || '').trim();
+      chatId = (config.chatId || '').trim();
+    }
 
     if (config.isEnabled === false && !customToken) {
       return { success: false, error: 'Thông báo Telegram đang tắt.' };
@@ -532,7 +548,8 @@ const ApiService = {
           message: messageHtml,
           chatId: chatId || undefined,
           token: token || undefined,
-          photo: photoData || undefined
+          photo: photoData || undefined,
+          channel: channel
         })
       });
 
@@ -627,14 +644,26 @@ const ApiService = {
 
   async testTelegram(customToken = null, customChatId = null) {
     const now = new Date().toLocaleString('vi-VN');
-    const msg = `🔔 <b>[NSG SUPPORT] THỬ NGHIỆM KẾT NỐI TELEGRAM BOT</b>\n` +
+    const msg = `📢 <b>[NSG SUPPORT] THỬ NGHIỆM KẾT NỐI BOT BÁO SỰ CỐ MỚI</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `✅ <b>Trạng thái:</b> Kết nối thành công 100%!\n` +
-      `🏢 <b>Hệ thống:</b> NSG Support - Phản ánh & CSVC\n` +
+      `🏢 <b>Hệ thống:</b> NSG Support - Tiếp nhận sự cố & CSVC\n` +
       `⏰ <b>Thời gian test:</b> ${now}\n` +
-      `📌 <b>Ghi chú:</b> Hệ thống đã sẵn sàng bắn thông báo tự động khi có phản ánh hoặc phân công công việc mới.`;
+      `📌 <b>Ghi chú:</b> Bot nhận thông báo sự cố mới từ Cán bộ, Giảng viên và Sinh viên.`;
 
-    return await this.sendTelegramNotification(msg, customToken, customChatId);
+    return await this.sendTelegramNotification(msg, customToken, customChatId, null, 'INCIDENT');
+  },
+
+  async testReviewTelegram(customToken = null, customChatId = null) {
+    const now = new Date().toLocaleString('vi-VN');
+    const msg = `📋 <b>[NSG SUPPORT] THỬ NGHIỆM KẾT NỐI BOT NGHIỆM THU CÔNG VIỆC</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `✅ <b>Trạng thái:</b> Kết nối thành công 100%!\n` +
+      `👨‍🔧 <b>Chức năng:</b> Tiếp nhận báo cáo hoàn tất xử lý & Hình ảnh thực tế từ Kỹ thuật viên\n` +
+      `⏰ <b>Thời gian test:</b> ${now}\n` +
+      `👉 <i>Trưởng phòng và Ban Giám Hiệu sẽ theo dõi chất lượng nghiệm thu tại đây.</i>`;
+
+    return await this.sendTelegramNotification(msg, customToken, customChatId, null, 'REVIEW');
   },
 
   // ========================================================

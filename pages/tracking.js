@@ -186,7 +186,7 @@ const TrackingPage = {
           <div class="space-y-3">
             <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1">Đơn vị tiếp nhận & xử lý</h4>
             <div><span class="text-slate-500">Kỹ thuật viên phụ trách:</span> <strong class="text-indigo-700">${report.assignedToName || 'Đang điều phối nhân sự'}</strong></div>
-            <div><span class="text-slate-500">Người giao việc:</span> <strong class="text-slate-800">${report.assignedByName || 'Trưởng phòng Kỹ thuật'}</strong></div>
+            <div><span class="text-slate-500">Người giao việc:</span> <strong class="text-slate-800">${report.assignedByName || 'Trưởng phòng'}</strong></div>
             <div><span class="text-slate-500">Hạn chót (Deadline):</span> <strong class="text-slate-800">${report.deadline ? Utils.formatDateTime(report.deadline) : 'Theo quy định'} (${deadlineInfo.label})</strong></div>
             <div><span class="text-slate-500">Tiến độ cập nhật mới nhất:</span>
               <p class="mt-1 bg-indigo-50/60 p-3 rounded-lg border border-indigo-100 text-indigo-950 font-medium">

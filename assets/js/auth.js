@@ -102,13 +102,13 @@ const AuthService = {
     return role === 'SUPER_ADMIN';
   },
 
-  // Quản lý: Super Admin, Trưởng phòng, Phó Trưởng phòng
+  // Quản lý: Super Admin, Ban Giám Hiệu, Trưởng phòng, Phó Trưởng phòng
   isManager() {
     const role = this.getUserRole();
     return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
   },
 
-  // Trưởng phòng Kỹ thuật (Level 2)
+  // Trưởng phòng (Level 2)
   isDepartmentHead() {
     const role = this.getUserRole();
     return role === 'MANAGER' || role === 'SUPER_ADMIN';
@@ -120,10 +120,11 @@ const AuthService = {
     return role === 'DEPUTY_MANAGER';
   },
 
-  // Kỹ thuật viên (Staff Khoa & Staff KTX)
+  // Kỹ thuật viên & Chuyên viên thực hiện
   isStaff() {
     const role = this.getUserRole();
-    return ['STAFF', 'STAFF_KTX'].includes(role) || this.isManager();
+    const staffRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+    return staffRoles.includes(role) || this.isManager();
   },
 
   // Kỹ thuật viên Ký túc xá
@@ -132,7 +133,13 @@ const AuthService = {
     return role === 'STAFF_KTX';
   },
 
-  // Quản trị viên (Super Admin & Admin)
+  // Ban Giám Hiệu
+  isSchoolAdmin() {
+    const role = this.getUserRole();
+    return role === 'ADMIN';
+  },
+
+  // Quản trị viên (Super Admin & Ban Giám Hiệu)
   isAdmin() {
     const role = this.getUserRole();
     return role === 'ADMIN' || role === 'SUPER_ADMIN';
@@ -148,6 +155,23 @@ const AuthService = {
   canDeleteTask() {
     const role = this.getUserRole();
     return role === 'SUPER_ADMIN';
+  },
+
+  getRoleLabel(role) {
+    const map = {
+      'SUPER_ADMIN': 'Super Admin',
+      'ADMIN': 'Ban Giám Hiệu',
+      'MANAGER': 'Trưởng phòng',
+      'DEPUTY_MANAGER': 'Phó Trưởng phòng',
+      'STAFF_IT': 'Chuyên Viên IT',
+      'STAFF_MAINTENANCE': 'Chuyên Viên Bảo Trì',
+      'STAFF_GREEN': 'Cây Xanh',
+      'STAFF_CLEANING': 'Tạp Vụ',
+      'STAFF_KTX': 'Kỹ thuật viên Ký túc xá',
+      'STAFF': 'Kỹ thuật viên',
+      'USER': 'Cán bộ / Giảng viên / Sinh viên'
+    };
+    return map[role] || role || 'Người dùng';
   },
 
   hasRole(allowedRoles) {

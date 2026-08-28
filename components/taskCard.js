@@ -62,7 +62,7 @@ const TaskCardComponent = {
               <i class="fa-solid ${item.assignedRole === 'DEPUTY_MANAGER' ? 'fa-user-tie text-purple-600' : (item.assignedToName && item.assignedToName.includes(',') ? 'fa-users text-indigo-600' : 'fa-user-shield text-indigo-500')}"></i>
               <span class="font-semibold ${item.assignedToName ? (item.assignedRole === 'DEPUTY_MANAGER' ? 'text-purple-700' : 'text-indigo-700') : 'text-slate-400 italic'} truncate" title="${item.assignedToName || 'Chưa phân công'}">
                 ${item.assignedRole === 'DEPUTY_MANAGER' 
-                  ? `👔 Phó phòng: ${item.assignedToName}` 
+                  ? `🎖️ Phó Trưởng phòng: ${item.assignedToName}` 
                   : (item.assignedToName ? (item.assignedToName.includes(',') ? `👥 ${item.assignedToName}` : item.assignedToName) : 'Chưa phân công')}
               </span>
             </div>

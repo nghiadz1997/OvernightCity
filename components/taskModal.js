@@ -387,7 +387,7 @@ const TaskModalComponent = {
               </div>
               <h4 class="font-black text-base text-purple-950">Công việc đang ở trạng thái CHỜ NGHIỆM THU</h4>
               <p class="text-xs text-purple-700 max-w-md mx-auto">
-                Kỹ thuật viên đã báo cáo hoàn tất xử lý hiện trường. Đang chờ <b>Trưởng phòng Kỹ thuật</b> kiểm tra và duyệt nghiệm thu để chính thức hoàn thành.
+                Kỹ thuật viên đã báo cáo hoàn tất xử lý hiện trường. Đang chờ <b>Trưởng phòng</b> kiểm tra và duyệt nghiệm thu để chính thức hoàn thành.
               </p>
               ${isManager ? `
                 <button type="button" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer inline-flex items-center gap-2 hover:shadow-lg" onclick="TaskModalComponent.setTab('review')">
@@ -417,29 +417,21 @@ const TaskModalComponent = {
           <form id="form-update-progress" class="space-y-4" onsubmit="TaskModalComponent.handleProgressSubmit(event)">
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-1">Ghi chép nhật ký xử lý hiện trường</label>
-              <textarea id="progress-note-input" rows="3" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ghi chép: Đã đo nguồn điện, thay jack kết nối, vệ sinh thiết bị và kiểm tra vận hành...">${item.latestNote || ''}</textarea>
+              <textarea id="progress-note-input" rows="3" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ghi chép: Đã kiểm tra đo nguồn điện, khắc phục hoàn tất thiết bị và kiểm tra vận hành ổn định...">${item.latestNote || ''}</textarea>
             </div>
 
-            <!-- Upload Before & After Photos -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50">
-                <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <i class="fa-solid fa-camera text-slate-500"></i> Ảnh TRƯỚC khi xử lý
-                </label>
-                <input type="file" id="before-photo-input" accept="image/*" class="text-xs text-slate-600 w-full mb-2">
-                <div id="before-photos-preview" class="flex gap-2 flex-wrap">
-                  ${(item.beforePhotos || []).map(url => `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border">`).join('')}
-                </div>
-              </div>
-
-              <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50">
-                <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <i class="fa-solid fa-camera-retro text-emerald-600"></i> Ảnh SAU khi xử lý
-                </label>
-                <input type="file" id="after-photo-input" accept="image/*" class="text-xs text-slate-600 w-full mb-2">
-                <div id="after-photos-preview" class="flex gap-2 flex-wrap">
-                  ${(item.afterPhotos || []).map(url => `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border">`).join('')}
-                </div>
+            <!-- Upload Ảnh SAU khi xử lý (Chỉ giữ lại ảnh lúc xong để nghiệm thu) -->
+            <div class="border border-purple-200 rounded-2xl p-4 bg-purple-50/50">
+              <label class="block text-xs font-bold text-purple-950 mb-1.5 flex items-center justify-between">
+                <span class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-camera-retro text-purple-600"></i>
+                  <span>Hình ảnh kết quả SAU khi xử lý (Minh chứng nghiệm thu)</span>
+                </span>
+                <span class="text-[10px] text-purple-600 font-semibold">Tự động gửi ảnh về Telegram Nghiệm Thu</span>
+              </label>
+              <input type="file" id="after-photo-input" accept="image/*" class="text-xs text-slate-600 w-full mb-2 cursor-pointer file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-700">
+              <div id="after-photos-preview" class="flex gap-2 flex-wrap">
+                ${(item.afterPhotos || []).map(url => `<img src="${url}" class="w-20 h-20 object-cover rounded-xl border border-purple-200 shadow-2xs">`).join('')}
               </div>
             </div>
 
@@ -462,30 +454,52 @@ const TaskModalComponent = {
     }
 
     // ==========================================
-    // TAB 4: PHÂN CÔNG (TRƯỞNG PHÒNG ➔ PHÓ PHÒNG ➔ KỸ THUẬT VIÊN)
+    // TAB 4: PHÂN CÔNG (BAN GIÁM HIỆU ➔ TRƯỞNG PHÒNG ➔ PHÓ PHÒNG ➔ CHUYÊN VIÊN / KTV)
     // ==========================================
     if (this.activeTab === 'assign') {
       const allStaff = (this.staffList && this.staffList.length > 0) ? this.staffList : [];
       const isSuperAdmin = AuthService.isSuperAdmin();
-      const isDeputy = AuthService.isDeputyManager();
-      const isHead = AuthService.isDepartmentHead();
+      const isSchoolAdmin = AuthService.isSchoolAdmin(); // Ban Giám Hiệu
+      const isDeputy = AuthService.isDeputyManager(); // Phó Trưởng phòng
+      const isHead = AuthService.isDepartmentHead(); // Trưởng phòng
 
+      // Danh sách Trưởng phòng
+      const managerList = allStaff.filter(s => s.role === 'MANAGER');
       // Danh sách Phó phòng
       const deputyList = allStaff.filter(s => s.role === 'DEPUTY_MANAGER');
-      // Danh sách Kỹ thuật viên (Khoa & KTX)
-      const technicianList = allStaff.filter(s => s.role === 'STAFF' || s.role === 'STAFF_KTX');
+      // Danh sách Chuyên viên / Kỹ thuật viên
+      const technicianList = allStaff.filter(s => ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'].includes(s.role || 'STAFF'));
 
-      // Xác định danh sách nhân sự hiển thị
-      // Nếu là Phó phòng: CHỈ được chọn Kỹ thuật viên (1-2-3 người)
-      // Nếu là Trưởng phòng/Super Admin: Có thể giao Phó phòng hoặc giao trực tiếp KTV
-      const eligibleStaff = isDeputy ? technicianList : (isHead || isSuperAdmin ? [...deputyList, ...technicianList] : technicianList);
+      let eligibleStaff = [];
+      if (isSchoolAdmin) {
+        // Ban Giám Hiệu giao trực tiếp cho Trưởng phòng / Phó phòng Phòng Quản trị Thiết bị & CSVC
+        eligibleStaff = [...managerList, ...deputyList];
+      } else if (isDeputy) {
+        // Phó phòng chỉ định Kỹ thuật viên / Chuyên viên
+        eligibleStaff = technicianList;
+      } else if (isHead || isSuperAdmin) {
+        // Trưởng phòng có thể giao cho Phó phòng điều phối hoặc giao trực tiếp Chuyên viên / KTV
+        eligibleStaff = isSuperAdmin ? [...managerList, ...deputyList, ...technicianList] : [...deputyList, ...technicianList];
+      } else {
+        eligibleStaff = technicianList;
+      }
 
       setTimeout(() => this.updateAssignSelectionCount(), 50);
 
       return `
         <form id="form-assign-task" class="space-y-4 max-w-xl mx-auto" onsubmit="TaskModalComponent.handleAssignSubmit(event)">
           <!-- Banner vai trò điều phối -->
-          ${isDeputy ? `
+          ${isSchoolAdmin ? `
+            <div class="p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-1.5 shadow-2xs">
+              <div class="flex items-center gap-2 text-amber-950 font-extrabold text-xs uppercase tracking-wide">
+                <i class="fa-solid fa-landmark text-amber-600"></i>
+                <span>GIAO VIỆC DÀNH CHO BAN GIÁM HIỆU</span>
+              </div>
+              <p class="text-xs text-amber-900 leading-relaxed">
+                Ban Giám Hiệu giao việc trực tiếp cho <b>Phòng Quản trị Thiết bị và Cơ sở vật chất (Trưởng phòng)</b> để tiếp nhận và triển khai điều phối.
+              </p>
+            </div>
+          ` : isDeputy ? `
             <div class="p-4 bg-purple-50 border border-purple-200 rounded-2xl space-y-1.5 shadow-2xs">
               <div class="flex items-center gap-2 text-purple-900 font-extrabold text-xs uppercase tracking-wide">
                 <i class="fa-solid fa-user-shield text-purple-600"></i>
@@ -493,7 +507,7 @@ const TaskModalComponent = {
               </div>
               <p class="text-xs text-purple-800 leading-relaxed">
                 ${item.assignedByManager ? `Trưởng phòng (<b>${item.assignedByManager}</b>) đã giao việc này cho bạn điều phối. ` : ''}
-                Vui lòng tick chọn <b>1, 2 hoặc 3 Kỹ thuật viên</b> bên dưới để giao việc triển khai hiện trường.
+                Vui lòng tick chọn <b>1, 2 hoặc 3 Chuyên viên / Kỹ thuật viên</b> bên dưới để giao việc triển khai hiện trường.
               </p>
               ${item.assignmentNote ? `
                 <div class="bg-white p-2.5 rounded-xl border border-purple-100 text-xs text-slate-700 italic mt-1">
@@ -505,11 +519,11 @@ const TaskModalComponent = {
             <div class="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1 shadow-2xs">
               <div class="font-extrabold flex items-center gap-2">
                 <i class="fa-solid fa-sitemap text-blue-600"></i>
-                <span>QUY TRÌNH PHÂN CÔNG CÔNG VIỆC CỦA TRƯỞNG PHÒNG</span>
+                <span>QUY TRÌNH PHÂN CÔNG CỦA TRƯỞNG PHÒNG</span>
               </div>
               <p class="text-blue-800">
-                • <b>Cách 1:</b> Tick chọn <b>Phó Trưởng phòng</b> để giao điều phối (Phó phòng sẽ phân tiếp cho 1-2-3 KTV).<br>
-                • <b>Cách 2:</b> Tick chọn trực tiếp <b>1, 2 hoặc 3 Kỹ thuật viên</b> để làm việc ngay.
+                • <b>Cách 1:</b> Tick chọn <b>Phó Trưởng phòng</b> để giao điều phối (Phó phòng sẽ phân tiếp cho nhóm KTV).<br>
+                • <b>Cách 2:</b> Tick chọn trực tiếp <b>1, 2 hoặc 3 Chuyên viên (IT, Bảo trì, Cây xanh, Tạp vụ...)</b> để làm việc ngay.
               </p>
             </div>
           ` : ''}
@@ -535,7 +549,7 @@ const TaskModalComponent = {
           <div>
             <div class="flex items-center justify-between mb-2">
               <label class="block text-xs font-bold text-slate-800">
-                ${isDeputy ? 'Chọn Kỹ thuật viên thực hiện (1, 2 hoặc 3 người)' : 'Chọn nhân sự phụ trách (Phó phòng hoặc Kỹ thuật viên)'} <span class="text-red-500">*</span>
+                ${isSchoolAdmin ? 'Chọn Trưởng phòng / Phó phòng tiếp nhận' : (isDeputy ? 'Chọn Chuyên viên / KTV thực hiện (1, 2 hoặc 3 người)' : 'Chọn nhân sự phụ trách (Phó phòng hoặc Chuyên viên/KTV)')} <span class="text-red-500">*</span>
               </label>
               <span id="assign-selected-count" class="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                 Chưa chọn
@@ -544,24 +558,24 @@ const TaskModalComponent = {
 
             <div class="max-h-60 overflow-y-auto border border-slate-200 rounded-2xl p-2 space-y-1.5 bg-slate-50/50">
               ${eligibleStaff.length === 0 ? `
-                <div class="p-4 text-center text-xs text-slate-400 font-medium">Chưa có nhân sự phù hợp trong hệ thống.</div>
+                <div class="p-4 text-center text-xs text-slate-400 font-medium">Chưa có nhân sự phù hợp trong danh sách.</div>
               ` : eligibleStaff.map(s => {
                 const isChecked = Utils.isTaskAssignedToUser(item, s.uid);
+                const roleBadgeHtml = Utils.renderRoleBadge(s.role);
                 const isDep = s.role === 'DEPUTY_MANAGER';
-                const roleBadge = isDep ? 'Phó Trưởng phòng' : s.role === 'STAFF_KTX' ? 'KTV Ký Túc Xá' : 'Kỹ thuật viên';
-                const roleColor = isDep ? 'bg-purple-100 text-purple-800 border-purple-300' : s.role === 'STAFF_KTX' ? 'bg-cyan-100 text-cyan-800' : 'bg-blue-100 text-blue-800';
+                const isMgr = s.role === 'MANAGER';
 
                 return `
-                  <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border ${isDep ? 'border-purple-200 hover:border-purple-400 bg-purple-50/20' : 'border-slate-200 hover:border-indigo-300'} transition-all cursor-pointer shadow-2xs hover:bg-indigo-50/30">
+                  <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border ${isDep ? 'border-purple-200 hover:border-purple-400 bg-purple-50/20' : (isMgr ? 'border-blue-200 bg-blue-50/20' : 'border-slate-200 hover:border-indigo-300')} transition-all cursor-pointer shadow-2xs hover:bg-indigo-50/30">
                     <div class="flex items-center gap-3 min-w-0">
                       <input type="checkbox" name="assign_staff_checkbox" value="${s.uid}" data-name="${s.displayName || s.email}" data-role="${s.role || 'STAFF'}" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" ${isChecked ? 'checked' : ''} onchange="TaskModalComponent.updateAssignSelectionCount()">
                       <div class="truncate">
                         <div class="flex items-center gap-2">
                           <span class="text-xs font-extrabold text-slate-900 truncate">${s.displayName || s.email}</span>
-                          <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${roleColor}">${roleBadge}</span>
+                          ${roleBadgeHtml}
                           ${isDep ? `<span class="text-[10px] text-purple-600 font-semibold">(Giao điều phối)</span>` : ''}
                         </div>
-                        <span class="text-[10px] text-slate-500">${s.departmentName ? s.departmentName : 'Bộ phận Kỹ thuật'} ${s.phone ? '• SĐT: ' + s.phone : ''}</span>
+                        <span class="text-[10px] text-slate-500">${s.departmentName ? s.departmentName : 'Phòng Quản trị Thiết bị & CSVC'} ${s.phone ? '• SĐT: ' + s.phone : ''}</span>
                       </div>
                     </div>
                   </label>
@@ -856,14 +870,32 @@ const TaskModalComponent = {
     const targetType = isReport ? 'REPORT' : 'TASK';
     const note = document.getElementById('progress-note-input')?.value || 'Đã hoàn thành công việc hiện trường, chuyển chờ Trưởng phòng nghiệm thu.';
 
+    // Đọc ảnh sau khi xử lý nếu có chọn tệp
+    const photoInput = document.getElementById('after-photo-input');
+    let afterPhotos = item.afterPhotos || [];
+    if (photoInput && photoInput.files && photoInput.files.length > 0) {
+      try {
+        const uploadRes = await ApiService.uploadFiles(photoInput.files);
+        if (uploadRes && uploadRes.files) {
+          const newUrls = uploadRes.files.map(f => f.url);
+          afterPhotos = [...afterPhotos, ...newUrls];
+        }
+      } catch (uploadErr) {
+        console.warn('Lỗi upload ảnh nghiệm thu:', uploadErr);
+      }
+    }
+
     try {
       await ApiService.updateTaskStatus(item.id || item.code, targetType, {
         status: 'CHỜ NGHIỆM THU',
-        note: note
+        note: note,
+        afterPhotos: afterPhotos,
+        code: item.code
       });
 
       item.status = 'CHỜ NGHIỆM THU';
       item.latestNote = note;
+      item.afterPhotos = afterPhotos;
       if (targetType === 'TASK') {
         RealtimeService.handleTaskUpdate(item);
       } else {
@@ -871,7 +903,7 @@ const TaskModalComponent = {
       }
 
       SoundService.playSuccess();
-      Utils.showToast('Đã gửi yêu cầu nghiệm thu đến Trưởng phòng thành công!', 'success');
+      Utils.showToast('Đã gửi yêu cầu nghiệm thu và báo cáo về Telegram thành công!', 'success');
       
       // Nếu là Quản lý/Super Admin thì chuyển sang tab review để duyệt luôn nếu muốn
       // Nếu là Kỹ thuật viên (STAFF) thì giữ ở tab progress hiển thị thông báo chờ Trưởng phòng duyệt

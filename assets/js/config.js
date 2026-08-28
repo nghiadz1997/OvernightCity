@@ -52,6 +52,7 @@ const APP_CONFIG = {
   // Danh sách phòng ban mẫu mặc định
   DEPARTMENTS: [
     'Ban Giám Hiệu',
+    'Phòng Quản trị Thiết bị và Cơ sở vật chất',
     'Phòng Đào tạo',
     'Phòng Công tác Sinh viên',
     'Phòng Hành chính - Quản trị',
@@ -137,13 +138,17 @@ const APP_CONFIG = {
 
   // Danh mục phân quyền vai trò người dùng hệ thống (RBAC)
   ROLES: [
-    { id: 'SUPER_ADMIN', name: 'Super Admin (Quản trị tối cao)', level: 1, desc: 'Toàn quyền hệ thống & Duy nhất được xóa task' },
-    { id: 'ADMIN', name: 'Admin (Ban Giám Hiệu / Ban Lãnh Đạo)', level: 2, desc: 'Giám sát điều hành toàn diện, Báo cáo & Phân công' },
-    { id: 'MANAGER', name: 'Trưởng phòng Kỹ thuật', level: 2, desc: 'Giao việc, Nghiệm thu, Báo cáo, Cấp quyền cấp dưới' },
-    { id: 'DEPUTY_MANAGER', name: 'Phó Trưởng phòng', level: 3, desc: 'Giao việc, Nghiệm thu, Báo cáo' },
-    { id: 'STAFF', name: 'Kỹ thuật viên Khoa / Giảng đường', level: 4, desc: 'Tiếp nhận & Xử lý hiện trường' },
-    { id: 'STAFF_KTX', name: 'Kỹ thuật viên Ký Túc Xá', level: 4, desc: 'Tiếp nhận & Xử lý sự cố KTX, thống kê chung' },
-    { id: 'USER', name: 'Cán bộ / Giảng viên / Sinh viên', level: 5, desc: 'Gửi phản ánh & Đánh giá' }
+    { id: 'SUPER_ADMIN', name: 'Super Admin', level: 1, desc: 'Toàn quyền hệ thống & Duy nhất được xóa task' },
+    { id: 'ADMIN', name: 'Ban Giám Hiệu', level: 2, desc: 'Giám sát điều hành toàn diện & Giao việc trực tiếp cho Trưởng phòng' },
+    { id: 'MANAGER', name: 'Trưởng phòng', level: 2, desc: 'Giao việc cho Phó phòng / KTV, Nghiệm thu, Phân quyền' },
+    { id: 'DEPUTY_MANAGER', name: 'Phó Trưởng phòng', level: 3, desc: 'Nhận chỉ đạo từ Trưởng phòng, Chỉ định KTV xử lý, Nghiệm thu' },
+    { id: 'STAFF_IT', name: 'Chuyên Viên IT', level: 4, desc: 'Xử lý mạng máy tính, máy in, phần mềm, thiết bị CNTT' },
+    { id: 'STAFF_MAINTENANCE', name: 'Chuyên Viên Bảo Trì', level: 4, desc: 'Xử lý điện nước, cơ sở vật chất, máy chiếu, âm thanh' },
+    { id: 'STAFF_GREEN', name: 'Cây Xanh', level: 4, desc: 'Chăm sóc cảnh quan, cây xanh, khuôn viên trường' },
+    { id: 'STAFF_CLEANING', name: 'Tạp Vụ', level: 4, desc: 'Vệ sinh phòng học, văn phòng, sảnh tòa nhà' },
+    { id: 'STAFF_KTX', name: 'Kỹ thuật viên Ký túc xá', level: 4, desc: 'Tiếp nhận & Xử lý sự cố tại Ký Túc Xá' },
+    { id: 'STAFF', name: 'Kỹ thuật viên', level: 4, desc: 'Tiếp nhận & Xử lý sự cố hiện trường chung' },
+    { id: 'USER', name: 'Cán bộ / Giảng viên / Sinh viên', level: 5, desc: 'Gửi phản ánh sự cố & Đánh giá chất lượng' }
   ]
 };
 
