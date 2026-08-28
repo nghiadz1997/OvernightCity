@@ -60,17 +60,34 @@ const TaskModalComponent = {
     if (modal) modal.remove();
   },
 
+  commentsRealtimeUnsub: null,
+
   startCommentsPolling() {
-    if (this.commentsPollTimer) {
-      clearInterval(this.commentsPollTimer);
-      this.commentsPollTimer = null;
-    }
+    this.stopCommentsPolling();
     if (this.activeTab !== 'comments' || !this.currentData) return;
 
+    const code = this.currentData.code || this.currentData.id;
+
+    // 1. Lắng nghe tức thì qua RealtimeService Broadcast
+    if (window.RealtimeService) {
+      this.commentsRealtimeUnsub = RealtimeService.subscribeComments((newComment) => {
+        if (!newComment || !this.currentData) return;
+        if (newComment.targetCode === code || newComment.targetId === code || newComment.targetCode === this.currentData.id) {
+          if (!this.currentData.comments) this.currentData.comments = [];
+          const exists = this.currentData.comments.some(c => (c.id && c.id === newComment.id) || (c.content === newComment.content && c.createdAt === newComment.createdAt));
+          if (!exists) {
+            this.currentData.comments.push(newComment);
+            SoundService.playNotification();
+            this.renderModal();
+          }
+        }
+      });
+    }
+
+    // 2. Polling siêu tốc 1.2s
     this.commentsPollTimer = setInterval(async () => {
       if (this.activeTab !== 'comments' || !document.getElementById('modal-comments-list') || !this.currentData) return;
       try {
-        const code = this.currentData.code || this.currentData.id;
         const latest = await ApiService.getComments(code);
         const currentCount = this.currentData.comments?.length || 0;
         if (latest && latest.length > currentCount) {
@@ -79,13 +96,17 @@ const TaskModalComponent = {
           this.renderModal();
         }
       } catch (e) {}
-    }, 2500);
+    }, 1200);
   },
 
   stopCommentsPolling() {
     if (this.commentsPollTimer) {
       clearInterval(this.commentsPollTimer);
       this.commentsPollTimer = null;
+    }
+    if (this.commentsRealtimeUnsub) {
+      this.commentsRealtimeUnsub();
+      this.commentsRealtimeUnsub = null;
     }
   },
 

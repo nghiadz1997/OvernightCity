@@ -19,6 +19,7 @@ const RealtimeService = {
   reportListeners: new Set(),
   taskListeners: new Set(),
   notificationListeners: new Set(),
+  commentListeners: new Set(),
 
   init() {
     console.log('[RealtimeService] Initializing Realtime Engine...');
@@ -34,6 +35,8 @@ const RealtimeService = {
           this.handleTaskUpdate(data, false);
         } else if (type === 'NEW_NOTIFICATION') {
           this.handleIncomingNotification(data, false);
+        } else if (type === 'NEW_COMMENT') {
+          this.handleIncomingComment(data, false);
         }
       };
     } catch (e) {
@@ -174,7 +177,26 @@ const RealtimeService = {
     }
   },
 
+  handleIncomingComment(comment, broadcast = true) {
+    this.notifyCommentListeners(comment);
+
+    if (broadcast && this.channel) {
+      this.channel.postMessage({ type: 'NEW_COMMENT', data: comment });
+    }
+  },
+
   // Listeners registration
+  subscribeComments(callback) {
+    this.commentListeners.add(callback);
+    return () => this.commentListeners.delete(callback);
+  },
+
+  notifyCommentListeners(comment) {
+    this.commentListeners.forEach(cb => {
+      try { cb(comment); } catch (e) { console.error(e); }
+    });
+  },
+
   subscribeReports(callback) {
     this.reportListeners.add(callback);
     callback(this.reports);

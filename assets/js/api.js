@@ -450,6 +450,13 @@ const ApiService = {
         }
       }
 
+      // 4. Phát tín hiệu realtime broadcast cho tất cả tab / component
+      try {
+        if (window.RealtimeService) {
+          window.RealtimeService.handleIncomingComment(fullComment, true);
+        }
+      } catch (rtErr) {}
+
       return { success: true, data: fullComment };
     } catch (err) {
       console.error('[ApiService] addComment error:', err);

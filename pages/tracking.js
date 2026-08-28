@@ -331,6 +331,7 @@ const TrackingPage = {
   // REALTIME LIVE CHAT GIỮA USER VÀ KỸ THUẬT
   // ==========================================
   chatUnsubscribe: null,
+  chatReportUnsubscribe: null,
   chatPollInterval: null,
   currentComments: [],
   lastCommentsCount: 0,
@@ -340,6 +341,10 @@ const TrackingPage = {
     if (this.chatUnsubscribe) {
       this.chatUnsubscribe();
       this.chatUnsubscribe = null;
+    }
+    if (this.chatReportUnsubscribe) {
+      this.chatReportUnsubscribe();
+      this.chatReportUnsubscribe = null;
     }
     if (this.chatPollInterval) {
       clearInterval(this.chatPollInterval);
@@ -354,17 +359,40 @@ const TrackingPage = {
     // 2. Tải tin nhắn ngay lập tức
     this.pollLatestComments(code, report);
 
-    // 3. Thiết lập realtime onSnapshot từ Firestore
+    // 3. Đăng ký lắng nghe trực tiếp từ RealtimeService (BroadcastChannel)
+    if (window.RealtimeService) {
+      this.chatUnsubscribe = RealtimeService.subscribeComments((newComment) => {
+        if (!newComment) return;
+        if (newComment.targetCode === code || newComment.targetId === targetId || newComment.targetCode === targetId) {
+          const exists = this.currentComments.some(c => (c.id && c.id === newComment.id) || (c.content === newComment.content && c.createdAt === newComment.createdAt));
+          if (!exists) {
+            this.currentComments.push(newComment);
+            this.handleIncomingComments(this.currentComments, report);
+          }
+        }
+      });
+
+      this.chatReportUnsubscribe = RealtimeService.subscribeReports((reportsList) => {
+        const found = reportsList.find(r => r.code === code || r.id === targetId);
+        if (found && found.comments && found.comments.length > this.currentComments.length) {
+          this.handleIncomingComments(found.comments, report);
+        }
+      });
+    }
+
+    // 4. Thiết lập realtime onSnapshot từ Firestore nếu có kết nối
     if (window.firebase && window.firebase.firestore) {
       const db = window.firebase.firestore();
       try {
-        this.chatUnsubscribe = db.collection('comments')
+        db.collection('comments')
           .where('targetCode', '==', code)
           .onSnapshot(snap => {
             let comments = [];
             snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
-            comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            this.handleIncomingComments(comments, report);
+            if (comments.length > 0) {
+              comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+              this.handleIncomingComments(comments, report);
+            }
           }, err => {
             console.warn('onSnapshot comments fallback to poll:', err);
           });
@@ -373,16 +401,16 @@ const TrackingPage = {
       }
     }
 
-    // 4. Thiết lập polling định kỳ mỗi 2.5 giây đảm bảo tin nhắn luôn nhảy tự động 100% không cần reload
+    // 5. Polling siêu tốc 1.2s đảm bảo 100% không bao giờ miss tin nhắn giữa các máy khác nhau
     this.chatPollInterval = setInterval(() => {
       this.pollLatestComments(code, report);
-    }, 2500);
+    }, 1200);
   },
 
   async pollLatestComments(code, report) {
     try {
       const comments = await ApiService.getComments(code);
-      if (comments) {
+      if (comments && comments.length > 0) {
         this.handleIncomingComments(comments, report);
       }
     } catch (e) {
@@ -393,7 +421,7 @@ const TrackingPage = {
   handleIncomingComments(comments, report) {
     if (!comments) return;
 
-    // Phát âm thanh khi có tin nhắn mới từ kỹ thuật viên / quản lý
+    // Kiểm tra có tin nhắn mới từ kỹ thuật hay không
     if (comments.length > this.lastCommentsCount && this.lastCommentsCount > 0) {
       const latest = comments[comments.length - 1];
       if (latest && latest.isStaff) {
