@@ -461,20 +461,46 @@ const ApiService = {
   async getComments(targetCodeOrId) {
     try {
       const db = this.getDb();
-      const snap = await db.collection('comments')
-        .where('targetCode', '==', targetCodeOrId)
-        .get();
+      const commentsMap = new Map();
 
-      let comments = [];
-      snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+      // 1. Query collection comments theo targetCode
+      try {
+        const snap = await db.collection('comments')
+          .where('targetCode', '==', targetCodeOrId)
+          .get();
+        snap.forEach(doc => {
+          commentsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+      } catch (e) {}
 
-      if (comments.length === 0) {
+      // 2. Query collection comments theo targetId
+      try {
         const snap2 = await db.collection('comments')
           .where('targetId', '==', targetCodeOrId)
           .get();
-        snap2.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
-      }
+        snap2.forEach(doc => {
+          if (!commentsMap.has(doc.id)) {
+            commentsMap.set(doc.id, { id: doc.id, ...doc.data() });
+          }
+        });
+      } catch (e) {}
 
+      // 3. Đọc từ document reports hoặc tasks
+      try {
+        let repDoc = await db.collection('reports').doc(targetCodeOrId).get();
+        if (!repDoc.exists) {
+          const byCode = await db.collection('reports').where('code', '==', targetCodeOrId).limit(1).get();
+          if (!byCode.empty) repDoc = byCode.docs[0];
+        }
+        if (repDoc.exists && repDoc.data()?.comments) {
+          repDoc.data().comments.forEach((c, idx) => {
+            const key = c.id || `doc_c_${idx}_${c.createdAt}`;
+            if (!commentsMap.has(key)) commentsMap.set(key, c);
+          });
+        }
+      } catch (e) {}
+
+      let comments = Array.from(commentsMap.values());
       comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       return comments;
     } catch (e) {

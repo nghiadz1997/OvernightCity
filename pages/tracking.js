@@ -228,17 +228,11 @@ const TrackingPage = {
                 <i class="fa-solid fa-comments"></i>
               </div>
               <div>
-                <h3 class="font-extrabold text-sm sm:text-base tracking-tight flex items-center gap-2">
-                  <span>KHUNG TRAO ĐỔI VỚI BỘ PHẬN KỸ THUẬT & QUẢN TRỊ</span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">2 Chiều</span>
+                <h3 class="font-extrabold text-sm sm:text-base tracking-tight">
+                  KHUNG TRAO ĐỔI VỚI BỘ PHẬN KỸ THUẬT & QUẢN TRỊ
                 </h3>
                 <p class="text-[11px] text-blue-100">Kênh nhắn tin trực tuyến. Có thể gửi yêu cầu gấp để kỹ thuật phản hồi xử lý ngay.</p>
               </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Đang kết nối Realtime
-              </span>
             </div>
           </div>
 
@@ -265,7 +259,7 @@ const TrackingPage = {
             <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
               <label class="flex items-center gap-2 cursor-pointer select-none text-red-600 font-bold bg-red-50 hover:bg-red-100/80 px-3 py-1.5 rounded-xl border border-red-200 transition-colors">
                 <input type="checkbox" id="tracking-chat-urgent" class="w-4 h-4 text-red-600 rounded focus:ring-red-500 cursor-pointer">
-                <span>🚨 Đánh dấu YÊU CẦU GẤP (Báo động đỏ tới Kỹ thuật viên & Telegram ngay)</span>
+                <span>🚨 Đánh dấu yêu cầu gấp</span>
               </label>
               <span class="text-[11px] text-slate-400">Nhấn <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-[10px] font-mono">Enter</kbd> để gửi</span>
             </div>
@@ -334,52 +328,82 @@ const TrackingPage = {
   },
 
   // ==========================================
-  // REALTIME LIVE CHAT 2 CHIỀU GIỮA USER VÀ KỸ THUẬT
+  // REALTIME LIVE CHAT GIỮA USER VÀ KỸ THUẬT
   // ==========================================
   chatUnsubscribe: null,
+  chatPollInterval: null,
+  currentComments: [],
   lastCommentsCount: 0,
 
   initChatListener(report) {
+    // 1. Dọn dẹp listener và timer cũ
     if (this.chatUnsubscribe) {
       this.chatUnsubscribe();
       this.chatUnsubscribe = null;
     }
+    if (this.chatPollInterval) {
+      clearInterval(this.chatPollInterval);
+      this.chatPollInterval = null;
+    }
 
     const code = report.code;
     const targetId = report.id || code;
+    this.currentComments = [];
+    this.lastCommentsCount = 0;
 
+    // 2. Tải tin nhắn ngay lập tức
+    this.pollLatestComments(code, report);
+
+    // 3. Thiết lập realtime onSnapshot từ Firestore
     if (window.firebase && window.firebase.firestore) {
       const db = window.firebase.firestore();
-      
-      this.chatUnsubscribe = db.collection('comments')
-        .where('targetCode', '==', code)
-        .onSnapshot(snap => {
-          let comments = [];
-          snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
-          comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      try {
+        this.chatUnsubscribe = db.collection('comments')
+          .where('targetCode', '==', code)
+          .onSnapshot(snap => {
+            let comments = [];
+            snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+            comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            this.handleIncomingComments(comments, report);
+          }, err => {
+            console.warn('onSnapshot comments fallback to poll:', err);
+          });
+      } catch (e) {
+        console.warn('Firestore onSnapshot error:', e);
+      }
+    }
 
-          // Phát âm thanh khi có tin nhắn mới từ kỹ thuật
-          if (comments.length > this.lastCommentsCount && this.lastCommentsCount > 0) {
-            const latest = comments[comments.length - 1];
-            if (latest && latest.isStaff) {
-              SoundService.playNotification();
-              Utils.showToast(`💬 Phản hồi mới từ ${latest.authorName}: "${latest.content}"`, 'info');
-            }
-          }
-          this.lastCommentsCount = comments.length;
+    // 4. Thiết lập polling định kỳ mỗi 2.5 giây đảm bảo tin nhắn luôn nhảy tự động 100% không cần reload
+    this.chatPollInterval = setInterval(() => {
+      this.pollLatestComments(code, report);
+    }, 2500);
+  },
 
-          this.renderChatMessages(comments, report);
-        }, err => {
-          console.warn('Lỗi Firestore onSnapshot comments:', err);
-          this.fallbackLoadComments(code, report);
-        });
-    } else {
-      this.fallbackLoadComments(code, report);
+  async pollLatestComments(code, report) {
+    try {
+      const comments = await ApiService.getComments(code);
+      if (comments) {
+        this.handleIncomingComments(comments, report);
+      }
+    } catch (e) {
+      console.warn('pollLatestComments error:', e);
     }
   },
 
-  async fallbackLoadComments(code, report) {
-    const comments = await ApiService.getComments(code);
+  handleIncomingComments(comments, report) {
+    if (!comments) return;
+
+    // Phát âm thanh khi có tin nhắn mới từ kỹ thuật viên / quản lý
+    if (comments.length > this.lastCommentsCount && this.lastCommentsCount > 0) {
+      const latest = comments[comments.length - 1];
+      if (latest && latest.isStaff) {
+        SoundService.playNotification();
+        Utils.showToast(`💬 Phản hồi mới từ ${latest.authorName}: "${latest.content}"`, 'info');
+      }
+    }
+    this.lastCommentsCount = comments.length;
+    this.currentComments = comments;
+
     this.renderChatMessages(comments, report);
   },
 
@@ -453,6 +477,25 @@ const TrackingPage = {
 
     if (!content) return;
 
+    // 1. Optimistic Update: Thêm ngay tin nhắn vào giao diện tức thì (0ms)
+    const optimisticMsg = {
+      id: 'temp_' + Date.now(),
+      targetCode: this.currentReport.code,
+      content: content,
+      authorName: this.currentReport.senderName || 'Bạn',
+      authorRole: 'USER',
+      isUrgent: isUrgent,
+      isStaff: false,
+      createdAt: new Date().toISOString()
+    };
+    this.currentComments.push(optimisticMsg);
+    this.lastCommentsCount = this.currentComments.length;
+    this.renderChatMessages(this.currentComments, this.currentReport);
+
+    if (input) input.value = '';
+    if (urgentCheck) urgentCheck.checked = false;
+    SoundService.playSuccess();
+
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
@@ -469,12 +512,11 @@ const TrackingPage = {
         isStaff: false
       });
 
-      if (input) input.value = '';
-      if (urgentCheck) urgentCheck.checked = false;
-
-      SoundService.playSuccess();
       Utils.showToast(isUrgent ? '🚨 Đã gửi tin nhắn GẤP tới bộ phận kỹ thuật!' : 'Đã gửi tin nhắn thành công!', 'success');
       
+      // Đồng bộ lại từ server
+      setTimeout(() => this.pollLatestComments(this.currentReport.code, this.currentReport), 500);
+
       // Focus lại ô nhập
       if (input) input.focus();
     } catch (err) {

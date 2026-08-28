@@ -7,6 +7,8 @@ const TaskModalComponent = {
   currentData: null,
   activeTab: 'comments',
 
+  commentsPollTimer: null,
+
   async open(targetId, code, targetType = 'REPORT', defaultTab = 'comments') {
     this.activeTab = defaultTab;
 
@@ -49,16 +51,52 @@ const TaskModalComponent = {
     }
 
     this.renderModal();
+    this.startCommentsPolling();
   },
 
   close() {
+    this.stopCommentsPolling();
     const modal = document.getElementById('task-detail-modal');
     if (modal) modal.remove();
+  },
+
+  startCommentsPolling() {
+    if (this.commentsPollTimer) {
+      clearInterval(this.commentsPollTimer);
+      this.commentsPollTimer = null;
+    }
+    if (this.activeTab !== 'comments' || !this.currentData) return;
+
+    this.commentsPollTimer = setInterval(async () => {
+      if (this.activeTab !== 'comments' || !document.getElementById('modal-comments-list') || !this.currentData) return;
+      try {
+        const code = this.currentData.code || this.currentData.id;
+        const latest = await ApiService.getComments(code);
+        const currentCount = this.currentData.comments?.length || 0;
+        if (latest && latest.length > currentCount) {
+          this.currentData.comments = latest;
+          SoundService.playNotification();
+          this.renderModal();
+        }
+      } catch (e) {}
+    }, 2500);
+  },
+
+  stopCommentsPolling() {
+    if (this.commentsPollTimer) {
+      clearInterval(this.commentsPollTimer);
+      this.commentsPollTimer = null;
+    }
   },
 
   setTab(tabName) {
     this.activeTab = tabName;
     this.renderModal();
+    if (tabName === 'comments') {
+      this.startCommentsPolling();
+    } else {
+      this.stopCommentsPolling();
+    }
   },
 
   renderModal() {
@@ -212,7 +250,7 @@ const TaskModalComponent = {
     const isOverdue = item.isOverdue || false;
 
     // ==========================================
-    // TAB 1: TRAO ĐỔI XỬ LÝ (KÊNH TRỰC TIẾP 2 CHIỀU)
+    // TAB 1: TRAO ĐỔI XỬ LÝ (KÊNH TRỰC TIẾP)
     // ==========================================
     if (this.activeTab === 'comments') {
       const comments = item.comments || [];
