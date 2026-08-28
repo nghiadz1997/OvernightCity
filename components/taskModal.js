@@ -212,17 +212,17 @@ const TaskModalComponent = {
     const isOverdue = item.isOverdue || false;
 
     // ==========================================
-    // TAB 1: TRAO ĐỔI XỬ LÝ (KÊNH TRỰC TIẾP ĐẦU TIÊN)
+    // TAB 1: TRAO ĐỔI XỬ LÝ (KÊNH TRỰC TIẾP 2 CHIỀU)
     // ==========================================
     if (this.activeTab === 'comments') {
       const comments = item.comments || [];
       return `
-        <div class="flex flex-col h-[460px] max-w-2xl mx-auto">
+        <div class="flex flex-col h-[500px] max-w-2xl mx-auto">
           <!-- Thẻ tóm tắt sự cố đầu kênh trao đổi -->
-          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 flex items-center justify-between gap-2 text-xs">
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-2.5 flex items-center justify-between gap-2 text-xs shadow-2xs">
             <div class="flex items-center gap-2 truncate">
-              <span class="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">${item.code}</span>
-              <span class="font-bold text-slate-800 truncate">${item.title}</span>
+              <span class="font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">${item.code}</span>
+              <span class="font-extrabold text-slate-800 truncate">${item.title}</span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               ${Utils.renderStatusBadge(status, isOverdue)}
@@ -230,35 +230,44 @@ const TaskModalComponent = {
           </div>
 
           <!-- Danh sách tin nhắn trao đổi realtime -->
-          <div class="flex-1 overflow-y-auto space-y-3 pr-2 mb-3" id="modal-comments-list">
+          <div class="flex-1 overflow-y-auto space-y-3 pr-2 mb-2" id="modal-comments-list">
             ${comments.length === 0 ? `
               <div class="text-center text-slate-400 py-12 text-xs space-y-2">
-                <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
                   <i class="fa-regular fa-comments"></i>
                 </div>
-                <h4 class="font-bold text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
-                <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi có thể chat trao đổi trực tiếp mọi vấn đề tại đây.</p>
+                <h4 class="font-black text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
+                <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi phản ánh có thể nhắn tin trao đổi trực tuyến tại đây.</p>
               </div>
             ` : comments.map(c => {
               const isMe = currentUser && (currentUser.displayName === c.authorName || currentUser.email === c.authorEmail);
-              const roleBadge = c.authorRole === 'SUPER_ADMIN' ? 'Super Admin' :
-                                c.authorRole === 'MANAGER' ? 'Trưởng phòng' :
-                                c.authorRole === 'STAFF' ? 'Kỹ thuật viên' : 'Người gửi';
-              const roleColor = c.authorRole === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                                c.authorRole === 'MANAGER' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' :
-                                c.authorRole === 'STAFF' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-slate-200 text-slate-700 border-slate-300';
+              const isUrgent = !!c.isUrgent;
+              const roleBadgeHtml = Utils.renderRoleBadge(c.authorRole || (c.isStaff ? 'STAFF' : 'USER'));
+
               return `
-                <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}">
-                  <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
-                    ${(c.authorName || 'U').charAt(0).toUpperCase()}
+                <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''} animate-fade-in">
+                  <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : (c.isStaff ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
+                    ${c.isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[10px]"></i>' : (c.authorName || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <div class="max-w-[78%] space-y-1">
+                  <div class="max-w-[80%] space-y-1">
                     <div class="flex items-center gap-1.5 ${isMe ? 'justify-end' : ''} text-[11px]">
-                      <span class="font-bold text-slate-900">${c.authorName || 'Người dùng'}</span>
-                      <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${roleColor}">${roleBadge}</span>
+                      <span class="font-extrabold text-slate-900">${c.authorName || 'Người dùng'}</span>
+                      ${roleBadgeHtml}
                       <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
                     </div>
-                    <div class="p-3 rounded-2xl text-xs leading-relaxed ${isMe ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200'}">
+                    <div class="p-3 rounded-2xl text-xs leading-relaxed ${
+                      isUrgent
+                        ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-xs'
+                        : (isMe 
+                            ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
+                            : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200')
+                    }">
+                      ${isUrgent ? `
+                        <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
+                          <i class="fa-solid fa-triangle-exclamation"></i>
+                          <span>🚨 YÊU CẦU GẤP TỪ NGƯỜI GỬI:</span>
+                        </div>
+                      ` : ''}
                       ${c.content}
                     </div>
                   </div>
@@ -267,9 +276,26 @@ const TaskModalComponent = {
             }).join('')}
           </div>
 
+          <!-- Phản hồi nhanh (Quick Canned Replies) -->
+          <div class="py-1.5 flex items-center gap-1.5 overflow-x-auto text-[11px] no-scrollbar">
+            <span class="text-[10px] font-bold text-slate-400 shrink-0">⚡ Trả lời nhanh:</span>
+            <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-medium whitespace-nowrap transition-colors cursor-pointer" onclick="TaskModalComponent.fillQuickReply('Kỹ thuật viên đang di chuyển tới vị trí để xử lý ngay nhé!')">
+              Đang tới xử lý ngay
+            </button>
+            <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-medium whitespace-nowrap transition-colors cursor-pointer" onclick="TaskModalComponent.fillQuickReply('Đã tiếp nhận yêu cầu gấp, bộ phận kỹ thuật đang ưu tiên kiểm tra.')">
+              Đã nhận tin gấp
+            </button>
+            <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-medium whitespace-nowrap transition-colors cursor-pointer" onclick="TaskModalComponent.fillQuickReply('Bạn vui lòng giữ nguyên hiện trạng thiết bị để kỹ thuật kiểm tra nhé.')">
+              Giữ nguyên hiện trạng
+            </button>
+            <button type="button" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-medium whitespace-nowrap transition-colors cursor-pointer" onclick="TaskModalComponent.fillQuickReply('Đã khắc phục xong, bạn vui lòng kiểm tra lại thiết bị giúp mình nhé!')">
+              Đã khắc phục xong
+            </button>
+          </div>
+
           <!-- Ô nhập tin nhắn trao đổi -->
           <form class="flex items-center gap-2 pt-2 border-t border-slate-200" onsubmit="TaskModalComponent.handleCommentSubmit(event)">
-            <input type="text" id="comment-text-input" class="flex-1 text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium shadow-2xs" placeholder="Nhập tin nhắn trao đổi phối hợp xử lý..." required autocomplete="off">
+            <input type="text" id="comment-text-input" class="flex-1 text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium shadow-2xs" placeholder="Nhập tin nhắn phản hồi cho người gửi..." required autocomplete="off">
             <button type="submit" class="py-3 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors">
               <i class="fa-solid fa-paper-plane"></i>
               <span>Gửi</span>
@@ -996,11 +1022,19 @@ const TaskModalComponent = {
     }
   },
 
+  fillQuickReply(text) {
+    const input = document.getElementById('comment-text-input');
+    if (input) {
+      input.value = text;
+      input.focus();
+    }
+  },
+
   // Handler: Bình luận trao đổi
   async handleCommentSubmit(e) {
     e.preventDefault();
     const input = document.getElementById('comment-text-input');
-    const content = input.value.trim();
+    const content = (input ? input.value : '').trim();
     if (!content) return;
 
     const item = this.currentData;
@@ -1009,15 +1043,19 @@ const TaskModalComponent = {
 
     try {
       const res = await ApiService.addComment(item.id || item.code, targetType, {
-        content: content
+        targetCode: item.code,
+        content: content,
+        isStaff: true
       });
 
       if (!item.comments) item.comments = [];
       item.comments.push(res.data);
-      input.value = '';
+      if (input) input.value = '';
+      
+      SoundService.playSuccess();
       this.renderModal();
     } catch (err) {
-      Utils.showToast('Lỗi gửi bình luận: ' + err.message, 'error');
+      Utils.showToast('Lỗi gửi tin nhắn: ' + err.message, 'error');
     }
   },
 

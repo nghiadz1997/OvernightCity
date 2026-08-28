@@ -474,9 +474,9 @@ const ReportFormPage = {
         </div>
 
         <div class="space-y-3">
-          <a href="#/tracking?code=${code}" class="w-full py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-2" onclick="document.getElementById('report-success-modal')?.remove()">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <span>THEO DÕI YÊU CẦU</span>
+          <a href="#/tracking?code=${code}" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5" onclick="document.getElementById('report-success-modal')?.remove()">
+            <i class="fa-solid fa-comments"></i>
+            <span>THEO DÕI TIẾN ĐỘ & NHẮN TIN VỚI KỸ THUẬT</span>
           </a>
           <a href="#/" class="block w-full py-2.5 px-4 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors" onclick="document.getElementById('report-success-modal')?.remove()">
             Về trang chủ

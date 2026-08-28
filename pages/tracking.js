@@ -196,6 +196,56 @@ const TrackingPage = {
           </div>
         </div>
 
+        <!-- Live Chat Section: Trao đổi & Nhắn tin trực tiếp với Kỹ thuật / Quản trị -->
+        <div class="mx-6 mb-6 bg-slate-50 border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+          <!-- Chat Header -->
+          <div class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-4 sm:p-5 flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-xl text-white">
+                <i class="fa-solid fa-comments"></i>
+              </div>
+              <div>
+                <h3 class="font-extrabold text-sm sm:text-base tracking-tight">TRAO ĐỔI VỚI BỘ PHẬN KỸ THUẬT & QUẢN TRỊ</h3>
+                <p class="text-[11px] text-blue-100">Kênh nhắn tin trực tuyến 2 chiều. Có thể gửi yêu cầu gấp để kỹ thuật xử lý ngay.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Trực tuyến
+              </span>
+            </div>
+          </div>
+
+          <!-- Messages Container -->
+          <div id="tracking-chat-messages" class="p-4 sm:p-5 space-y-3.5 max-h-[380px] overflow-y-auto bg-white/70">
+            <div class="text-center py-6 text-slate-400 text-xs">
+              <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang tải tin nhắn trao đổi...
+            </div>
+          </div>
+
+          <!-- Chat Form -->
+          <form id="tracking-chat-form" class="p-4 bg-slate-100/90 border-t border-slate-200 space-y-2.5" onsubmit="TrackingPage.handleSendMessage(event)">
+            <div class="flex flex-col sm:flex-row gap-2">
+              <div class="relative flex-1">
+                <textarea id="tracking-chat-input" rows="2" class="w-full text-xs p-3 pr-10 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 bg-white font-medium placeholder:text-slate-400" placeholder="Nhập câu hỏi hoặc thông tin nhắn cho bên kỹ thuật..." required onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();TrackingPage.handleSendMessage(event);}"></textarea>
+              </div>
+              <button type="submit" id="btn-tracking-send" class="py-3 px-5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>GỬI TIN</span>
+              </button>
+            </div>
+
+            <!-- Urgent Checkbox Toggle -->
+            <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer select-none text-red-600 font-bold bg-red-50 hover:bg-red-100/80 px-3 py-1.5 rounded-xl border border-red-200 transition-colors">
+                <input type="checkbox" id="tracking-chat-urgent" class="w-4 h-4 text-red-600 rounded focus:ring-red-500 cursor-pointer">
+                <span>🚨 Đánh dấu YÊU CẦU GẤP (Báo động đỏ tới Kỹ thuật viên & Telegram ngay)</span>
+              </label>
+              <span class="text-[11px] text-slate-400">Nhấn <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-[10px] font-mono">Enter</kbd> để gửi</span>
+            </div>
+          </form>
+        </div>
+
         <!-- 5-Star Rating Form if Completed (Mục 44) -->
         ${isCompleted ? `
           <div class="mx-6 mb-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
@@ -243,6 +293,9 @@ const TrackingPage = {
         ` : ''}
       </div>
     `;
+
+    // Kích hoạt Realtime Chat Listener cho phiếu này
+    setTimeout(() => this.initChatListener(report), 100);
   },
 
   renderTimelineStep(title, isDone, icon) {
@@ -252,6 +305,160 @@ const TrackingPage = {
         <span class="font-bold truncate">${title}</span>
       </div>
     `;
+  },
+
+  // ==========================================
+  // REALTIME LIVE CHAT 2 CHIỀU GIỮA USER VÀ KỸ THUẬT
+  // ==========================================
+  chatUnsubscribe: null,
+  lastCommentsCount: 0,
+
+  initChatListener(report) {
+    if (this.chatUnsubscribe) {
+      this.chatUnsubscribe();
+      this.chatUnsubscribe = null;
+    }
+
+    const code = report.code;
+    const targetId = report.id || code;
+
+    if (window.firebase && window.firebase.firestore) {
+      const db = window.firebase.firestore();
+      
+      this.chatUnsubscribe = db.collection('comments')
+        .where('targetCode', '==', code)
+        .onSnapshot(snap => {
+          let comments = [];
+          snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+          comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+          // Phát âm thanh khi có tin nhắn mới từ kỹ thuật
+          if (comments.length > this.lastCommentsCount && this.lastCommentsCount > 0) {
+            const latest = comments[comments.length - 1];
+            if (latest && latest.isStaff) {
+              SoundService.playNotification();
+              Utils.showToast(`💬 Phản hồi mới từ ${latest.authorName}: "${latest.content}"`, 'info');
+            }
+          }
+          this.lastCommentsCount = comments.length;
+
+          this.renderChatMessages(comments, report);
+        }, err => {
+          console.warn('Lỗi Firestore onSnapshot comments:', err);
+          this.fallbackLoadComments(code, report);
+        });
+    } else {
+      this.fallbackLoadComments(code, report);
+    }
+  },
+
+  async fallbackLoadComments(code, report) {
+    const comments = await ApiService.getComments(code);
+    this.renderChatMessages(comments, report);
+  },
+
+  renderChatMessages(comments, report) {
+    const box = document.getElementById('tracking-chat-messages');
+    if (!box) return;
+
+    if (!comments || comments.length === 0) {
+      box.innerHTML = `
+        <div class="text-center py-8 text-slate-400 text-xs space-y-2">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
+            <i class="fa-regular fa-comment-dots"></i>
+          </div>
+          <p class="font-bold text-slate-700">Chưa có tin nhắn nào</p>
+          <p class="text-slate-400 max-w-xs mx-auto">Hãy gửi tin nhắn bên dưới nếu bạn có câu hỏi hoặc cần yêu cầu hỗ trợ gấp với Kỹ thuật viên.</p>
+        </div>
+      `;
+      return;
+    }
+
+    box.innerHTML = comments.map(c => {
+      const isStaff = !!c.isStaff;
+      const isUrgent = !!c.isUrgent;
+      const roleBadgeHtml = Utils.renderRoleBadge(c.authorRole || (isStaff ? 'STAFF' : 'USER'));
+
+      return `
+        <div class="flex gap-2.5 ${!isStaff ? 'flex-row-reverse' : ''} animate-fade-in">
+          <div class="w-8 h-8 rounded-full ${!isStaff ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white'} flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+            ${isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[11px]"></i>' : '<i class="fa-solid fa-user text-[11px]"></i>'}
+          </div>
+          <div class="max-w-[82%] space-y-1">
+            <div class="flex items-center gap-1.5 ${!isStaff ? 'justify-end' : ''} text-[11px]">
+              <span class="font-extrabold text-slate-900">${c.authorName || (isStaff ? 'Kỹ thuật viên' : 'Bạn')}</span>
+              ${roleBadgeHtml}
+              <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
+            </div>
+            
+            <div class="p-3 rounded-2xl text-xs leading-relaxed ${
+              isUrgent 
+                ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-sm' 
+                : (!isStaff 
+                    ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
+                    : 'bg-white text-slate-800 rounded-tl-none border border-slate-200 shadow-2xs')
+            }">
+              ${isUrgent ? `
+                <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>YÊU CẦU HỖ TRỢ GẤP:</span>
+                </div>
+              ` : ''}
+              ${c.content}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    box.scrollTop = box.scrollHeight;
+  },
+
+  async handleSendMessage(e) {
+    e.preventDefault();
+    if (!this.currentReport) return;
+
+    const input = document.getElementById('tracking-chat-input');
+    const urgentCheck = document.getElementById('tracking-chat-urgent');
+    const btn = document.getElementById('btn-tracking-send');
+
+    const content = (input ? input.value : '').trim();
+    const isUrgent = urgentCheck ? urgentCheck.checked : false;
+
+    if (!content) return;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    }
+
+    try {
+      await ApiService.addComment(this.currentReport.id || this.currentReport.code, 'REPORT', {
+        targetCode: this.currentReport.code,
+        content: content,
+        authorName: this.currentReport.senderName || 'Người gửi phản ánh',
+        authorPhone: this.currentReport.senderPhone || '',
+        authorRole: 'USER',
+        isUrgent: isUrgent,
+        isStaff: false
+      });
+
+      if (input) input.value = '';
+      if (urgentCheck) urgentCheck.checked = false;
+
+      SoundService.playSuccess();
+      Utils.showToast(isUrgent ? '🚨 Đã gửi tin nhắn GẤP tới bộ phận kỹ thuật!' : 'Đã gửi tin nhắn thành công!', 'success');
+      
+      // Focus lại ô nhập
+      if (input) input.focus();
+    } catch (err) {
+      Utils.showToast('Lỗi gửi tin nhắn: ' + err.message, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>GỬI TIN</span>';
+      }
+    }
   },
 
   setRating(stars) {

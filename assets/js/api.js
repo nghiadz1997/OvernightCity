@@ -386,20 +386,26 @@ const ApiService = {
     }
   },
 
-  // 9. Gửi bình luận trao đổi xử lý
+  // 9. Gửi bình luận / Tin nhắn trực tiếp 2 chiều
   async addComment(targetId, targetType, commentData) {
     try {
       const db = this.getDb();
       const user = AuthService.getCurrentUser();
       const col = targetType === 'TASK' ? 'tasks' : 'reports';
 
+      const isStaffUser = user && ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX', 'MANAGER', 'DEPUTY_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
+
       const fullComment = {
         targetId,
+        targetCode: commentData.targetCode || commentData.code || targetId,
         targetType,
         content: commentData.content,
-        authorName: user?.displayName || user?.email?.split('@')[0] || 'Người dùng',
-        authorEmail: user?.email || '',
-        authorRole: user?.role || 'USER',
+        authorName: commentData.authorName || user?.displayName || user?.email?.split('@')[0] || 'Người gửi',
+        authorEmail: commentData.authorEmail || user?.email || '',
+        authorPhone: commentData.authorPhone || '',
+        authorRole: commentData.authorRole || user?.role || 'USER',
+        isUrgent: !!commentData.isUrgent,
+        isStaff: commentData.isStaff !== undefined ? commentData.isStaff : isStaffUser,
         createdAt: new Date().toISOString()
       };
 
@@ -426,10 +432,54 @@ const ApiService = {
         console.warn('Cannot append to document comments array:', e);
       }
 
+      // 3. Nếu là tin nhắn KHẨN CẤP từ người dùng, bắn ngay thông báo Telegram cho Kỹ thuật/Quản trị!
+      if (fullComment.isUrgent) {
+        try {
+          const urgentMsg = `🚨 <b>[NSG SUPPORT] TIN NHẮN KHẨN CẤP TỪ NGƯỜI DÙNG!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>Mã phiếu:</b> <code>${fullComment.targetCode}</code>\n` +
+            `👤 <b>Người gửi:</b> <b>${fullComment.authorName}</b> ${fullComment.authorPhone ? `(SĐT: ${fullComment.authorPhone})` : ''}\n` +
+            `💬 <b>Nội dung gấp:</b> <i>"${fullComment.content}"</i>\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Vui lòng vào hệ thống phản hồi ngay cho người dùng!</i>`;
+
+          this.sendTelegramNotification(urgentMsg, null, null, null, 'INCIDENT');
+        } catch (teleErr) {
+          console.warn('Lỗi gửi Telegram tin nhắn khẩn cấp:', teleErr);
+        }
+      }
+
       return { success: true, data: fullComment };
     } catch (err) {
       console.error('[ApiService] addComment error:', err);
       throw err;
+    }
+  },
+
+  // 9.1. Lấy danh sách bình luận / Tin nhắn theo mã phiếu hoặc targetId
+  async getComments(targetCodeOrId) {
+    try {
+      const db = this.getDb();
+      const snap = await db.collection('comments')
+        .where('targetCode', '==', targetCodeOrId)
+        .get();
+
+      let comments = [];
+      snap.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+
+      if (comments.length === 0) {
+        const snap2 = await db.collection('comments')
+          .where('targetId', '==', targetCodeOrId)
+          .get();
+        snap2.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+      }
+
+      comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      return comments;
+    } catch (e) {
+      console.warn('Lỗi lấy comments:', e);
+      return [];
     }
   },
 
