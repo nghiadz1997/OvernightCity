@@ -1020,6 +1020,7 @@ const TaskModalComponent = {
 
     try {
       await ApiService.reviewTask(item.id || item.code, targetType, {
+        code: item.code,
         approved: true,
         note: note
       });
@@ -1034,7 +1035,7 @@ const TaskModalComponent = {
       }
 
       SoundService.playSuccess();
-      Utils.showToast('Đã duyệt hoàn thành công việc!', 'success');
+      Utils.showToast('Đã duyệt hoàn thành công việc và gửi thông báo Telegram!', 'success');
       this.renderModal();
     } catch (err) {
       Utils.showToast('Lỗi: ' + err.message, 'error');
@@ -1060,6 +1061,7 @@ const TaskModalComponent = {
 
     try {
       await ApiService.reviewTask(item.id || item.code, targetType, {
+        code: item.code,
         approved: false,
         rejectionReason: reason
       });

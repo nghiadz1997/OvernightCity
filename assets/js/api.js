@@ -295,13 +295,17 @@ const ApiService = {
       const col = targetType === 'TASK' ? 'tasks' : 'reports';
 
       let docRef = db.collection(col).doc(targetId);
+      let targetDocData = null;
       const testSnap = await docRef.get();
       if (!testSnap.exists) {
         // Thử tìm theo code nếu targetId là mã phiếu
         const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
         if (!byCode.empty) {
           docRef = byCode.docs[0].ref;
+          targetDocData = byCode.docs[0].data();
         }
+      } else {
+        targetDocData = testSnap.data();
       }
 
       const updatePayload = {
@@ -320,7 +324,7 @@ const ApiService = {
       try {
         await db.collection('activity_logs').add({
           targetId,
-          targetCode: statusData.code || targetId,
+          targetCode: statusData.code || targetDocData?.code || targetId,
           action: statusData.status === 'CHỜ NGHIỆM THU' ? 'GỬI CHỜ NGHIỆM THU' : (statusData.status === 'ĐANG XỬ LÝ' ? 'BẮT ĐẦU XỬ LÝ' : 'CẬP NHẬT TRẠNG THÁI'),
           actorName: AuthService.getCurrentUser()?.displayName || 'Kỹ thuật viên',
           actorRole: AuthService.getCurrentUser()?.role || 'STAFF',
@@ -328,6 +332,34 @@ const ApiService = {
           timestamp: new Date().toISOString()
         });
       } catch (e) {}
+
+      // Tự động bắn thông báo Telegram khi Kỹ thuật viên gửi CHỜ NGHIỆM THU (KÈM ẢNH HOÀN THÀNH)
+      if (statusData.status === 'CHỜ NGHIỆM THU') {
+        try {
+          const photos = statusData.afterPhotos || targetDocData?.afterPhotos || [];
+          const afterPhoto = photos.length > 0 ? photos[photos.length - 1] : null;
+          const code = statusData.code || targetDocData?.code || targetId;
+          const title = targetDocData?.title || 'Bảo trì thiết bị CSVC';
+          const location = targetDocData?.location || '';
+          const room = targetDocData?.room ? `(${targetDocData.room})` : '';
+          const staffName = AuthService.getCurrentUser()?.displayName || targetDocData?.assignedToName || 'Kỹ thuật viên';
+
+          const teleMsg = `📋 <b>[NSG SUPPORT] BÁO CÁO HOÀN TẤT & CHỜ NGHIỆM THU!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `📝 <b>Nội dung:</b> ${title}\n` +
+            (location ? `📍 <b>Vị trí:</b> ${location} ${room}\n` : '') +
+            `👨‍🔧 <b>KTV thực hiện:</b> <b>${staffName}</b>\n` +
+            `💬 <b>Ghi chú KTV:</b> <i>"${statusData.note || 'Đã xử lý xong, chuyển chờ Trưởng phòng nghiệm thu.'}"</i>\n` +
+            `⏰ <b>Thời gian gửi:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Trưởng phòng & Ban Giám Hiệu vui lòng kiểm tra và duyệt nghiệm thu.</i>`;
+
+          this.sendTelegramNotification(teleMsg, null, null, afterPhoto, 'REVIEW');
+        } catch (teleErr) {
+          console.warn('Lỗi gửi Telegram khi gửi nghiệm thu:', teleErr);
+        }
+      }
 
       return { success: true };
     } catch (err) {
@@ -344,12 +376,16 @@ const ApiService = {
       const status = reviewData.approved ? 'HOÀN THÀNH' : 'ĐANG XỬ LÝ';
 
       let docRef = db.collection(col).doc(targetId);
+      let targetDocData = null;
       const testSnap = await docRef.get();
       if (!testSnap.exists) {
         const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
         if (!byCode.empty) {
           docRef = byCode.docs[0].ref;
+          targetDocData = byCode.docs[0].data();
         }
+      } else {
+        targetDocData = testSnap.data();
       }
 
       const updatePayload = {
@@ -366,18 +402,61 @@ const ApiService = {
 
       await docRef.set(updatePayload, { merge: true });
 
+      const reviewer = AuthService.getCurrentUser();
+      const reviewerRole = AuthService.getRoleLabel ? AuthService.getRoleLabel(reviewer?.role) : (reviewer?.role || 'Trưởng phòng');
+
       // Ghi nhật ký nghiệm thu
       try {
         await db.collection('activity_logs').add({
           targetId,
-          targetCode: reviewData.code || targetId,
+          targetCode: reviewData.code || targetDocData?.code || targetId,
           action: reviewData.approved ? 'DUYỆT NGHIỆM THU' : 'YÊU CẦU XỬ LÝ LẠI',
-          actorName: AuthService.getCurrentUser()?.displayName || 'Trưởng phòng Kỹ thuật',
-          actorRole: AuthService.getCurrentUser()?.role || 'MANAGER',
+          actorName: reviewer?.displayName || 'Trưởng phòng',
+          actorRole: reviewer?.role || 'MANAGER',
           details: reviewData.approved ? (reviewData.note || 'Duyệt hoàn thành') : reviewData.rejectionReason,
           timestamp: new Date().toISOString()
         });
       } catch (e) {}
+
+      // Tự động bắn thông báo Telegram khi DUYỆT HOÀN THÀNH hoặc YÊU CẦU LÀM LẠI
+      try {
+        const code = reviewData.code || targetDocData?.code || targetId;
+        const title = targetDocData?.title || 'Sự cố cơ sở vật chất';
+        const location = targetDocData?.location || '';
+        const room = targetDocData?.room ? `(${targetDocData.room})` : '';
+        const staffName = targetDocData?.assignedToName || 'Kỹ thuật viên';
+        const photos = targetDocData?.afterPhotos || [];
+        const afterPhoto = photos.length > 0 ? photos[photos.length - 1] : null;
+
+        if (reviewData.approved) {
+          const teleMsg = `✅ <b>[NSG SUPPORT] ĐÃ DUYỆT NGHIỆM THU HOÀN THÀNH!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `📝 <b>Nội dung:</b> ${title}\n` +
+            (location ? `📍 <b>Vị trí:</b> ${location} ${room}\n` : '') +
+            `👨‍🔧 <b>KTV thực hiện:</b> ${staffName}\n` +
+            `👔 <b>Người duyệt:</b> <b>${reviewer?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
+            `💬 <b>Đánh giá:</b> <i>"${reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao.'}"</i>\n` +
+            `🎉 <b>Trạng thái:</b> <b>ĐÃ HOÀN THÀNH & BÀN GIAO</b>\n` +
+            `⏰ <b>Thời gian duyệt:</b> ${new Date().toLocaleString('vi-VN')}`;
+
+          this.sendTelegramNotification(teleMsg, null, null, afterPhoto, 'REVIEW');
+        } else {
+          const teleMsg = `⚠️ <b>[NSG SUPPORT] YÊU CẦU XỬ LÝ LẠI CÔNG VIỆC!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🏷️ <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `📝 <b>Nội dung:</b> ${title}\n` +
+            `👨‍🔧 <b>KTV phụ trách:</b> <b>${staffName}</b>\n` +
+            `👔 <b>Người kiểm tra:</b> <b>${reviewer?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
+            `❌ <b>Lý do chưa đạt:</b> <i>"${reviewData.rejectionReason || 'Chưa đạt yêu cầu kỹ thuật.'}"</i>\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `👉 <i>Kỹ thuật viên vui lòng kiểm tra lại hiện trường và khắc phục theo yêu cầu!</i>`;
+
+          this.sendTelegramNotification(teleMsg, null, null, null, 'REVIEW');
+        }
+      } catch (teleErr) {
+        console.warn('Lỗi gửi Telegram khi duyệt nghiệm thu:', teleErr);
+      }
 
       return { success: true };
     } catch (err) {
@@ -601,8 +680,15 @@ const ApiService = {
   },
 
   async sendTelegramNotification(messageHtml, customToken = null, customChatId = null, photoData = null, channel = 'INCIDENT') {
-    const config = this.getTelegramConfig();
+    let config = this.getTelegramConfig();
     
+    // Nếu chưa có config trong localStorage, tự động tải trực tiếp từ Cloud Firestore
+    if (!customToken && ((!config.botToken && !config.reviewBotToken) || (!config.chatId && !config.reviewChatId))) {
+      try {
+        config = await this.loadTelegramConfig();
+      } catch (e) {}
+    }
+
     // Phân loại Token và ChatId theo kênh (INCIDENT: Báo sự cố mới | REVIEW: Nghiệm thu hoàn tất)
     let token = '';
     let chatId = '';
