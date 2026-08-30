@@ -639,33 +639,101 @@ const TaskModalComponent = {
   // ==========================================
   // FORM PHÂN CÔNG (GIAO PHÓ PHÒNG / ĐA KỸ THUẬT VIÊN)
   // ==========================================
+  activeTechCategoryFilter: 'ALL',
+
   updateAssignTechCount() {
     const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
     const badge = document.getElementById('assign-tech-count-badge');
     if (badge) {
       if (checkboxes.length === 0) {
         badge.innerText = 'Chưa chọn KTV';
-        badge.className = 'text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200';
+        badge.className = 'text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200';
       } else {
         const names = Array.from(checkboxes).map(c => c.getAttribute('data-name')).join(', ');
-        badge.innerText = `Đã chọn: ${checkboxes.length} người (${names})`;
-        badge.className = 'text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200';
+        badge.innerText = `👥 Đã chọn: ${checkboxes.length} người (${names})`;
+        badge.className = 'text-xs font-black text-indigo-700 bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100 px-3 py-1 rounded-xl border';
       }
     }
+  },
+
+  filterTechCategory(categoryKey) {
+    this.activeTechCategoryFilter = categoryKey;
+    const items = document.querySelectorAll('.assign-tech-item');
+    const searchVal = (document.getElementById('assign-tech-search')?.value || '').toLowerCase().trim();
+
+    items.forEach(el => {
+      const itemCat = el.getAttribute('data-tech-cat');
+      const name = (el.getAttribute('data-tech-name') || '').toLowerCase();
+      const matchSearch = !searchVal || name.includes(searchVal);
+      const matchCat = categoryKey === 'ALL' || itemCat === categoryKey;
+
+      if (matchSearch && matchCat) {
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'none';
+      }
+    });
+
+    const tabs = document.querySelectorAll('.assign-tech-cat-tab');
+    tabs.forEach(t => {
+      if (t.getAttribute('data-cat') === categoryKey) {
+        t.className = 'assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] shadow-2xs cursor-pointer whitespace-nowrap';
+      } else {
+        t.className = 'assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer whitespace-nowrap';
+      }
+    });
+  },
+
+  filterTechList(query) {
+    const searchVal = (query || '').toLowerCase().trim();
+    const items = document.querySelectorAll('.assign-tech-item');
+    const categoryKey = this.activeTechCategoryFilter || 'ALL';
+
+    items.forEach(el => {
+      const itemCat = el.getAttribute('data-tech-cat');
+      const name = (el.getAttribute('data-tech-name') || '').toLowerCase();
+      const matchSearch = !searchVal || name.includes(searchVal);
+      const matchCat = categoryKey === 'ALL' || itemCat === categoryKey;
+
+      if (matchSearch && matchCat) {
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'none';
+      }
+    });
+  },
+
+  clearSelectedTechs() {
+    const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    this.updateAssignTechCount();
   },
 
   renderAssignForm(targetType) {
     const item = this.currentData;
     const isHead = AuthService.isDepartmentHead();
 
-    const staffList = this.staffList || [];
+    let staffList = this.staffList || [];
+    if (staffList.length === 0) {
+      staffList = [
+        { uid: 'staff_it_1', displayName: 'Chuyên viên IT (Bùi Tuấn Thanh)', role: 'STAFF_IT' },
+        { uid: 'staff_maint_1', displayName: 'Chuyên viên Bảo trì CSVC (Nguyễn Văn A)', role: 'STAFF_MAINTENANCE' },
+        { uid: 'staff_maint_2', displayName: 'Chuyên viên Kỹ thuật (Trần Văn B)', role: 'STAFF_MAINTENANCE' },
+        { uid: 'staff_ktx_1', displayName: 'Kỹ thuật viên KTX (Lê Văn C)', role: 'STAFF_KTX' },
+        { uid: 'staff_green_1', displayName: 'Nhân viên Cây Xanh (Phạm Văn D)', role: 'STAFF_GREEN' },
+        { uid: 'staff_clean_1', displayName: 'Nhân viên Tạp Vụ (Hoàng Thị E)', role: 'STAFF_CLEANING' }
+      ];
+    }
+
     const deputies = staffList.filter(u => u.role === 'DEPUTY_MANAGER');
     const itStaff = staffList.filter(u => u.role === 'STAFF_IT');
     const maintStaff = staffList.filter(u => u.role === 'STAFF_MAINTENANCE' || u.role === 'STAFF');
     const ktxStaff = staffList.filter(u => u.role === 'STAFF_KTX');
     const greenStaff = staffList.filter(u => u.role === 'STAFF_GREEN');
     const cleanStaff = staffList.filter(u => u.role === 'STAFF_CLEANING');
-    const otherStaff = staffList.filter(u => !['DEPUTY_MANAGER', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF', 'STAFF_KTX', 'STAFF_GREEN', 'STAFF_CLEANING', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(u.role));
+    
+    // Tất cả nhân viên có thể tham gia xử lý kỹ thuật
+    const allStaff = staffList.filter(u => !['SUPER_ADMIN', 'ADMIN', 'USER'].includes(u.role));
 
     // Lấy danh sách UID kỹ thuật viên đã được chọn
     const currentAssignedIds = Array.isArray(item.assignedToIds)
@@ -697,88 +765,80 @@ const TaskModalComponent = {
         ` : ''}
 
         <!-- 2. Chọn 1 hoặc NHIỀU Kỹ thuật viên cùng phối hợp làm -->
-        <div class="space-y-2">
-          <div class="flex items-center justify-between flex-wrap gap-1">
-            <label class="block text-[11px] font-extrabold text-slate-800 flex items-center gap-1.5">
-              <i class="fa-solid fa-users text-indigo-600"></i>
-              <span>Chọn Kỹ thuật viên thực hiện (Có thể tick chọn từ 2 người trở lên để hỗ trợ nhau):</span>
-            </label>
-            <span id="assign-tech-count-badge" class="text-[10px] font-bold ${currentAssignedIds.length > 0 ? 'text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-slate-500 bg-slate-100 border-slate-200'} px-2 py-0.5 rounded-md border">
-              ${currentAssignedIds.length > 0 ? `Đã chọn: ${currentAssignedIds.length} người` : 'Chưa chọn KTV'}
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <label class="block text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                <i class="fa-solid fa-users text-indigo-600"></i>
+                <span>🔧 Chọn Kỹ thuật viên phụ trách thực hiện (Có thể tick chọn nhiều người cùng làm):</span>
+              </label>
+              <span class="text-[11px] text-slate-500">Tick chọn từ 2 người trở lên nếu công việc cần nhiều người phối hợp.</span>
+            </div>
+            <span id="assign-tech-count-badge" class="text-xs font-black ${currentAssignedIds.length > 0 ? 'text-indigo-700 bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'text-slate-500 bg-slate-100 border-slate-200'} px-3 py-1 rounded-xl border">
+              ${currentAssignedIds.length > 0 ? `👥 Đã chọn: ${currentAssignedIds.length} người` : 'Chưa chọn KTV'}
             </span>
           </div>
 
-          <!-- Khung danh sách chọn đa KTV có scroll -->
-          <div class="max-h-56 overflow-y-auto p-3 rounded-xl border border-slate-300 bg-white space-y-3 shadow-inner">
-            ${itStaff.length > 0 ? `
-              <div>
-                <span class="text-[10px] font-black uppercase text-cyan-800 tracking-wider block mb-1">💻 Chuyên viên IT & Thiết bị:</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  ${itStaff.map(u => `
-                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 transition-colors cursor-pointer text-xs">
-                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-cyan-600 focus:ring-cyan-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
-                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
-                    </label>
-                  `).join('')}
-                </div>
+          <!-- Quick Actions & Search Bar -->
+          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input type="text" id="assign-tech-search" class="w-full text-xs pl-8 pr-3 py-2 rounded-lg border border-slate-300 bg-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 font-medium" placeholder="🔍 Tìm nhanh KTV theo tên..." oninput="TaskModalComponent.filterTechList(this.value)">
               </div>
-            ` : ''}
+              <button type="button" class="px-2.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer whitespace-nowrap" onclick="TaskModalComponent.clearSelectedTechs()">
+                Bỏ chọn hết
+              </button>
+            </div>
 
-            ${maintStaff.length > 0 ? `
-              <div>
-                <span class="text-[10px] font-black uppercase text-orange-800 tracking-wider block mb-1">🔧 Chuyên viên Bảo trì / CSVC:</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  ${maintStaff.map(u => `
-                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-300 transition-colors cursor-pointer text-xs">
-                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-orange-600 focus:ring-orange-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
-                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
+            <!-- Category Filter Tabs -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs font-bold pt-1">
+              <button type="button" class="assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] shadow-2xs cursor-pointer whitespace-nowrap" data-cat="ALL" onclick="TaskModalComponent.filterTechCategory('ALL')">
+                Tất cả (${allStaff.length})
+              </button>
+              ${itStaff.length > 0 ? `
+                <button type="button" class="assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer whitespace-nowrap" data-cat="IT" onclick="TaskModalComponent.filterTechCategory('IT')">
+                  💻 IT (${itStaff.length})
+                </button>
+              ` : ''}
+              ${maintStaff.length > 0 ? `
+                <button type="button" class="assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer whitespace-nowrap" data-cat="MAINTENANCE" onclick="TaskModalComponent.filterTechCategory('MAINTENANCE')">
+                  🔧 Bảo trì / CSVC (${maintStaff.length})
+                </button>
+              ` : ''}
+              ${ktxStaff.length > 0 ? `
+                <button type="button" class="assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer whitespace-nowrap" data-cat="KTX" onclick="TaskModalComponent.filterTechCategory('KTX')">
+                  🏢 KTX (${ktxStaff.length})
+                </button>
+              ` : ''}
+              ${(greenStaff.length > 0 || cleanStaff.length > 0) ? `
+                <button type="button" class="assign-tech-cat-tab px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer whitespace-nowrap" data-cat="GREEN_CLEAN" onclick="TaskModalComponent.filterTechCategory('GREEN_CLEAN')">
+                  🌿 Cây xanh & Tạp vụ (${greenStaff.length + cleanStaff.length})
+                </button>
+              ` : ''}
+            </div>
+          </div>
 
-            ${ktxStaff.length > 0 ? `
-              <div>
-                <span class="text-[10px] font-black uppercase text-indigo-800 tracking-wider block mb-1">🏢 Kỹ thuật viên Ký Túc Xá:</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  ${ktxStaff.map(u => `
-                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 transition-colors cursor-pointer text-xs">
-                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-indigo-600 focus:ring-indigo-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
-                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-
-            ${(greenStaff.length > 0 || cleanStaff.length > 0) ? `
-              <div>
-                <span class="text-[10px] font-black uppercase text-emerald-800 tracking-wider block mb-1">🌿 Cây Xanh & Tạp Vụ:</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {[...greenStaff, ...cleanStaff].map(u => `
-                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer text-xs">
-                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-emerald-600 focus:ring-emerald-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
-                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email} (${AuthService.getRoleLabel(u.role)})</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-
-            ${otherStaff.length > 0 ? `
-              <div>
-                <span class="text-[10px] font-black uppercase text-slate-700 tracking-wider block mb-1">👥 Nhân sự khác:</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  ${otherStaff.map(u => `
-                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer text-xs">
-                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-blue-600 focus:ring-blue-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
-                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
+          <!-- Danh sách KTV (Dạng lưới 2 cột có Checkbox) -->
+          <div id="assign-tech-list-container" class="max-h-60 overflow-y-auto p-2 rounded-xl border border-slate-300 bg-white grid grid-cols-1 sm:grid-cols-2 gap-2 shadow-inner">
+            ${allStaff.map(u => {
+              const catKey = u.role === 'STAFF_IT' ? 'IT' : (['STAFF_MAINTENANCE', 'STAFF'].includes(u.role) ? 'MAINTENANCE' : (u.role === 'STAFF_KTX' ? 'KTX' : (['STAFF_GREEN', 'STAFF_CLEANING'].includes(u.role) ? 'GREEN_CLEAN' : 'OTHER')));
+              return `
+                <label class="assign-tech-item flex items-center justify-between p-2 rounded-xl bg-slate-50/80 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer" data-tech-cat="${catKey}" data-tech-name="${u.displayName || u.email}">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role || 'STAFF'}" data-tech-cat="${catKey}" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-extrabold text-xs text-slate-900 truncate">${u.displayName || u.email}</span>
+                      </div>
+                      <div class="flex items-center gap-1 mt-0.5">
+                        ${Utils.renderRoleBadge(u.role || 'STAFF')}
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              `;
+            }).join('')}
           </div>
         </div>
 
