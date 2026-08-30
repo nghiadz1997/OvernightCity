@@ -382,6 +382,7 @@ const CreateTaskPage = {
         const isSuperAdmin = AuthService.isSuperAdmin();
         const isSchoolAdmin = AuthService.isSchoolAdmin(); // Ban Giám Hiệu
         const isHead = AuthService.isDepartmentHead(); // Trưởng phòng
+        const isDeputy = AuthService.isDeputyManager(); // Phó Trưởng phòng
 
         let allowedRoles = [];
         if (isSchoolAdmin) {
@@ -389,10 +390,14 @@ const CreateTaskPage = {
           allowedRoles = ['MANAGER', 'DEPUTY_MANAGER'];
           const deptSelect = document.getElementById('task-department');
           if (deptSelect) deptSelect.value = 'Phòng Quản trị Thiết bị và Cơ sở vật chất';
-        } else if (isHead || isSuperAdmin) {
-          allowedRoles = isSuperAdmin 
-            ? ['MANAGER', 'DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX']
-            : ['DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+        } else if (isSuperAdmin) {
+          allowedRoles = ['MANAGER', 'DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+        } else if (isHead) {
+          // Trưởng phòng có thể giao cho Phó phòng hoặc Kỹ thuật viên
+          allowedRoles = ['DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+        } else if (isDeputy) {
+          // Phó Trưởng phòng TUYỆT ĐỐI CHỈ giao việc cho Kỹ thuật viên
+          allowedRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
         } else {
           allowedRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
         }

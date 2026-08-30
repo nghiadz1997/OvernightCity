@@ -725,6 +725,8 @@ const TaskModalComponent = {
       ];
     }
 
+    const TECH_ROLES = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
+
     const deputies = staffList.filter(u => u.role === 'DEPUTY_MANAGER');
     const itStaff = staffList.filter(u => u.role === 'STAFF_IT');
     const maintStaff = staffList.filter(u => u.role === 'STAFF_MAINTENANCE' || u.role === 'STAFF');
@@ -732,8 +734,8 @@ const TaskModalComponent = {
     const greenStaff = staffList.filter(u => u.role === 'STAFF_GREEN');
     const cleanStaff = staffList.filter(u => u.role === 'STAFF_CLEANING');
     
-    // Tất cả nhân viên có thể tham gia xử lý kỹ thuật
-    const allStaff = staffList.filter(u => !['SUPER_ADMIN', 'ADMIN', 'USER'].includes(u.role));
+    // Danh sách Kỹ thuật viên thực hiện (Tuyệt đối chỉ lấy KTV, không lấy Manager / Deputy / Admin / User)
+    const allStaff = staffList.filter(u => TECH_ROLES.includes(u.role));
 
     // Lấy danh sách UID kỹ thuật viên đã được chọn
     const currentAssignedIds = Array.isArray(item.assignedToIds)
@@ -746,7 +748,7 @@ const TaskModalComponent = {
 
     return `
       <form onsubmit="TaskModalComponent.handleAssignSubmit(event)" class="space-y-4">
-        <!-- 1. Chọn Người quản lý (Phó phòng điều phối) nếu là Trưởng phòng -->
+        <!-- 1. Chọn Người quản lý (Phó phòng điều phối) - CHỈ DÀNH CHO TRƯỞNG PHÒNG -->
         ${isHead ? `
           <div class="p-3 rounded-xl border border-purple-200 bg-purple-50/40 space-y-1.5">
             <label class="block text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
@@ -1022,8 +1024,11 @@ const TaskModalComponent = {
     const deadlineInput = document.getElementById('assign-deadline-input');
     const noteInput = document.getElementById('assign-note-input');
 
-    const managerId = managerSelect ? managerSelect.value : (item.assignedManagerId || null);
-    const managerName = managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null);
+    const currentUser = AuthService.getCurrentUser();
+    const isDeputy = AuthService.isDeputyManager();
+
+    const managerId = isDeputy ? currentUser?.uid : (managerSelect ? managerSelect.value : (item.assignedManagerId || null));
+    const managerName = isDeputy ? (currentUser?.displayName || 'Phó Trưởng phòng') : (managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null));
 
     // Lấy danh sách kỹ thuật viên được tick chọn (hỗ trợ 1 người hoặc nhóm 2-3 KTV)
     const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
@@ -1036,6 +1041,11 @@ const TaskModalComponent = {
     const assignedToIds = assignees.map(a => a.uid);
     const assignedToName = assignees.length > 0 ? assignees.map(a => a.name).join(', ') : null;
     const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : (assignedToIds.length > 1 ? assignedToIds : null);
+
+    if (isDeputy && assignees.length === 0) {
+      Utils.showToast('Phó Trưởng phòng vui lòng tick chọn ít nhất 1 Kỹ thuật viên để giao việc!', 'warning');
+      return;
+    }
 
     if (!managerId && assignees.length === 0) {
       Utils.showToast('Vui lòng chọn Phó phòng điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
