@@ -61,9 +61,9 @@ const TaskCardComponent = {
               </span>
             </div>
             <div class="flex items-center gap-1.5 truncate">
-              <i class="fa-solid fa-screwdriver-wrench text-indigo-600"></i>
+              <i class="fa-solid ${item.assignedToName && item.assignedToName.includes(',') ? 'fa-users text-indigo-600' : 'fa-screwdriver-wrench text-indigo-600'}"></i>
               <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate" title="${item.assignedToName || 'Chưa phân công'}">
-                ${item.assignedToName ? `KTV: ${item.assignedToName}` : 'KTV: Chưa phân công'}
+                ${item.assignedToName ? (item.assignedToName.includes(',') ? `👥 ${item.assignedToName}` : `KTV: ${item.assignedToName}`) : 'KTV: Chưa phân công'}
               </span>
             </div>
           </div>

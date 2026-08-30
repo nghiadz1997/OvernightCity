@@ -268,7 +268,9 @@ const ApiService = {
       // 5. Xác định chi tiết hành động cho Timeline
       let logDetail = assignData.logDetails;
       if (!logDetail) {
-        if (updatePayload.assignedToName && updatePayload.assignedManagerName) {
+        if (updatePayload.assignedToName && updatePayload.assignedToName.includes(',')) {
+          logDetail = `Phân công cho nhóm KTV: ${updatePayload.assignedToName}${updatePayload.assignedManagerName ? ` (Do ${updatePayload.assignedManagerName} điều phối)` : ''}`;
+        } else if (updatePayload.assignedToName && updatePayload.assignedManagerName) {
           logDetail = `Chỉ định KTV ${updatePayload.assignedToName} (Do ${updatePayload.assignedManagerName} điều phối)`;
         } else if (updatePayload.assignedToName) {
           logDetail = `Phân công cho KTV: ${updatePayload.assignedToName}`;

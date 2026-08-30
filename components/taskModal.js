@@ -290,8 +290,8 @@ const TaskModalComponent = {
 
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
                 <span class="text-slate-500">Kỹ thuật thực hiện:</span>
-                <span class="font-bold ${techName ? 'text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200' : 'text-slate-400 italic'}">
-                  ${techName ? `🔧 ${techName}` : 'Chưa phân công'}
+                <span class="font-bold ${techName ? 'text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200' : 'text-slate-400 italic'} truncate max-w-[65%]" title="${techName || ''}">
+                  ${techName ? (techName.includes(',') ? `👥 ${techName}` : `🔧 ${techName}`) : 'Chưa phân công'}
                 </span>
               </div>
 
@@ -637,76 +637,161 @@ const TaskModalComponent = {
   },
 
   // ==========================================
-  // FORM PHÂN CÔNG (GIAO PHÓ PHÒNG / KỸ THUẬT)
+  // FORM PHÂN CÔNG (GIAO PHÓ PHÒNG / ĐA KỸ THUẬT VIÊN)
   // ==========================================
+  updateAssignTechCount() {
+    const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
+    const badge = document.getElementById('assign-tech-count-badge');
+    if (badge) {
+      if (checkboxes.length === 0) {
+        badge.innerText = 'Chưa chọn KTV';
+        badge.className = 'text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200';
+      } else {
+        const names = Array.from(checkboxes).map(c => c.getAttribute('data-name')).join(', ');
+        badge.innerText = `Đã chọn: ${checkboxes.length} người (${names})`;
+        badge.className = 'text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200';
+      }
+    }
+  },
+
   renderAssignForm(targetType) {
     const item = this.currentData;
     const isHead = AuthService.isDepartmentHead();
 
     const staffList = this.staffList || [];
     const deputies = staffList.filter(u => u.role === 'DEPUTY_MANAGER');
-    const technicians = staffList.filter(u => ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'].includes(u.role));
+    const itStaff = staffList.filter(u => u.role === 'STAFF_IT');
+    const maintStaff = staffList.filter(u => u.role === 'STAFF_MAINTENANCE' || u.role === 'STAFF');
+    const ktxStaff = staffList.filter(u => u.role === 'STAFF_KTX');
+    const greenStaff = staffList.filter(u => u.role === 'STAFF_GREEN');
+    const cleanStaff = staffList.filter(u => u.role === 'STAFF_CLEANING');
+    const otherStaff = staffList.filter(u => !['DEPUTY_MANAGER', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF', 'STAFF_KTX', 'STAFF_GREEN', 'STAFF_CLEANING', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(u.role));
+
+    // Lấy danh sách UID kỹ thuật viên đã được chọn
+    const currentAssignedIds = Array.isArray(item.assignedToIds)
+      ? item.assignedToIds
+      : (Array.isArray(item.assignedTo)
+          ? item.assignedTo
+          : (typeof item.assignedTo === 'string'
+              ? item.assignedTo.split(',').map(s => s.trim())
+              : []));
 
     return `
-      <form onsubmit="TaskModalComponent.handleAssignSubmit(event)" class="space-y-3">
-        <!-- 1. Chọn Người quản lý (Phó phòng) nếu là Trưởng phòng -->
+      <form onsubmit="TaskModalComponent.handleAssignSubmit(event)" class="space-y-4">
+        <!-- 1. Chọn Người quản lý (Phó phòng điều phối) nếu là Trưởng phòng -->
         ${isHead ? `
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[11px] font-bold text-purple-900 mb-1">
-                🎖️ Giao cho Phó phòng điều phối (Tùy chọn):
-              </label>
-              <select id="assign-manager-select" class="w-full text-xs p-2.5 rounded-xl border border-purple-300 focus:ring-2 focus:ring-purple-500 font-medium bg-purple-50/30">
-                <option value="">-- Trưởng phòng trực tiếp quản lý --</option>
-                ${deputies.map(d => `
-                  <option value="${d.uid}" data-name="${d.displayName || d.email}" ${item.assignedManagerId === d.uid || item.deputyId === d.uid ? 'selected' : ''}>
-                    Phó phòng: ${d.displayName || d.email}
-                  </option>
-                `).join('')}
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold text-indigo-900 mb-1">
-                🔧 Hoặc giao thẳng Kỹ thuật viên thực hiện:
-              </label>
-              <select id="assign-tech-select" class="w-full text-xs p-2.5 rounded-xl border border-indigo-300 focus:ring-2 focus:ring-indigo-500 font-medium bg-indigo-50/30">
-                <option value="">-- Để Phó phòng tự chọn KTV sau --</option>
-                ${technicians.map(t => `
-                  <option value="${t.uid}" data-name="${t.displayName || t.email}" data-role="${t.role}" ${item.assignedTo === t.uid ? 'selected' : ''}>
-                    ${t.displayName || t.email} (${AuthService.getRoleLabel(t.role)})
-                  </option>
-                `).join('')}
-              </select>
-            </div>
-          </div>
-        ` : `
-          <!-- Nếu là Phó phòng: Chọn Kỹ thuật viên trực tiếp -->
-          <div>
-            <label class="block text-[11px] font-bold text-indigo-900 mb-1">
-              🔧 Chọn Kỹ thuật viên phụ trách thực hiện:
+          <div class="p-3 rounded-xl border border-purple-200 bg-purple-50/40 space-y-1.5">
+            <label class="block text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
+              <i class="fa-solid fa-user-tie text-purple-600"></i>
+              <span>Giao Phó Trưởng phòng điều phối (Tùy chọn):</span>
             </label>
-            <select id="assign-tech-select" class="w-full text-xs p-2.5 rounded-xl border border-indigo-300 focus:ring-2 focus:ring-indigo-500 font-medium bg-indigo-50/30" required>
-              <option value="">-- Chọn Kỹ thuật viên --</option>
-              ${technicians.map(t => `
-                <option value="${t.uid}" data-name="${t.displayName || t.email}" data-role="${t.role}" ${item.assignedTo === t.uid ? 'selected' : ''}>
-                  ${t.displayName || t.email} (${AuthService.getRoleLabel(t.role)})
+            <select id="assign-manager-select" class="w-full text-xs p-2.5 rounded-xl border border-purple-300 focus:ring-2 focus:ring-purple-500 font-medium bg-white">
+              <option value="">-- Trưởng phòng trực tiếp quản lý & phân công --</option>
+              ${deputies.map(d => `
+                <option value="${d.uid}" data-name="${d.displayName || d.email}" ${item.assignedManagerId === d.uid || item.deputyId === d.uid ? 'selected' : ''}>
+                  Phó phòng: ${d.displayName || d.email}
                 </option>
               `).join('')}
             </select>
           </div>
-        `}
+        ` : ''}
 
-        <!-- 2. Hạn xử lý & Mức độ ưu tiên -->
+        <!-- 2. Chọn 1 hoặc NHIỀU Kỹ thuật viên cùng phối hợp làm -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between flex-wrap gap-1">
+            <label class="block text-[11px] font-extrabold text-slate-800 flex items-center gap-1.5">
+              <i class="fa-solid fa-users text-indigo-600"></i>
+              <span>Chọn Kỹ thuật viên thực hiện (Có thể tick chọn từ 2 người trở lên để hỗ trợ nhau):</span>
+            </label>
+            <span id="assign-tech-count-badge" class="text-[10px] font-bold ${currentAssignedIds.length > 0 ? 'text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-slate-500 bg-slate-100 border-slate-200'} px-2 py-0.5 rounded-md border">
+              ${currentAssignedIds.length > 0 ? `Đã chọn: ${currentAssignedIds.length} người` : 'Chưa chọn KTV'}
+            </span>
+          </div>
+
+          <!-- Khung danh sách chọn đa KTV có scroll -->
+          <div class="max-h-56 overflow-y-auto p-3 rounded-xl border border-slate-300 bg-white space-y-3 shadow-inner">
+            ${itStaff.length > 0 ? `
+              <div>
+                <span class="text-[10px] font-black uppercase text-cyan-800 tracking-wider block mb-1">💻 Chuyên viên IT & Thiết bị:</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  ${itStaff.map(u => `
+                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 transition-colors cursor-pointer text-xs">
+                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-cyan-600 focus:ring-cyan-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${maintStaff.length > 0 ? `
+              <div>
+                <span class="text-[10px] font-black uppercase text-orange-800 tracking-wider block mb-1">🔧 Chuyên viên Bảo trì / CSVC:</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  ${maintStaff.map(u => `
+                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-300 transition-colors cursor-pointer text-xs">
+                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-orange-600 focus:ring-orange-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${ktxStaff.length > 0 ? `
+              <div>
+                <span class="text-[10px] font-black uppercase text-indigo-800 tracking-wider block mb-1">🏢 Kỹ thuật viên Ký Túc Xá:</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  ${ktxStaff.map(u => `
+                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 transition-colors cursor-pointer text-xs">
+                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-indigo-600 focus:ring-indigo-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${(greenStaff.length > 0 || cleanStaff.length > 0) ? `
+              <div>
+                <span class="text-[10px] font-black uppercase text-emerald-800 tracking-wider block mb-1">🌿 Cây Xanh & Tạp Vụ:</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {[...greenStaff, ...cleanStaff].map(u => `
+                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer text-xs">
+                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-emerald-600 focus:ring-emerald-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email} (${AuthService.getRoleLabel(u.role)})</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${otherStaff.length > 0 ? `
+              <div>
+                <span class="text-[10px] font-black uppercase text-slate-700 tracking-wider block mb-1">👥 Nhân sự khác:</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  ${otherStaff.map(u => `
+                    <label class="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer text-xs">
+                      <input type="checkbox" name="assign_tech_checkbox" value="${u.uid}" data-name="${u.displayName || u.email}" data-role="${u.role}" class="rounded text-blue-600 focus:ring-blue-500" ${currentAssignedIds.includes(u.uid) ? 'checked' : ''} onchange="TaskModalComponent.updateAssignTechCount()">
+                      <span class="font-bold text-slate-800 truncate">${u.displayName || u.email}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- 3. Hạn xử lý & Mức độ ưu tiên -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-[11px] font-bold text-slate-700 mb-1">Hạn hoàn thành (Deadline):</label>
-            <input type="date" id="assign-deadline-input" class="w-full text-xs p-2 rounded-xl border border-slate-300 font-medium" value="${item.deadline ? item.deadline.split('T')[0] : ''}">
+            <input type="date" id="assign-deadline-input" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium" value="${item.deadline ? item.deadline.split('T')[0] : ''}">
           </div>
 
           <div>
             <label class="block text-[11px] font-bold text-slate-700 mb-1">Mức độ ưu tiên:</label>
-            <select id="assign-priority-select" class="w-full text-xs p-2 rounded-xl border border-slate-300 font-medium">
+            <select id="assign-priority-select" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium">
               <option value="BÌNH THƯỜNG" ${item.priority === 'BÌNH THƯỜNG' ? 'selected' : ''}>🟢 Bình thường</option>
               <option value="TRUNG BÌNH" ${item.priority === 'TRUNG BÌNH' ? 'selected' : ''}>🟡 Trung bình</option>
               <option value="CAO" ${item.priority === 'CAO' ? 'selected' : ''}>🟠 Cao</option>
@@ -717,7 +802,7 @@ const TaskModalComponent = {
 
         <div>
           <label class="block text-[11px] font-bold text-slate-700 mb-1">Chỉ đạo / Ghi chú giao việc:</label>
-          <input type="text" id="assign-note-input" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium" placeholder="Ví dụ: Kiểm tra gấp trong buổi sáng..." value="${item.assignmentNote || ''}">
+          <input type="text" id="assign-note-input" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium" placeholder="Ví dụ: Cần 2-3 người phối hợp kiểm tra và khắc phục..." value="${item.assignmentNote || ''}">
         </div>
 
         <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5">
@@ -873,7 +958,6 @@ const TaskModalComponent = {
     const targetType = isReport ? 'REPORT' : 'TASK';
 
     const managerSelect = document.getElementById('assign-manager-select');
-    const techSelect = document.getElementById('assign-tech-select');
     const prioritySelect = document.getElementById('assign-priority-select');
     const deadlineInput = document.getElementById('assign-deadline-input');
     const noteInput = document.getElementById('assign-note-input');
@@ -881,12 +965,20 @@ const TaskModalComponent = {
     const managerId = managerSelect ? managerSelect.value : (item.assignedManagerId || null);
     const managerName = managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null);
 
-    const techId = techSelect ? techSelect.value : (item.assignedTo || null);
-    const techName = techSelect && techSelect.selectedIndex > 0 ? techSelect.options[techSelect.selectedIndex].getAttribute('data-name') : (item.assignedToName || null);
-    const techRole = techSelect && techSelect.selectedIndex > 0 ? techSelect.options[techSelect.selectedIndex].getAttribute('data-role') : 'STAFF';
+    // Lấy danh sách kỹ thuật viên được tick chọn (hỗ trợ 1 người hoặc nhóm 2-3 KTV)
+    const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
+    const assignees = Array.from(checkboxes).map(cb => ({
+      uid: cb.value,
+      name: cb.getAttribute('data-name'),
+      role: cb.getAttribute('data-role')
+    }));
 
-    if (!managerId && !techId) {
-      Utils.showToast('Vui lòng chọn Phó phòng điều phối hoặc Kỹ thuật viên thực hiện!', 'warning');
+    const assignedToIds = assignees.map(a => a.uid);
+    const assignedToName = assignees.length > 0 ? assignees.map(a => a.name).join(', ') : null;
+    const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : (assignedToIds.length > 1 ? assignedToIds : null);
+
+    if (!managerId && assignees.length === 0) {
+      Utils.showToast('Vui lòng chọn Phó phòng điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
       return;
     }
 
@@ -894,9 +986,10 @@ const TaskModalComponent = {
       managerId,
       managerName,
       managerRole: 'DEPUTY_MANAGER',
-      technicianId: techId,
-      technicianName: techName,
-      technicianRole: techRole,
+      technicianId: assignedTo,
+      technicianName: assignedToName,
+      technicianIds: assignedToIds,
+      assignees: assignees,
       priority: prioritySelect ? prioritySelect.value : item.priority,
       deadline: deadlineInput ? deadlineInput.value : item.deadline,
       assignmentNote: noteInput ? noteInput.value.trim() : '',
@@ -909,8 +1002,10 @@ const TaskModalComponent = {
       // Cập nhật client item state
       item.assignedManagerId = managerId;
       item.assignedManagerName = managerName;
-      item.assignedTo = techId;
-      item.assignedToName = techName;
+      item.assignedTo = assignedTo;
+      item.assignedToName = assignedToName;
+      item.assignedToIds = assignedToIds;
+      item.assignees = assignees;
       item.status = 'ĐÃ PHÂN CÔNG';
       if (payload.priority) item.priority = payload.priority;
       if (payload.deadline) item.deadline = payload.deadline;
@@ -918,7 +1013,8 @@ const TaskModalComponent = {
 
       RealtimeService.handleIncomingReport(item);
       SoundService.playSuccess();
-      Utils.showToast('Đã phân công công việc thành công!', 'success');
+      const countMsg = assignees.length > 1 ? `Đã phân công cho nhóm ${assignees.length} kỹ thuật viên (${assignedToName})!` : `Đã phân công công việc thành công cho ${assignedToName || managerName}!`;
+      Utils.showToast(countMsg, 'success');
       this.renderModal();
     } catch (err) {
       Utils.showToast('Lỗi khi phân công: ' + err.message, 'error');
