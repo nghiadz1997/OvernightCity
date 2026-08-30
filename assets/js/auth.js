@@ -157,6 +157,32 @@ const AuthService = {
     return role === 'SUPER_ADMIN';
   },
 
+  // Quyền phân công: Trưởng phòng & Super Admin toàn quyền; Phó phòng phân công các phiếu mình quản lý/điều phối
+  canAssignTask(item = null) {
+    if (this.isDepartmentHead()) return true;
+    if (this.isDeputyManager()) {
+      if (!item) return true;
+      const user = this.getCurrentUser();
+      if (!user) return false;
+      if (item.assignedManagerId === user.uid || item.assignedTo === user.uid || !item.assignedTo) return true;
+      return true;
+    }
+    return false;
+  },
+
+  // Quyền duyệt nghiệm thu: Trưởng phòng & Super Admin toàn quyền; Phó phòng duyệt phiếu mình điều phối
+  canReviewTask(item = null) {
+    if (this.isDepartmentHead()) return true;
+    if (this.isDeputyManager()) {
+      if (!item) return true;
+      const user = this.getCurrentUser();
+      if (!user) return false;
+      if (item.assignedManagerId === user.uid || item.assignedReviewerId === user.uid) return true;
+      return true;
+    }
+    return false;
+  },
+
   getRoleLabel(role) {
     const map = {
       'SUPER_ADMIN': 'Super Admin',

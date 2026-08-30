@@ -198,47 +198,118 @@ const ApiService = {
     }
   },
 
-  // 6. Phân công công việc cho kỹ thuật viên (Hỗ trợ 1 người hoặc nhóm 2-3 KTV)
+  // 6. Phân công công việc (Hỗ trợ: Giao Phó phòng điều phối, Giao thẳng Kỹ thuật viên, hoặc Nhóm KTV)
   async assignTask(targetId, targetType, assignData) {
     try {
       const db = this.getDb();
       const col = targetType === 'TASK' ? 'tasks' : 'reports';
-      const docRef = db.collection(col).doc(targetId);
+      let docRef = db.collection(col).doc(targetId);
+      let targetDocData = null;
+      const testSnap = await docRef.get();
+      if (!testSnap.exists) {
+        const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
+        if (!byCode.empty) {
+          docRef = byCode.docs[0].ref;
+          targetDocData = byCode.docs[0].data();
+        }
+      } else {
+        targetDocData = testSnap.data();
+      }
 
-      const assignees = assignData.assignees || (Array.isArray(assignData.assignedTo) ? assignData.assignedTo.map((uid, i) => ({ uid, name: (assignData.assignedToName || '').split(', ')[i] || uid })) : [{ uid: assignData.assignedTo, name: assignData.assignedToName }]);
-      const assignedToIds = assignees.map(a => a.uid);
-      const assignedToName = assignees.map(a => a.name).join(', ');
-      const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : assignedToIds;
-
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
       const updatePayload = {
-        assignedTo: assignedTo,
-        assignedToName: assignedToName,
-        assignedToIds: assignedToIds,
-        assignees: assignees,
         status: 'ĐÃ PHÂN CÔNG',
-        updatedAt: new Date().toISOString()
+        updatedAt: nowIso
       };
 
+      // 1. Người quản lý / điều phối (Phó phòng / Trưởng phòng)
+      if (assignData.managerId !== undefined) {
+        updatePayload.assignedManagerId = assignData.managerId || null;
+        updatePayload.assignedManagerName = assignData.managerName || null;
+        updatePayload.assignedManagerRole = assignData.managerRole || 'DEPUTY_MANAGER';
+        // Tương thích ngược
+        updatePayload.deputyId = assignData.managerId || null;
+        updatePayload.deputyName = assignData.managerName || null;
+      }
+
+      // 2. Kỹ thuật viên thực hiện
+      if (assignData.technicianId !== undefined || assignData.assignedTo !== undefined) {
+        const rawAssigned = assignData.technicianId || assignData.assignedTo;
+        const rawAssignedName = assignData.technicianName || assignData.assignedToName;
+        const assignees = assignData.assignees || (Array.isArray(rawAssigned) ? rawAssigned.map((uid, i) => ({ uid, name: (rawAssignedName || '').split(', ')[i] || uid })) : (rawAssigned ? [{ uid: rawAssigned, name: rawAssignedName }] : []));
+        const assignedToIds = assignees.map(a => a.uid);
+        const assignedToName = assignees.map(a => a.name).join(', ');
+        const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : (assignedToIds.length > 1 ? assignedToIds : null);
+
+        updatePayload.assignedTo = assignedTo;
+        updatePayload.assignedToName = assignedToName || null;
+        updatePayload.assignedToIds = assignedToIds;
+        updatePayload.assignees = assignees;
+        updatePayload.assignedToRole = assignData.technicianRole || 'STAFF';
+      }
+
+      // 3. Người nghiệm thu
+      if (assignData.reviewerId !== undefined || assignData.assignedReviewerId !== undefined) {
+        updatePayload.assignedReviewerId = assignData.reviewerId || assignData.assignedReviewerId || null;
+        updatePayload.assignedReviewerName = assignData.reviewerName || assignData.assignedReviewerName || null;
+      }
+
+      // 4. Hạn xử lý & ghi chú
       if (assignData.deadline) updatePayload.deadline = assignData.deadline;
       if (assignData.priority) updatePayload.priority = assignData.priority;
       if (assignData.assignmentNote) updatePayload.assignmentNote = assignData.assignmentNote;
+      if (!targetDocData?.assignedBy && currentUser) {
+        updatePayload.assignedBy = currentUser.uid;
+        updatePayload.assignedByName = currentUser.displayName;
+        updatePayload.assignedByRole = currentUser.role;
+      }
+
+      // 5. Xác định chi tiết hành động cho Timeline
+      let logDetail = assignData.logDetails;
+      if (!logDetail) {
+        if (updatePayload.assignedToName && updatePayload.assignedManagerName) {
+          logDetail = `Chỉ định KTV ${updatePayload.assignedToName} (Do ${updatePayload.assignedManagerName} điều phối)`;
+        } else if (updatePayload.assignedToName) {
+          logDetail = `Phân công cho KTV: ${updatePayload.assignedToName}`;
+        } else if (updatePayload.assignedManagerName) {
+          logDetail = `Giao cho Phó phòng: ${updatePayload.assignedManagerName} điều phối`;
+        } else {
+          logDetail = 'Cập nhật phân công';
+        }
+      }
+
+      const historyEntry = {
+        timestamp: nowIso,
+        actorId: currentUser?.uid || '',
+        actorName: currentUser?.displayName || 'Người quản lý',
+        actorRole: currentUser?.role || 'MANAGER',
+        action: 'PHÂN CÔNG CÔNG VIỆC',
+        details: logDetail,
+        note: assignData.assignmentNote || ''
+      };
+
+      if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
+        updatePayload.history = window.firebase.firestore.FieldValue.arrayUnion(historyEntry);
+      }
 
       await docRef.set(updatePayload, { merge: true });
 
-      // Ghi nhật ký hoạt động
+      // 6. Ghi nhật ký vào collection activity_logs
       try {
         await db.collection('activity_logs').add({
           targetId,
-          targetCode: assignData.code || targetId,
+          targetCode: assignData.code || targetDocData?.code || targetId,
           action: 'PHÂN CÔNG CÔNG VIỆC',
-          actorName: AuthService.getCurrentUser()?.displayName || 'Quản trị viên',
-          actorRole: AuthService.getCurrentUser()?.role || 'SUPER_ADMIN',
-          details: `Phân công cho KTV: ${assignedToName}`,
-          timestamp: new Date().toISOString()
+          actorName: currentUser?.displayName || 'Người quản lý',
+          actorRole: currentUser?.role || 'MANAGER',
+          details: logDetail,
+          note: assignData.assignmentNote || '',
+          timestamp: nowIso
         });
       } catch (e) {}
 
-      return { success: true };
+      return { success: true, data: updatePayload };
     } catch (err) {
       console.error('[ApiService] assignTask error:', err);
       throw err;
@@ -250,13 +321,33 @@ const ApiService = {
     try {
       const db = this.getDb();
       const col = targetType === 'TASK' ? 'tasks' : 'reports';
-      await db.collection(col).doc(targetId).set({
+      let docRef = db.collection(col).doc(targetId);
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const historyEntry = {
+        timestamp: nowIso,
+        actorId: currentUser?.uid || '',
+        actorName: currentUser?.displayName || 'Người quản lý',
+        actorRole: currentUser?.role || 'MANAGER',
+        action: 'HỦY PHÂN CÔNG',
+        details: 'Hủy phân công và đưa về danh sách Chờ phân công'
+      };
+
+      const updatePayload = {
         assignedTo: null,
         assignedToName: null,
+        assignedToIds: [],
+        assignees: [],
         status: 'CHỜ PHÂN CÔNG',
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+        updatedAt: nowIso
+      };
 
+      if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
+        updatePayload.history = window.firebase.firestore.FieldValue.arrayUnion(historyEntry);
+      }
+
+      await docRef.set(updatePayload, { merge: true });
       return { success: true };
     } catch (err) {
       console.error('[ApiService] unassignTask error:', err);
@@ -288,7 +379,7 @@ const ApiService = {
     }
   },
 
-  // 7. Kỹ thuật viên cập nhật tiến độ / Gửi nghiệm thu
+  // 7. Kỹ thuật viên cập nhật tiến độ / Nhận việc / Gửi nghiệm thu
   async updateTaskStatus(targetId, targetType, statusData) {
     try {
       const db = this.getDb();
@@ -298,7 +389,6 @@ const ApiService = {
       let targetDocData = null;
       const testSnap = await docRef.get();
       if (!testSnap.exists) {
-        // Thử tìm theo code nếu targetId là mã phiếu
         const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
         if (!byCode.empty) {
           docRef = byCode.docs[0].ref;
@@ -308,28 +398,67 @@ const ApiService = {
         targetDocData = testSnap.data();
       }
 
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
       const updatePayload = {
         status: statusData.status,
-        updatedAt: new Date().toISOString()
+        updatedAt: nowIso
       };
+
+      if (statusData.status === 'ĐANG XỬ LÝ' && !targetDocData?.acceptedAt) {
+        updatePayload.acceptedAt = nowIso;
+      }
+      if (statusData.status === 'CHỜ NGHIỆM THU') {
+        updatePayload.submittedForReviewAt = nowIso;
+      }
+      if (statusData.status === 'HOÀN THÀNH') {
+        updatePayload.completedAt = nowIso;
+      }
 
       if (statusData.note) updatePayload.latestNote = statusData.note;
       if (statusData.beforePhotos) updatePayload.beforePhotos = statusData.beforePhotos;
       if (statusData.afterPhotos) updatePayload.afterPhotos = statusData.afterPhotos;
-      if (statusData.status === 'HOÀN THÀNH') updatePayload.completedAt = new Date().toISOString();
+      if (statusData.materialsUsed) updatePayload.materialsUsed = statusData.materialsUsed;
+
+      // Xác định action và details cho Timeline
+      let actionName = 'CẬP NHẬT TRẠNG THÁI';
+      let actionDetails = statusData.note || `Chuyển trạng thái sang ${statusData.status}`;
+
+      if (statusData.status === 'ĐANG XỬ LÝ') {
+        actionName = 'NHẬN VIỆC & BẮT ĐẦU XỬ LÝ';
+        actionDetails = statusData.note || 'Kỹ thuật viên đã tiếp nhận và bắt đầu xử lý tại hiện trường';
+      } else if (statusData.status === 'CHỜ NGHIỆM THU') {
+        actionName = 'BÁO HOÀN TẤT & GỬI NGHIỆM THU';
+        actionDetails = statusData.note || 'Đã hoàn thành công việc tại hiện trường, gửi yêu cầu nghiệm thu';
+      }
+
+      const historyEntry = {
+        timestamp: nowIso,
+        actorId: currentUser?.uid || '',
+        actorName: currentUser?.displayName || 'Kỹ thuật viên',
+        actorRole: currentUser?.role || 'STAFF',
+        action: actionName,
+        details: actionDetails,
+        note: statusData.note || '',
+        materialsUsed: statusData.materialsUsed || ''
+      };
+
+      if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
+        updatePayload.history = window.firebase.firestore.FieldValue.arrayUnion(historyEntry);
+      }
 
       await docRef.set(updatePayload, { merge: true });
 
-      // Ghi nhật ký
+      // Ghi nhật ký vào collection activity_logs
       try {
         await db.collection('activity_logs').add({
           targetId,
           targetCode: statusData.code || targetDocData?.code || targetId,
-          action: statusData.status === 'CHỜ NGHIỆM THU' ? 'GỬI CHỜ NGHIỆM THU' : (statusData.status === 'ĐANG XỬ LÝ' ? 'BẮT ĐẦU XỬ LÝ' : 'CẬP NHẬT TRẠNG THÁI'),
-          actorName: AuthService.getCurrentUser()?.displayName || 'Kỹ thuật viên',
-          actorRole: AuthService.getCurrentUser()?.role || 'STAFF',
-          details: statusData.note || `Chuyển trạng thái sang ${statusData.status}`,
-          timestamp: new Date().toISOString()
+          action: actionName,
+          actorName: currentUser?.displayName || 'Kỹ thuật viên',
+          actorRole: currentUser?.role || 'STAFF',
+          details: actionDetails,
+          timestamp: nowIso
         });
       } catch (e) {}
 
@@ -342,7 +471,7 @@ const ApiService = {
           const title = targetDocData?.title || 'Bảo trì thiết bị CSVC';
           const location = targetDocData?.location || '';
           const room = targetDocData?.room ? `(${targetDocData.room})` : '';
-          const staffName = AuthService.getCurrentUser()?.displayName || targetDocData?.assignedToName || 'Kỹ thuật viên';
+          const staffName = currentUser?.displayName || targetDocData?.assignedToName || 'Kỹ thuật viên';
 
           const teleMsg = `📋 <b>[NSG SUPPORT] BÁO CÁO HOÀN TẤT & CHỜ NGHIỆM THU!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -351,6 +480,7 @@ const ApiService = {
             (location ? `📍 <b>Vị trí:</b> ${location} ${room}\n` : '') +
             `👨‍🔧 <b>KTV thực hiện:</b> <b>${staffName}</b>\n` +
             `💬 <b>Ghi chú KTV:</b> <i>"${statusData.note || 'Đã xử lý xong, chuyển chờ Trưởng phòng nghiệm thu.'}"</i>\n` +
+            (statusData.materialsUsed ? `🔧 <b>Vật tư sử dụng:</b> ${statusData.materialsUsed}\n` : '') +
             `⏰ <b>Thời gian gửi:</b> ${new Date().toLocaleString('vi-VN')}\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `👉 <i>Trưởng phòng & Ban Giám Hiệu vui lòng kiểm tra và duyệt nghiệm thu.</i>`;
@@ -368,7 +498,7 @@ const ApiService = {
     }
   },
 
-  // 8. Trưởng phòng Nghiệm thu (Duyệt hoặc Yêu cầu làm lại)
+  // 8. Trưởng phòng / Phó phòng Nghiệm thu (Duyệt ĐẠT hoặc Yêu cầu làm lại)
   async reviewTask(targetId, targetType, reviewData) {
     try {
       const db = this.getDb();
@@ -388,33 +518,55 @@ const ApiService = {
         targetDocData = testSnap.data();
       }
 
+      const currentUser = AuthService.getCurrentUser();
+      const reviewerRole = AuthService.getRoleLabel ? AuthService.getRoleLabel(currentUser?.role) : (currentUser?.role || 'Trưởng phòng');
+      const nowIso = new Date().toISOString();
+
       const updatePayload = {
         status,
-        updatedAt: new Date().toISOString()
+        updatedAt: nowIso
       };
 
       if (reviewData.approved) {
-        updatePayload.completedAt = new Date().toISOString();
-        if (reviewData.note) updatePayload.reviewNote = reviewData.note;
+        updatePayload.completedAt = nowIso;
+        updatePayload.reviewNote = reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao.';
+        updatePayload.reviewedAt = nowIso;
+        updatePayload.reviewedBy = currentUser?.uid || '';
+        updatePayload.reviewedByName = currentUser?.displayName || 'Trưởng phòng';
+        updatePayload.rejectionReason = null;
       } else {
-        updatePayload.rejectionReason = reviewData.rejectionReason || 'Chưa đạt yêu cầu';
+        updatePayload.rejectionReason = reviewData.rejectionReason || 'Chưa đạt yêu cầu kỹ thuật';
+        updatePayload.rejectedAt = nowIso;
+        updatePayload.rejectedBy = currentUser?.uid || '';
+        updatePayload.rejectedByName = currentUser?.displayName || 'Trưởng phòng';
+      }
+
+      const historyEntry = {
+        timestamp: nowIso,
+        actorId: currentUser?.uid || '',
+        actorName: currentUser?.displayName || 'Trưởng phòng',
+        actorRole: currentUser?.role || 'MANAGER',
+        action: reviewData.approved ? 'DUYỆT NGHIỆM THU (ĐẠT)' : 'YÊU CẦU XỬ LÝ LẠI (CHƯA ĐẠT)',
+        details: reviewData.approved ? (reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao') : `Yêu cầu làm lại: ${reviewData.rejectionReason}`,
+        note: reviewData.approved ? (reviewData.note || '') : (reviewData.rejectionReason || '')
+      };
+
+      if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
+        updatePayload.history = window.firebase.firestore.FieldValue.arrayUnion(historyEntry);
       }
 
       await docRef.set(updatePayload, { merge: true });
 
-      const reviewer = AuthService.getCurrentUser();
-      const reviewerRole = AuthService.getRoleLabel ? AuthService.getRoleLabel(reviewer?.role) : (reviewer?.role || 'Trưởng phòng');
-
-      // Ghi nhật ký nghiệm thu
+      // Ghi nhật ký vào collection activity_logs
       try {
         await db.collection('activity_logs').add({
           targetId,
           targetCode: reviewData.code || targetDocData?.code || targetId,
           action: reviewData.approved ? 'DUYỆT NGHIỆM THU' : 'YÊU CẦU XỬ LÝ LẠI',
-          actorName: reviewer?.displayName || 'Trưởng phòng',
-          actorRole: reviewer?.role || 'MANAGER',
-          details: reviewData.approved ? (reviewData.note || 'Duyệt hoàn thành') : reviewData.rejectionReason,
-          timestamp: new Date().toISOString()
+          actorName: currentUser?.displayName || 'Trưởng phòng',
+          actorRole: currentUser?.role || 'MANAGER',
+          details: historyEntry.details,
+          timestamp: nowIso
         });
       } catch (e) {}
 
@@ -435,7 +587,7 @@ const ApiService = {
             `📝 <b>Nội dung:</b> ${title}\n` +
             (location ? `📍 <b>Vị trí:</b> ${location} ${room}\n` : '') +
             `👨‍🔧 <b>KTV thực hiện:</b> ${staffName}\n` +
-            `👔 <b>Người duyệt:</b> <b>${reviewer?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
+            `👔 <b>Người duyệt:</b> <b>${currentUser?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
             `💬 <b>Đánh giá:</b> <i>"${reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao.'}"</i>\n` +
             `🎉 <b>Trạng thái:</b> <b>ĐÃ HOÀN THÀNH & BÀN GIAO</b>\n` +
             `⏰ <b>Thời gian duyệt:</b> ${new Date().toLocaleString('vi-VN')}`;
@@ -447,7 +599,7 @@ const ApiService = {
             `🏷️ <b>Mã phiếu:</b> <code>${code}</code>\n` +
             `📝 <b>Nội dung:</b> ${title}\n` +
             `👨‍🔧 <b>KTV phụ trách:</b> <b>${staffName}</b>\n` +
-            `👔 <b>Người kiểm tra:</b> <b>${reviewer?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
+            `👔 <b>Người kiểm tra:</b> <b>${currentUser?.displayName || 'Trưởng phòng'}</b> (${reviewerRole})\n` +
             `❌ <b>Lý do chưa đạt:</b> <i>"${reviewData.rejectionReason || 'Chưa đạt yêu cầu kỹ thuật.'}"</i>\n` +
             `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
             `👉 <i>Kỹ thuật viên vui lòng kiểm tra lại hiện trường và khắc phục theo yêu cầu!</i>`;

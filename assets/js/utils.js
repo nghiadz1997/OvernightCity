@@ -347,17 +347,25 @@ const Utils = {
   },
 
   /**
-   * Kiểm tra xem 1 công việc có được phân công cho nhân viên này hay không
-   * Hỗ trợ cả 1 người (đơn) và nhiều người cùng làm 1 việc (nhóm 2-3 KTV)
+   * Kiểm tra xem 1 công việc có thuộc diện xử lý/quản lý của người dùng này hay không
+   * Hỗ trợ KTV thực hiện, Người quản lý điều phối (Phó phòng) và Người nghiệm thu
    */
   isTaskAssignedToUser(item, userId) {
     if (!item || !userId) return false;
+    // KTV thực hiện
     if (item.assignedTo === userId) return true;
-    if (item.deputyCoordinatorId === userId) return true;
     if (Array.isArray(item.assignedTo) && item.assignedTo.includes(userId)) return true;
     if (Array.isArray(item.assignedToIds) && item.assignedToIds.includes(userId)) return true;
     if (Array.isArray(item.assignees) && item.assignees.some(a => (a.uid === userId || a.id === userId))) return true;
     if (typeof item.assignedTo === 'string' && item.assignedTo.split(',').map(s => s.trim()).includes(userId)) return true;
+
+    // Người quản lý / điều phối (Phó phòng / Trưởng phòng)
+    if (item.assignedManagerId === userId) return true;
+    if (item.deputyId === userId || item.deputyCoordinatorId === userId) return true;
+
+    // Người nghiệm thu
+    if (item.assignedReviewerId === userId) return true;
+
     return false;
   }
 };

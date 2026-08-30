@@ -44,7 +44,7 @@ const TaskCardComponent = {
             ${item.title}
           </h4>
 
-          <!-- Category & Location -->
+          <!-- Category, Location, Manager & Tech -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 mb-3 bg-slate-50/80 p-2.5 rounded-lg border border-slate-100">
             <div class="flex items-center gap-1.5 truncate">
               <i class="fa-solid fa-layer-group text-slate-400"></i>
@@ -55,15 +55,15 @@ const TaskCardComponent = {
               <span class="font-medium text-slate-800">${item.location || 'Chưa rõ'} ${item.room ? `(${item.room})` : ''}</span>
             </div>
             <div class="flex items-center gap-1.5 truncate">
-              <i class="fa-solid fa-user text-slate-400"></i>
-              <span>${item.senderName ? `${item.senderName} (${item.senderDept || 'Khách'})` : 'Lãnh đạo giao việc'}</span>
+              <i class="fa-solid fa-user-tie text-purple-600"></i>
+              <span class="font-semibold ${item.assignedManagerName || item.deputyName ? 'text-purple-700' : 'text-slate-400 italic'} truncate">
+                ${item.assignedManagerName || item.deputyName ? `QL: ${item.assignedManagerName || item.deputyName}` : 'QL: Trưởng phòng'}
+              </span>
             </div>
             <div class="flex items-center gap-1.5 truncate">
-              <i class="fa-solid ${item.assignedRole === 'DEPUTY_MANAGER' ? 'fa-user-tie text-purple-600' : (item.assignedToName && item.assignedToName.includes(',') ? 'fa-users text-indigo-600' : 'fa-user-shield text-indigo-500')}"></i>
-              <span class="font-semibold ${item.assignedToName ? (item.assignedRole === 'DEPUTY_MANAGER' ? 'text-purple-700' : 'text-indigo-700') : 'text-slate-400 italic'} truncate" title="${item.assignedToName || 'Chưa phân công'}">
-                ${item.assignedRole === 'DEPUTY_MANAGER' 
-                  ? `🎖️ Phó Trưởng phòng: ${item.assignedToName}` 
-                  : (item.assignedToName ? (item.assignedToName.includes(',') ? `👥 ${item.assignedToName}` : item.assignedToName) : 'Chưa phân công')}
+              <i class="fa-solid fa-screwdriver-wrench text-indigo-600"></i>
+              <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate" title="${item.assignedToName || 'Chưa phân công'}">
+                ${item.assignedToName ? `KTV: ${item.assignedToName}` : 'KTV: Chưa phân công'}
               </span>
             </div>
           </div>
@@ -86,43 +86,36 @@ const TaskCardComponent = {
 
           <!-- Buttons -->
           <div class="flex items-center gap-1.5 flex-wrap">
-            <button class="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}')">
+            <button class="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'overview')">
               <i class="fa-regular fa-eye"></i>
               <span>Xem</span>
             </button>
 
             ${canAssign && (status === 'CHỜ PHÂN CÔNG' || status === 'MỚI') ? `
-              <button class="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'assign')">
+              <button class="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'overview')">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>Phân công</span>
               </button>
             ` : ''}
 
-            ${canAssign && (status === 'ĐÃ PHÂN CÔNG' || status === 'ĐANG XỬ LÝ') ? `
-              <button class="px-2.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" title="Đổi người phụ trách" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'assign')">
-                <i class="fa-solid fa-user-pen"></i>
-                <span>Sửa phân công</span>
-              </button>
-            ` : ''}
-
-            ${status === 'ĐÃ PHÂN CÔNG' ? `
-              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'progress')">
+            ${status === 'ĐÃ PHÂN CÔNG' && isAssignedToMe ? `
+              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'overview')">
                 <i class="fa-solid fa-play"></i>
-                <span>Bắt đầu xử lý</span>
+                <span>Nhận việc</span>
               </button>
             ` : ''}
 
-            ${status === 'ĐANG XỬ LÝ' ? `
-              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" title="Gửi yêu cầu nghiệm thu" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'progress')">
+            ${status === 'ĐANG XỬ LÝ' && isAssignedToMe ? `
+              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer" title="Báo hoàn tất và gửi nghiệm thu" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'overview')">
                 <i class="fa-solid fa-clipboard-check"></i>
-                <span>Gửi nghiệm thu</span>
+                <span>Báo xong</span>
               </button>
             ` : ''}
 
-            ${canReview ? `
-              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer animate-pulse" title="Duyệt hoàn thành công việc" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'review')">
+            ${canReview && status === 'CHỜ NGHIỆM THU' ? `
+              <button class="px-2.5 py-1.5 text-xs font-black text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer animate-pulse" title="Duyệt hoàn thành công việc" onclick="TaskModalComponent.open('${item.id || ''}', '${code}', '${isReport ? 'REPORT' : 'TASK'}', 'overview')">
                 <i class="fa-solid fa-stamp"></i>
-                <span>Duyệt hoàn thành</span>
+                <span>Nghiệm thu</span>
               </button>
             ` : ''}
 

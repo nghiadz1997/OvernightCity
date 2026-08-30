@@ -292,9 +292,12 @@ const CreateTaskPage = {
         return;
       }
 
+      const fullLocation = `${campusName} - ${zoneName}`;
+
       const currentUser = AuthService.getCurrentUser();
       const isDeputy = AuthService.isDeputyManager();
-      const hasDeputy = assignees.some(a => a.role === 'DEPUTY_MANAGER');
+      const deputyAssignee = assignees.find(a => a.role === 'DEPUTY_MANAGER');
+      const techAssignees = assignees.filter(a => a.role !== 'DEPUTY_MANAGER');
 
       const payload = {
         title: document.getElementById('task-title').value,
@@ -308,14 +311,19 @@ const CreateTaskPage = {
         assignedToName: assignedToName,
         assignedToIds: assignedToIds,
         assignees: assignees,
+        status: assignedTo ? 'ĐÃ PHÂN CÔNG' : 'CHỜ PHÂN CÔNG',
         priority: document.getElementById('task-priority').value,
         deadline: document.getElementById('task-deadline').value || null
       };
 
       if (isDeputy) {
+        payload.assignedManagerId = currentUser?.uid;
+        payload.assignedManagerName = currentUser?.displayName || 'Phó Trưởng phòng';
         payload.deputyCoordinator = currentUser?.displayName || 'Phó Trưởng phòng';
         payload.deputyCoordinatorId = currentUser?.uid;
-      } else if (hasDeputy) {
+      } else if (deputyAssignee) {
+        payload.assignedManagerId = deputyAssignee.uid;
+        payload.assignedManagerName = deputyAssignee.name;
         payload.assignedByManager = currentUser?.displayName || 'Trưởng phòng';
         payload.assignedRole = 'DEPUTY_MANAGER';
       }
