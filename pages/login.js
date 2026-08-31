@@ -35,8 +35,11 @@ const LoginPage = {
           
           <!-- Header -->
           <div class="text-center">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg">
-              <i class="fa-solid fa-shield-halved"></i>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg overflow-hidden">
+              ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
+                <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="w-full h-full object-contain p-1.5" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='block' : null;">
+                <i class="fa-solid fa-shield-halved hidden"></i>
+              ` : `<i class="fa-solid fa-shield-halved"></i>`}
             </div>
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">ĐĂNG NHẬP HỆ THỐNG</h2>
             <p class="text-xs text-slate-500 mt-1">Cổng Quản trị, Điều phối và Xử lý công việc kỹ thuật NSG</p>

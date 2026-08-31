@@ -22,8 +22,11 @@ const NavbarComponent = {
               </button>
 
               <a href="#/" class="flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform">
-                  <i class="fa-solid fa-headset"></i>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+                  ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
+                    <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="w-full h-full object-contain p-1" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='block' : null;">
+                    <i class="fa-solid fa-headset hidden"></i>
+                  ` : `<i class="fa-solid fa-headset"></i>`}
                 </div>
                 <div>
                   <div class="flex items-center gap-2">

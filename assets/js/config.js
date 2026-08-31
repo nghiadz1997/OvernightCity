@@ -4,6 +4,7 @@
 
 const APP_CONFIG = {
   appName: 'NSG SUPPORT',
+  logoUrl: '/assets/icons/Logo.png',
   appTitle: 'PHẢN ÁNH & HỖ TRỢ KỸ THUẬT',
   appDescription: 'Cổng tiếp nhận phản ánh, hỗ trợ kỹ thuật và quản lý công việc nội bộ',
   hotline: '0909.277.944',

@@ -20,8 +20,11 @@ const SidebarComponent = {
         <!-- Brand Header -->
         <div class="h-16 flex items-center justify-between px-6 bg-slate-950 border-b border-slate-800">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow">
-              <i class="fa-solid fa-headset"></i>
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow overflow-hidden">
+              ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
+                <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="w-full h-full object-contain p-0.5" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='block' : null;">
+                <i class="fa-solid fa-headset hidden"></i>
+              ` : `<i class="fa-solid fa-headset"></i>`}
             </div>
             <span class="font-extrabold text-white text-base tracking-wider">NSG SUPPORT</span>
           </div>
