@@ -1325,9 +1325,18 @@ const ApiService = {
       const nowIso = new Date().toISOString();
 
       if (hardDelete) {
+        // XÓA VĨNH VIỄN KHỎI HỆ THỐNG
         await db.collection('employees').doc(empId).delete();
+
+        // Xóa sạch các kỳ ngày phép liên quan
+        const balancesSnap = await db.collection('leave_balances').where('employeeId', '==', empId).get();
+        if (!balancesSnap.empty) {
+          const batch = db.batch();
+          balancesSnap.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
       } else {
-        // Soft delete (Ngưng hoạt động) để bảo toàn lịch sử nghỉ phép
+        // Soft delete (Ngưng hoạt động)
         await db.collection('employees').doc(empId).update({
           status: 'INACTIVE',
           updatedAt: nowIso
@@ -1336,17 +1345,88 @@ const ApiService = {
 
       await db.collection('leave_audit_logs').add({
         employeeId: empId,
-        action: hardDelete ? 'XÓA NHÂN SỰ (VĨNH VIỄN)' : 'NGƯNG HOẠT ĐỘNG NHÂN SỰ',
+        year: new Date().getFullYear(),
+        action: hardDelete ? 'XÓA NHÂN SỰ VĨNH VIỄN' : 'NGƯNG HOẠT ĐỘNG NHÂN SỰ',
         performedBy: currentUser?.uid || '',
         performedByName: currentUser?.displayName || 'Quản trị viên',
         performedAt: nowIso,
-        note: `Thay đổi trạng thái nhân sự ID: ${empId}`
+        note: `Thao tác xóa/ngưng nhân sự ID: ${empId}`
       });
 
       return { success: true };
     } catch (e) {
       console.error('[ApiService] Lỗi xóa nhân sự:', e);
       throw new Error('Lỗi xóa nhân sự: ' + e.message);
+    }
+  },
+
+  async reactivateEmployee(empId) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      await db.collection('employees').doc(empId).update({
+        status: 'ACTIVE',
+        updatedAt: nowIso
+      });
+
+      await db.collection('leave_audit_logs').add({
+        employeeId: empId,
+        year: new Date().getFullYear(),
+        action: 'KÍCH HOẠT LẠI NHÂN SỰ',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Kích hoạt lại trạng thái làm việc cho nhân sự ID: ${empId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi kích hoạt lại nhân sự:', e);
+      throw new Error('Lỗi kích hoạt lại nhân sự: ' + e.message);
+    }
+  },
+
+  async purgeAllInactiveEmployees() {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+      const snap = await db.collection('employees').where('status', '==', 'INACTIVE').get();
+      if (snap.empty) return { count: 0 };
+
+      const batch = db.batch();
+      const empIds = [];
+      snap.forEach(doc => {
+        empIds.push(doc.id);
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+
+      // Xóa các leave_balances của các nhân sự này
+      for (const id of empIds) {
+        const balSnap = await db.collection('leave_balances').where('employeeId', '==', id).get();
+        if (!balSnap.empty) {
+          const balBatch = db.batch();
+          balSnap.forEach(d => balBatch.delete(d.ref));
+          await balBatch.commit();
+        }
+      }
+
+      await db.collection('leave_audit_logs').add({
+        year: new Date().getFullYear(),
+        action: 'XÓA SẠCH DANH SÁCH NGƯNG HOẠT ĐỘNG',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Super Admin',
+        performedAt: nowIso,
+        note: `Xóa vĩnh viễn ${empIds.length} nhân sự đã ngưng hoạt động`
+      });
+
+      return { count: empIds.length };
+    } catch (e) {
+      console.error('[ApiService] Lỗi xóa sạch nhân sự ngưng hoạt động:', e);
+      throw new Error('Lỗi xóa sạch danh sách ngưng: ' + e.message);
     }
   },
 

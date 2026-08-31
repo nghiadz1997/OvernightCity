@@ -10,7 +10,7 @@ const EmployeesManagementPage = {
   selectedYear: new Date().getFullYear(),
   isLoading: true,
   currentFilterRole: 'ALL',
-  currentFilterStatus: 'ALL',
+  currentFilterStatus: 'ACTIVE', // ACTIVE (mặc định), INACTIVE, ALL
   currentFilterLeaveStatus: 'ALL',
   searchQuery: '',
 
@@ -61,10 +61,11 @@ const EmployeesManagementPage = {
     const totalEl = document.getElementById('stat-emp-total');
     const activeEl = document.getElementById('stat-emp-active');
     const onLeaveEl = document.getElementById('stat-emp-onleave');
-    const negativeEl = document.getElementById('stat-emp-negative');
+    const inactiveEl = document.getElementById('stat-emp-inactive');
 
+    const totalCount = this.employees.length;
     const activeList = this.employees.filter(e => e.status !== 'INACTIVE');
-    const totalCount = activeList.length;
+    const inactiveList = this.employees.filter(e => e.status === 'INACTIVE');
     
     // Kiểm tra nhân sự đang nghỉ phép hôm nay
     const todayStr = new Date().toISOString().split('T')[0];
@@ -75,15 +76,18 @@ const EmployeesManagementPage = {
       }
     });
 
-    let negativeCount = 0;
-    Object.values(this.leaveBalances).forEach(b => {
-      if (Number(b.remainingLeave) < 0) negativeCount++;
-    });
-
     if (totalEl) totalEl.innerText = totalCount;
-    if (activeEl) activeEl.innerText = totalCount - onLeaveEmpIds.size;
+    if (activeEl) activeEl.innerText = activeList.length - onLeaveEmpIds.size;
     if (onLeaveEl) onLeaveEl.innerText = onLeaveEmpIds.size;
-    if (negativeEl) negativeEl.innerText = negativeCount;
+    if (inactiveEl) inactiveEl.innerText = inactiveList.length;
+
+    // Cập nhật badges trên các tab trạng thái
+    const bActive = document.getElementById('tab-badge-active');
+    const bInactive = document.getElementById('tab-badge-inactive');
+    const bAll = document.getElementById('tab-badge-all');
+    if (bActive) bActive.innerText = activeList.length;
+    if (bInactive) bInactive.innerText = inactiveList.length;
+    if (bAll) bAll.innerText = totalCount;
   },
 
   renderLoading() {
@@ -101,6 +105,7 @@ const EmployeesManagementPage = {
     setTimeout(() => this.init(), 50);
 
     const isEditAllowed = AuthService.canEditEmployees();
+    const isSuperAdmin = AuthService.isSuperAdmin();
 
     return `
       <div class="p-4 sm:p-6 lg:p-8 space-y-6 animate-fade-in">
@@ -144,7 +149,7 @@ const EmployeesManagementPage = {
 
         <!-- Metric Stat Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4 cursor-pointer hover:border-indigo-300 transition-all" onclick="EmployeesManagementPage.handleStatusFilter('ALL')">
             <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0">
               <i class="fa-solid fa-users"></i>
             </div>
@@ -154,7 +159,7 @@ const EmployeesManagementPage = {
             </div>
           </div>
 
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4 cursor-pointer hover:border-emerald-300 transition-all" onclick="EmployeesManagementPage.handleStatusFilter('ACTIVE')">
             <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
               <i class="fa-solid fa-user-check"></i>
             </div>
@@ -174,19 +179,48 @@ const EmployeesManagementPage = {
             </div>
           </div>
 
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4 cursor-pointer hover:border-rose-300 transition-all" onclick="EmployeesManagementPage.handleStatusFilter('INACTIVE')">
             <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shrink-0">
-              <i class="fa-solid fa-triangle-exclamation"></i>
+              <i class="fa-solid fa-user-slash"></i>
             </div>
             <div>
-              <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Đang âm phép</p>
-              <h3 id="stat-emp-negative" class="text-2xl font-black text-rose-600">0</h3>
+              <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Đã ngưng hoạt động</p>
+              <h3 id="stat-emp-inactive" class="text-2xl font-black text-rose-600">0</h3>
             </div>
           </div>
         </div>
 
-        <!-- Filter & Search Toolbar -->
+        <!-- Toolbar & Filter Tabs -->
         <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <!-- Hàng Tab trạng thái làm việc -->
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <button type="button" class="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${this.currentFilterStatus === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}" onclick="EmployeesManagementPage.handleStatusFilter('ACTIVE')">
+                <i class="fa-solid fa-user-check text-[11px]"></i>
+                <span>Đang làm việc</span>
+                <span id="tab-badge-active" class="px-1.5 py-0.2 rounded-full text-[10px] ${this.currentFilterStatus === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}">0</span>
+              </button>
+
+              <button type="button" class="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${this.currentFilterStatus === 'INACTIVE' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-800 hover:bg-rose-100'}" onclick="EmployeesManagementPage.handleStatusFilter('INACTIVE')">
+                <i class="fa-solid fa-user-slash text-[11px]"></i>
+                <span>Đã ngưng hoạt động</span>
+                <span id="tab-badge-inactive" class="px-1.5 py-0.2 rounded-full text-[10px] ${this.currentFilterStatus === 'INACTIVE' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-900'}">0</span>
+              </button>
+
+              <button type="button" class="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${this.currentFilterStatus === 'ALL' ? 'bg-slate-800 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}" onclick="EmployeesManagementPage.handleStatusFilter('ALL')">
+                <span>Tất cả</span>
+                <span id="tab-badge-all" class="px-1.5 py-0.2 rounded-full text-[10px] ${this.currentFilterStatus === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}">0</span>
+              </button>
+            </div>
+
+            ${isSuperAdmin && this.currentFilterStatus === 'INACTIVE' ? `
+              <button type="button" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer" onclick="EmployeesManagementPage.handlePurgeAllInactive()">
+                <i class="fa-solid fa-trash-can text-[11px]"></i>
+                <span>XÓA SẠCH TẤT CẢ NHÂN SỰ ĐÃ NGƯNG</span>
+              </button>
+            ` : ''}
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <!-- Ô tìm kiếm -->
             <div class="lg:col-span-2 relative">
@@ -245,7 +279,7 @@ const EmployeesManagementPage = {
                   <th class="py-4 px-3">CHUYÊN MÔN NGHIỆP VỤ</th>
                   <th class="py-4 px-4 text-center">NGÀY PHÉP (${this.selectedYear})</th>
                   <th class="py-4 px-3">SĐT</th>
-                  <th class="py-4 px-4 text-center w-36">THAO TÁC</th>
+                  <th class="py-4 px-4 text-center w-40">THAO TÁC</th>
                 </tr>
               </thead>
               <tbody id="employees-table-body" class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
@@ -267,9 +301,16 @@ const EmployeesManagementPage = {
     this.updateStats();
   },
 
+  handleStatusFilter(status) {
+    this.currentFilterStatus = status;
+    this.render();
+  },
+
   getFilteredEmployees() {
     return this.employees.filter(emp => {
-      if (emp.status === 'INACTIVE') return false;
+      // Lọc trạng thái làm việc (ACTIVE, INACTIVE, ALL)
+      if (this.currentFilterStatus === 'ACTIVE' && emp.status === 'INACTIVE') return false;
+      if (this.currentFilterStatus === 'INACTIVE' && emp.status !== 'INACTIVE') return false;
 
       // Tìm kiếm
       if (this.searchQuery) {
@@ -311,16 +352,20 @@ const EmployeesManagementPage = {
             <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl mx-auto mb-2">
               <i class="fa-solid fa-users-slash"></i>
             </div>
-            <p class="text-xs font-bold text-slate-700">Không tìm thấy nhân sự phù hợp</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc</p>
+            <p class="text-xs font-bold text-slate-700">
+              ${this.currentFilterStatus === 'INACTIVE' ? 'Danh sách ngưng hoạt động hiện đang trống (Đã được xóa sạch).' : 'Không tìm thấy nhân sự phù hợp.'}
+            </p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Thử thay đổi từ khóa tìm kiếm hoặc bấm tab "Đang làm việc"</p>
           </td>
         </tr>
       `;
     }
 
     const isEditAllowed = AuthService.canEditEmployees();
+    const isSuperAdmin = AuthService.isSuperAdmin();
 
     return filtered.map((emp, index) => {
+      const isInactive = emp.status === 'INACTIVE';
       const bal = this.leaveBalances[emp.id] || { annualLeave: 12, carryForward: 0, usedLeave: 0, remainingLeave: 12, negativeLeave: 0 };
       const rem = Number(bal.remainingLeave);
       const used = Number(bal.usedLeave) || 0;
@@ -340,7 +385,9 @@ const EmployeesManagementPage = {
 
       // Badge ngày phép
       let leaveBadgeHtml = '';
-      if (rem < 0) {
+      if (isInactive) {
+        leaveBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">Đã ngưng</span>`;
+      } else if (rem < 0) {
         leaveBadgeHtml = `
           <div class="inline-flex flex-col items-center">
             <span class="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs animate-pulse">
@@ -383,19 +430,20 @@ const EmployeesManagementPage = {
       }
 
       return `
-        <tr class="hover:bg-indigo-50/20 transition-colors">
+        <tr class="${isInactive ? 'bg-slate-50/70 opacity-75' : 'hover:bg-indigo-50/20'} transition-colors">
           <!-- 1. STT -->
           <td class="py-3.5 px-3 text-center text-slate-400 font-bold text-xs">${String(index + 1).padStart(2, '0')}</td>
 
           <!-- 2. HỌ VÀ TÊN -->
           <td class="py-3.5 px-4">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-black text-xs flex items-center justify-center shadow-2xs shrink-0">
+              <div class="w-9 h-9 rounded-xl ${isInactive ? 'bg-slate-400 text-white' : 'bg-gradient-to-tr from-indigo-600 to-blue-500 text-white'} font-black text-xs flex items-center justify-center shadow-2xs shrink-0">
                 ${(emp.fullName || 'N').charAt(0).toUpperCase()}
               </div>
               <div class="min-w-0">
                 <div class="font-black text-slate-900 truncate flex items-center gap-1.5 cursor-pointer hover:text-indigo-600" onclick="EmployeesManagementPage.openProfileModal('${emp.id}')">
                   <span>${emp.fullName || 'Chưa đặt tên'}</span>
+                  ${isInactive ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700">Ngưng HĐ</span>' : ''}
                 </div>
                 <div class="text-[11px] font-mono text-indigo-600 font-bold tracking-tight">${emp.employeeCode || 'NSG-NV---'}</div>
               </div>
@@ -435,7 +483,7 @@ const EmployeesManagementPage = {
             </a>
           </td>
 
-          <!-- 9. THAO TÁC (5 nút theo yêu cầu) -->
+          <!-- 9. THAO TÁC -->
           <td class="py-3.5 px-4 text-center whitespace-nowrap">
             <div class="flex items-center justify-center gap-1">
               <!-- Xem chi tiết -->
@@ -443,20 +491,34 @@ const EmployeesManagementPage = {
                 <i class="fa-solid fa-eye text-xs"></i>
               </button>
 
-              <!-- Đăng ký nghỉ phép -->
-              <button type="button" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Tạo đơn nghỉ phép" onclick="EmployeesManagementPage.openLeaveModal('${emp.id}')">
-                <i class="fa-solid fa-calendar-plus text-xs"></i>
-              </button>
-
-              <!-- Sửa -->
-              ${isEditAllowed ? `
-                <button type="button" class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Chỉnh sửa thông tin" onclick="EmployeesManagementPage.openEditModal('${emp.id}')">
-                  <i class="fa-solid fa-pen text-xs"></i>
+              ${!isInactive ? `
+                <!-- Đăng ký nghỉ phép -->
+                <button type="button" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Tạo đơn nghỉ phép" onclick="EmployeesManagementPage.openLeaveModal('${emp.id}')">
+                  <i class="fa-solid fa-calendar-plus text-xs"></i>
                 </button>
 
-                <!-- Ngưng hoạt động / Xóa -->
-                <button type="button" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Ngưng hoạt động" onclick="EmployeesManagementPage.handleDelete('${emp.id}', '${emp.fullName}')">
-                  <i class="fa-solid fa-user-slash text-xs"></i>
+                <!-- Sửa -->
+                ${isEditAllowed ? `
+                  <button type="button" class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Chỉnh sửa thông tin" onclick="EmployeesManagementPage.openEditModal('${emp.id}')">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                  </button>
+
+                  <!-- Ngưng hoạt động (Soft delete) -->
+                  <button type="button" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Ngưng hoạt động" onclick="EmployeesManagementPage.handleSoftDelete('${emp.id}', '${emp.fullName}')">
+                    <i class="fa-solid fa-user-slash text-xs"></i>
+                  </button>
+                ` : ''}
+              ` : `
+                <!-- Kích hoạt lại nhân sự -->
+                <button type="button" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Kích hoạt lại nhân sự" onclick="EmployeesManagementPage.handleReactivate('${emp.id}', '${emp.fullName}')">
+                  <i class="fa-solid fa-user-check text-xs"></i>
+                </button>
+              `}
+
+              <!-- XÓA VĨNH VIỄN (DUY NHẤT SUPER ADMIN CÓ QUYỀN) -->
+              ${isSuperAdmin ? `
+                <button type="button" class="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="XÓA VĨNH VIỄN KHỎI DATABASE" onclick="EmployeesManagementPage.handleHardDelete('${emp.id}', '${emp.fullName}')">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
                 </button>
               ` : ''}
             </div>
@@ -507,7 +569,6 @@ const EmployeesManagementPage = {
     const carry = Number(bal?.carryForward) || 0;
     const used = Number(bal?.usedLeave) || 0;
     const remaining = Number(bal?.remainingLeave);
-    const negative = Number(bal?.negativeLeave) || 0;
 
     container.innerHTML = `
       <div id="emp-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
@@ -564,7 +625,9 @@ const EmployeesManagementPage = {
                 </div>
                 <div>
                   <span class="text-slate-400 font-bold block text-[11px]">Trạng thái:</span>
-                  <span class="font-extrabold text-emerald-600">${emp.status === 'ACTIVE' ? 'Đang làm việc' : 'Ngưng hoạt động'}</span>
+                  <span class="font-extrabold ${emp.status === 'ACTIVE' ? 'text-emerald-600' : 'text-rose-600'}">
+                    ${emp.status === 'ACTIVE' ? 'Đang làm việc' : 'Đã ngưng hoạt động'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -897,14 +960,66 @@ const EmployeesManagementPage = {
     }
   },
 
-  async handleDelete(empId, empName) {
-    if (!confirm(`Bạn có chắc chắn muốn ngưng hoạt động nhân sự "${empName}"?\nLịch sử ngày phép và công việc của nhân sự này vẫn sẽ được lưu trữ an toàn trong hệ thống.`)) {
+  // Soft Delete: Ngưng hoạt động
+  async handleSoftDelete(empId, empName) {
+    if (!confirm(`Bạn có chắc chắn muốn NGƯNG HOẠT ĐỘNG nhân sự "${empName}"?\nNhân sự này sẽ chuyển sang danh sách Đã ngưng hoạt động.`)) {
       return;
     }
 
     try {
       await ApiService.deleteEmployee(empId, false); // Soft delete
-      Utils.showToast(`Đã chuyển trạng thái ngưng hoạt động cho nhân sự ${empName}.`, 'success');
+      Utils.showToast(`Đã chuyển trạng thái ngưng hoạt động cho ${empName}.`, 'warning');
+      await this.loadData();
+    } catch (err) {
+      Utils.showToast('Lỗi: ' + err.message, 'error');
+    }
+  },
+
+  // Reactivate: Kích hoạt lại
+  async handleReactivate(empId, empName) {
+    if (!confirm(`KÍCH HOẠT LẠI nhân sự "${empName}" để quay lại làm việc bình thường?`)) {
+      return;
+    }
+
+    try {
+      await ApiService.reactivateEmployee(empId);
+      Utils.showToast(`Đã kích hoạt lại nhân sự ${empName} thành công!`, 'success');
+      await this.loadData();
+    } catch (err) {
+      Utils.showToast('Lỗi: ' + err.message, 'error');
+    }
+  },
+
+  // Hard Delete: XÓA VĨNH VIỄN (DUY NHẤT SUPER ADMIN)
+  async handleHardDelete(empId, empName) {
+    if (!confirm(`⚠️ CẢNH BÁO SUPER ADMIN:\n\nBạn có CHẮC CHẮN muốn XÓA VĨNH VIỄN nhân sự "${empName}" khỏi hệ thống?\n\nToàn bộ hồ sơ và dữ liệu ngày phép liên quan sẽ bị xóa sạch hoàn toàn khỏi Database!`)) {
+      return;
+    }
+
+    try {
+      await ApiService.deleteEmployee(empId, true); // Hard delete
+      Utils.showToast(`Đã xóa vĩnh viễn nhân sự ${empName} khỏi cơ sở dữ liệu!`, 'success');
+      await this.loadData();
+    } catch (err) {
+      Utils.showToast('Lỗi xóa vĩnh viễn: ' + err.message, 'error');
+    }
+  },
+
+  // Purge All Inactive (DUY NHẤT SUPER ADMIN)
+  async handlePurgeAllInactive() {
+    const inactiveCount = this.employees.filter(e => e.status === 'INACTIVE').length;
+    if (inactiveCount === 0) {
+      Utils.showToast('Danh sách ngưng hoạt động hiện không có nhân sự nào.', 'info');
+      return;
+    }
+
+    if (!confirm(`⚠️ CẢNH BÁO QUẢN TRỊ TỐI CAO:\n\nBạn có muốn XÓA SẠCH TOÀN BỘ ${inactiveCount} nhân sự đã ngưng hoạt động khỏi Database vĩnh viễn?\n\nThao tác này KHÔNG THỂ khôi phục!`)) {
+      return;
+    }
+
+    try {
+      const res = await ApiService.purgeAllInactiveEmployees();
+      Utils.showToast(`Đã xóa sạch ${res.count} nhân sự ngưng hoạt động vĩnh viễn!`, 'success');
       await this.loadData();
     } catch (err) {
       Utils.showToast('Lỗi: ' + err.message, 'error');
