@@ -202,7 +202,6 @@ const DashboardPage = {
 
   async refreshData() {
     this.calculateMetricsAndRender();
-    Utils.showToast('Đã đồng bộ dữ liệu mới nhất từ Firestore!', 'info');
   },
 
   filterItems(items) {
