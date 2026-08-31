@@ -183,6 +183,30 @@ const AuthService = {
     return false;
   },
 
+  // Quyền Quản lý Nhân sự: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Super Admin
+  canViewEmployees() {
+    const role = this.getUserRole();
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
+  },
+
+  // Quyền Thêm / Sửa / Xóa Nhân sự & Cấu hình: Trưởng phòng & Super Admin
+  canEditEmployees() {
+    const role = this.getUserRole();
+    return ['SUPER_ADMIN', 'MANAGER'].includes(role);
+  },
+
+  // Quyền Duyệt / Từ chối nghỉ phép: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Super Admin
+  canApproveLeave() {
+    const role = this.getUserRole();
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
+  },
+
+  // Quyền Cấu hình chính sách ngày phép: Trưởng phòng & Super Admin
+  canEditLeavePolicy() {
+    const role = this.getUserRole();
+    return ['SUPER_ADMIN', 'MANAGER'].includes(role);
+  },
+
   getRoleLabel(role) {
     const map = {
       'SUPER_ADMIN': 'Super Admin',

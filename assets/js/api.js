@@ -1118,6 +1118,692 @@ const ApiService = {
       console.error('[ApiService] Lỗi lưu categories:', err);
       throw new Error('Lỗi lưu danh sách loại thiết bị lên Firebase: ' + err.message);
     }
+  },
+
+  // ========================================================
+  // 15. MODULE QUẢN LÝ NHÂN SỰ (EMPLOYEES)
+  // ========================================================
+  async loadEmployees() {
+    try {
+      const db = this.getDb();
+      const snap = await db.collection('employees').get();
+      const list = [];
+      snap.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Nếu collection employees chưa có dữ liệu, tự động đồng bộ từ collection users (KTV & Quản lý)
+      if (list.length === 0) {
+        const userSnap = await db.collection('users').get();
+        const seeded = [];
+        const currentYear = new Date().getFullYear();
+        let idx = 1;
+
+        for (const uDoc of userSnap.docs) {
+          const u = uDoc.data();
+          if (u.role !== 'USER' && u.isActive !== false) {
+            const empCode = `NSG-NV${String(idx).padStart(3, '0')}`;
+            const empData = {
+              employeeCode: empCode,
+              fullName: u.displayName || u.email.split('@')[0],
+              dateOfBirth: '1990-01-01',
+              citizenId: '079090' + String(100000 + idx),
+              position: AuthService.getRoleLabel(u.role),
+              qualification: u.role === 'STAFF_IT' ? 'Công nghệ thông tin & Mạng' : (u.role === 'STAFF_MAINTENANCE' ? 'Điện lạnh & Cơ điện' : (u.role === 'STAFF_KTX' ? 'Quản trị KTX' : (u.role === 'STAFF_GREEN' ? 'Cây xanh cảnh quan' : (u.role === 'STAFF_CLEANING' ? 'Vệ sinh môi trường' : 'Quản lý CSVC')))),
+              phone: u.phone || '090' + String(1000000 + idx),
+              email: u.email || '',
+              departmentName: u.departmentName || 'Phòng Quản trị Thiết bị và Cơ sở vật chất',
+              status: 'ACTIVE',
+              userId: uDoc.id,
+              notes: 'Tài khoản nội bộ hệ thống',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            const newDoc = await db.collection('employees').add(empData);
+            empData.id = newDoc.id;
+            seeded.push(empData);
+
+            // Khởi tạo kỳ phép năm cho nhân sự
+            await this.getOrCreateLeaveBalance(newDoc.id, empData.fullName, currentYear);
+            idx++;
+          }
+        }
+        return seeded;
+      }
+
+      return list.sort((a, b) => (a.employeeCode || '').localeCompare(b.employeeCode || ''));
+    } catch (e) {
+      console.error('[ApiService] Lỗi tải danh sách nhân sự:', e);
+      return [];
+    }
+  },
+
+  async createEmployee(empData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+      const currentYear = new Date().getFullYear();
+
+      const docData = {
+        employeeCode: empData.employeeCode || `NSG-NV${Math.floor(100 + Math.random() * 900)}`,
+        fullName: empData.fullName || '',
+        dateOfBirth: empData.dateOfBirth || '',
+        citizenId: empData.citizenId || '',
+        position: empData.position || 'Chuyên Viên Bảo Trì',
+        qualification: empData.qualification || '',
+        phone: empData.phone || '',
+        email: empData.email || '',
+        departmentName: empData.departmentName || 'Phòng Quản trị Thiết bị và Cơ sở vật chất',
+        status: empData.status || 'ACTIVE',
+        userId: empData.userId || null,
+        notes: empData.notes || '',
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      const docRef = await db.collection('employees').add(docData);
+      docData.id = docRef.id;
+
+      // Khởi tạo ngay bản ghi ngày phép năm hiện tại
+      const initialAnnualLeave = Number(empData.annualLeave) || 12;
+      const initialCarryForward = Number(empData.carryForward) || 0;
+      const balanceId = `${docRef.id}_${currentYear}`;
+
+      await db.collection('leave_balances').doc(balanceId).set({
+        id: balanceId,
+        employeeId: docRef.id,
+        employeeName: docData.fullName,
+        year: currentYear,
+        annualLeave: initialAnnualLeave,
+        carryForward: initialCarryForward,
+        usedLeave: 0,
+        remainingLeave: initialAnnualLeave + initialCarryForward,
+        negativeLeave: (initialAnnualLeave + initialCarryForward) < 0 ? Math.abs(initialAnnualLeave + initialCarryForward) : 0,
+        notes: `Khởi tạo nhân sự năm ${currentYear}`,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+
+      // Ghi audit log
+      await db.collection('leave_audit_logs').add({
+        employeeId: docRef.id,
+        employeeName: docData.fullName,
+        year: currentYear,
+        action: 'TẠO NHÂN SỰ MỚI',
+        oldValue: null,
+        newValue: docData,
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Thêm nhân sự mới ${docData.fullName} (${docData.employeeCode})`
+      });
+
+      return { success: true, data: docData };
+    } catch (e) {
+      console.error('[ApiService] Lỗi tạo nhân sự:', e);
+      throw new Error('Lỗi khi tạo nhân sự: ' + e.message);
+    }
+  },
+
+  async updateEmployee(empId, empData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const updatePayload = {
+        fullName: empData.fullName,
+        dateOfBirth: empData.dateOfBirth,
+        citizenId: empData.citizenId,
+        position: empData.position,
+        qualification: empData.qualification,
+        phone: empData.phone,
+        email: empData.email,
+        departmentName: empData.departmentName,
+        status: empData.status,
+        notes: empData.notes || '',
+        updatedAt: nowIso
+      };
+
+      if (empData.employeeCode) updatePayload.employeeCode = empData.employeeCode;
+      if (empData.userId) updatePayload.userId = empData.userId;
+
+      await db.collection('employees').doc(empId).set(updatePayload, { merge: true });
+
+      // Nếu có cập nhật tên, đồng bộ sang leave_balances
+      if (empData.fullName) {
+        const balancesSnap = await db.collection('leave_balances').where('employeeId', '==', empId).get();
+        const batch = db.batch();
+        balancesSnap.forEach(d => {
+          batch.update(d.ref, { employeeName: empData.fullName });
+        });
+        await batch.commit();
+      }
+
+      // Ghi audit log
+      await db.collection('leave_audit_logs').add({
+        employeeId: empId,
+        employeeName: empData.fullName,
+        action: 'CẬP NHẬT THÔNG TIN NHÂN SỰ',
+        oldValue: null,
+        newValue: updatePayload,
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Cập nhật thông tin nhân sự ${empData.fullName}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi cập nhật nhân sự:', e);
+      throw new Error('Lỗi cập nhật nhân sự: ' + e.message);
+    }
+  },
+
+  async deleteEmployee(empId, hardDelete = false) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      if (hardDelete) {
+        await db.collection('employees').doc(empId).delete();
+      } else {
+        // Soft delete (Ngưng hoạt động) để bảo toàn lịch sử nghỉ phép
+        await db.collection('employees').doc(empId).update({
+          status: 'INACTIVE',
+          updatedAt: nowIso
+        });
+      }
+
+      await db.collection('leave_audit_logs').add({
+        employeeId: empId,
+        action: hardDelete ? 'XÓA NHÂN SỰ (VĨNH VIỄN)' : 'NGƯNG HOẠT ĐỘNG NHÂN SỰ',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Thay đổi trạng thái nhân sự ID: ${empId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi xóa nhân sự:', e);
+      throw new Error('Lỗi xóa nhân sự: ' + e.message);
+    }
+  },
+
+  // ========================================================
+  // 16. HỆ THỐNG QUẢN LÝ NGÀY PHÉP (LEAVE MANAGEMENT)
+  // ========================================================
+  async loadLeavePolicy() {
+    try {
+      const db = this.getDb();
+      const doc = await db.collection('system_settings').doc('leave_policy').get();
+      if (doc.exists) {
+        return doc.data();
+      }
+    } catch (e) {}
+
+    return {
+      defaultAnnualLeave: 12,
+      allowNegativeLeave: true,
+      allowCarryForwardPositive: false,
+      maxCarryForwardPositiveDays: 3,
+      excludeWeekends: true,
+      warningThresholdDays: 3
+    };
+  },
+
+  async saveLeavePolicy(policyData) {
+    try {
+      const db = this.getDb();
+      await db.collection('system_settings').doc('leave_policy').set({
+        ...policyData,
+        updatedAt: new Date().toISOString(),
+        updatedBy: AuthService.getCurrentUser()?.displayName || 'Trưởng phòng'
+      }, { merge: true });
+      return { success: true };
+    } catch (e) {
+      throw new Error('Lỗi lưu cấu hình chính sách ngày phép: ' + e.message);
+    }
+  },
+
+  calculateLeaveDays(startDate, endDate, excludeWeekends = true) {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) return 0;
+
+    let count = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+      const day = cur.getDay();
+      if (!excludeWeekends || (day !== 0 && day !== 6)) {
+        count++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return count;
+  },
+
+  async getOrCreateLeaveBalance(empId, empName, year) {
+    try {
+      const db = this.getDb();
+      const balanceId = `${empId}_${year}`;
+      const doc = await db.collection('leave_balances').doc(balanceId).get();
+
+      if (doc.exists) {
+        return doc.data();
+      }
+
+      const policy = await this.loadLeavePolicy();
+      const defaultLeave = Number(policy.defaultAnnualLeave) || 12;
+      let carryForward = 0;
+
+      // Kiểm tra số dư năm trước (year - 1)
+      const prevBalanceId = `${empId}_${year - 1}`;
+      const prevDoc = await db.collection('leave_balances').doc(prevBalanceId).get();
+
+      if (prevDoc.exists) {
+        const prevData = prevDoc.data();
+        const prevRemaining = Number(prevData.remainingLeave) || 0;
+        
+        // NGUYÊN TẮC: Phép âm năm trước TỰ ĐỘNG chuyển sang năm sau
+        if (prevRemaining < 0) {
+          carryForward = prevRemaining; // e.g. -2
+        } else if (prevRemaining > 0 && policy.allowCarryForwardPositive) {
+          const maxPositive = Number(policy.maxCarryForwardPositiveDays) || 3;
+          carryForward = Math.min(prevRemaining, maxPositive);
+        }
+      }
+
+      const remainingLeave = defaultLeave + carryForward;
+      const negativeLeave = remainingLeave < 0 ? Math.abs(remainingLeave) : 0;
+      const nowIso = new Date().toISOString();
+
+      const newBalance = {
+        id: balanceId,
+        employeeId: empId,
+        employeeName: empName || 'Nhân viên',
+        year: Number(year),
+        annualLeave: defaultLeave,
+        carryForward: carryForward,
+        usedLeave: 0,
+        remainingLeave: remainingLeave,
+        negativeLeave: negativeLeave,
+        notes: `Tự động tạo kỳ phép năm ${year}`,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      await db.collection('leave_balances').doc(balanceId).set(newBalance);
+      return newBalance;
+    } catch (e) {
+      console.error('[ApiService] Lỗi getOrCreateLeaveBalance:', e);
+      return null;
+    }
+  },
+
+  async loadLeaveBalances(year) {
+    try {
+      const db = this.getDb();
+      const snap = await db.collection('leave_balances').where('year', '==', Number(year)).get();
+      const list = [];
+      snap.forEach(d => list.push(d.data()));
+      return list;
+    } catch (e) {
+      console.error('[ApiService] Lỗi tải leave_balances:', e);
+      return [];
+    }
+  },
+
+  async loadLeaveRequests(year = null, employeeId = null) {
+    try {
+      const db = this.getDb();
+      let query = db.collection('leave_requests');
+      if (year) {
+        query = query.where('year', '==', Number(year));
+      }
+      if (employeeId) {
+        query = query.where('employeeId', '==', employeeId);
+      }
+
+      const snap = await query.get();
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      return list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } catch (e) {
+      console.error('[ApiService] Lỗi tải leave_requests:', e);
+      return [];
+    }
+  },
+
+  async submitLeaveRequest(reqData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+      const policy = await this.loadLeavePolicy();
+
+      const leaveDays = reqData.leaveDays || this.calculateLeaveDays(reqData.startDate, reqData.endDate, policy.excludeWeekends);
+      const reqYear = new Date(reqData.startDate).getFullYear();
+      const code = `NP-${reqYear}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      const newReq = {
+        requestCode: code,
+        employeeId: reqData.employeeId,
+        employeeName: reqData.employeeName,
+        startDate: reqData.startDate,
+        endDate: reqData.endDate,
+        leaveDays: Number(leaveDays),
+        leaveType: reqData.leaveType || 'ANNUAL',
+        reason: reqData.reason || '',
+        status: reqData.status || 'PENDING', // PENDING, APPROVED, REJECTED, CANCELLED
+        year: reqYear,
+        notes: reqData.notes || '',
+        approvedBy: reqData.approvedBy || null,
+        approvedByName: reqData.approvedByName || null,
+        approvedAt: reqData.approvedAt || null,
+        rejectionReason: null,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      // Đảm bảo hồ sơ phép năm đó đã tồn tại
+      await this.getOrCreateLeaveBalance(reqData.employeeId, reqData.employeeName, reqYear);
+
+      const docRef = await db.collection('leave_requests').add(newReq);
+      newReq.id = docRef.id;
+
+      // Nếu được duyệt ngay lúc tạo
+      if (newReq.status === 'APPROVED') {
+        await this.recalculateEmployeeLeave(reqData.employeeId, reqYear);
+      }
+
+      // Ghi audit log
+      await db.collection('leave_audit_logs').add({
+        employeeId: reqData.employeeId,
+        employeeName: reqData.employeeName,
+        year: reqYear,
+        action: 'ĐĂNG KÝ NGHỈ PHÉP',
+        oldValue: null,
+        newValue: newReq,
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || reqData.employeeName,
+        performedAt: nowIso,
+        note: `Tạo đơn nghỉ phép ${code} (${leaveDays} ngày)`
+      });
+
+      return { success: true, data: newReq };
+    } catch (e) {
+      console.error('[ApiService] Lỗi gửi đơn nghỉ phép:', e);
+      throw new Error('Lỗi gửi đơn nghỉ phép: ' + e.message);
+    }
+  },
+
+  async approveLeaveRequest(requestId) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const docRef = db.collection('leave_requests').doc(requestId);
+      const snap = await docRef.get();
+      if (!snap.exists) throw new Error('Không tìm thấy đơn nghỉ phép.');
+
+      const reqData = snap.data();
+      if (reqData.status === 'APPROVED') {
+        return { success: true, message: 'Đơn này đã được duyệt trước đó.' };
+      }
+
+      const updateData = {
+        status: 'APPROVED',
+        approvedBy: currentUser?.uid || '',
+        approvedByName: currentUser?.displayName || 'Trưởng phòng',
+        approvedAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      await docRef.update(updateData);
+
+      // Tính toán lại phép của nhân viên ngay lập tức
+      await this.recalculateEmployeeLeave(reqData.employeeId, reqData.year);
+
+      // Ghi audit log
+      await db.collection('leave_audit_logs').add({
+        employeeId: reqData.employeeId,
+        employeeName: reqData.employeeName,
+        year: reqData.year,
+        action: 'DUYỆT NGHỈ PHÉP',
+        oldValue: { status: reqData.status },
+        newValue: updateData,
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Lãnh đạo',
+        performedAt: nowIso,
+        note: `Duyệt đơn nghỉ phép ${reqData.requestCode} (${reqData.leaveDays} ngày)`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi duyệt đơn nghỉ phép:', e);
+      throw new Error('Lỗi duyệt đơn: ' + e.message);
+    }
+  },
+
+  async rejectLeaveRequest(requestId, reason = '') {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const docRef = db.collection('leave_requests').doc(requestId);
+      const snap = await docRef.get();
+      if (!snap.exists) throw new Error('Không tìm thấy đơn nghỉ phép.');
+
+      const reqData = snap.data();
+      const updateData = {
+        status: 'REJECTED',
+        rejectionReason: reason || 'Lãnh đạo từ chối đơn',
+        approvedBy: currentUser?.uid || '',
+        approvedByName: currentUser?.displayName || 'Lãnh đạo',
+        approvedAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      await docRef.update(updateData);
+
+      // Nếu đơn trước đó từng là APPROVED thì phải tính lại để hoàn phép
+      if (reqData.status === 'APPROVED') {
+        await this.recalculateEmployeeLeave(reqData.employeeId, reqData.year);
+      }
+
+      await db.collection('leave_audit_logs').add({
+        employeeId: reqData.employeeId,
+        employeeName: reqData.employeeName,
+        year: reqData.year,
+        action: 'TỪ CHỐI NGHỈ PHÉP',
+        oldValue: { status: reqData.status },
+        newValue: updateData,
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Lãnh đạo',
+        performedAt: nowIso,
+        note: `Từ chối đơn ${reqData.requestCode}. Lý do: ${reason}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi từ chối đơn:', e);
+      throw new Error('Lỗi từ chối đơn: ' + e.message);
+    }
+  },
+
+  async cancelLeaveRequest(requestId, reason = '') {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const docRef = db.collection('leave_requests').doc(requestId);
+      const snap = await docRef.get();
+      if (!snap.exists) throw new Error('Không tìm thấy đơn nghỉ phép.');
+
+      const reqData = snap.data();
+      const prevStatus = reqData.status;
+
+      await docRef.update({
+        status: 'CANCELLED',
+        notes: (reqData.notes ? reqData.notes + ' | ' : '') + `Đã hủy: ${reason || 'Người dùng hủy đơn'}`,
+        updatedAt: nowIso
+      });
+
+      // Nếu đơn trước đó ĐÃ DUYỆT -> TỰ ĐỘNG HOÀN LẠI NGÀY PHÉP
+      if (prevStatus === 'APPROVED') {
+        await this.recalculateEmployeeLeave(reqData.employeeId, reqData.year);
+      }
+
+      await db.collection('leave_audit_logs').add({
+        employeeId: reqData.employeeId,
+        employeeName: reqData.employeeName,
+        year: reqData.year,
+        action: 'HỦY ĐƠN NGHỈ PHÉP',
+        oldValue: { status: prevStatus },
+        newValue: { status: 'CANCELLED' },
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Người dùng',
+        performedAt: nowIso,
+        note: `Hủy đơn ${reqData.requestCode}. Lý do: ${reason}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi hủy đơn:', e);
+      throw new Error('Lỗi hủy đơn: ' + e.message);
+    }
+  },
+
+  async recalculateEmployeeLeave(employeeId, year) {
+    try {
+      const db = this.getDb();
+      const yearNum = Number(year);
+      const balanceId = `${employeeId}_${yearNum}`;
+
+      // 1. Lấy tất cả đơn nghỉ phép ĐÃ DUYỆT tính vào phép năm của nhân sự trong năm đó
+      const snap = await db.collection('leave_requests')
+        .where('employeeId', '==', employeeId)
+        .where('year', '==', yearNum)
+        .where('status', '==', 'APPROVED')
+        .get();
+
+      let totalUsedAnnual = 0;
+      snap.forEach(d => {
+        const r = d.data();
+        if (r.leaveType === 'ANNUAL' || !r.leaveType) {
+          totalUsedAnnual += (Number(r.leaveDays) || 0);
+        }
+      });
+
+      // 2. Lấy balance hiện tại
+      let balDoc = await db.collection('leave_balances').doc(balanceId).get();
+      let annualLeave = 12;
+      let carryForward = 0;
+      let empName = 'Nhân viên';
+
+      if (balDoc.exists) {
+        const balData = balDoc.data();
+        annualLeave = Number(balData.annualLeave) || 12;
+        carryForward = Number(balData.carryForward) || 0;
+        empName = balData.employeeName || empName;
+      } else {
+        const empDoc = await db.collection('employees').doc(employeeId).get();
+        if (empDoc.exists) empName = empDoc.data().fullName || empName;
+      }
+
+      const remainingLeave = annualLeave + carryForward - totalUsedAnnual;
+      const negativeLeave = remainingLeave < 0 ? Math.abs(remainingLeave) : 0;
+      const nowIso = new Date().toISOString();
+
+      const updatedBalance = {
+        id: balanceId,
+        employeeId: employeeId,
+        employeeName: empName,
+        year: yearNum,
+        annualLeave: annualLeave,
+        carryForward: carryForward,
+        usedLeave: totalUsedAnnual,
+        remainingLeave: remainingLeave,
+        negativeLeave: negativeLeave,
+        updatedAt: nowIso
+      };
+
+      await db.collection('leave_balances').doc(balanceId).set(updatedBalance, { merge: true });
+      return updatedBalance;
+    } catch (e) {
+      console.error('[ApiService] Lỗi tính lại ngày phép:', e);
+      return null;
+    }
+  },
+
+  async rolloverNewYearBalances(targetYear) {
+    try {
+      const db = this.getDb();
+      const employees = await this.loadEmployees();
+      const policy = await this.loadLeavePolicy();
+      const defaultLeave = Number(policy.defaultAnnualLeave) || 12;
+      const prevYear = Number(targetYear) - 1;
+      const createdCount = [];
+
+      for (const emp of employees) {
+        const balanceId = `${emp.id}_${targetYear}`;
+        const existingDoc = await db.collection('leave_balances').doc(balanceId).get();
+
+        if (!existingDoc.exists) {
+          let carryForward = 0;
+          const prevBalanceId = `${emp.id}_${prevYear}`;
+          const prevDoc = await db.collection('leave_balances').doc(prevBalanceId).get();
+
+          if (prevDoc.exists) {
+            const prevData = prevDoc.data();
+            const prevRemaining = Number(prevData.remainingLeave) || 0;
+
+            if (prevRemaining < 0) {
+              // Phép âm chuyển tiếp sang năm sau
+              carryForward = prevRemaining;
+            } else if (prevRemaining > 0 && policy.allowCarryForwardPositive) {
+              const maxPositive = Number(policy.maxCarryForwardPositiveDays) || 3;
+              carryForward = Math.min(prevRemaining, maxPositive);
+            }
+          }
+
+          const remainingLeave = defaultLeave + carryForward;
+          const negativeLeave = remainingLeave < 0 ? Math.abs(remainingLeave) : 0;
+          const nowIso = new Date().toISOString();
+
+          await db.collection('leave_balances').doc(balanceId).set({
+            id: balanceId,
+            employeeId: emp.id,
+            employeeName: emp.fullName,
+            year: Number(targetYear),
+            annualLeave: defaultLeave,
+            carryForward: carryForward,
+            usedLeave: 0,
+            remainingLeave: remainingLeave,
+            negativeLeave: negativeLeave,
+            notes: `Chuyển kỳ phép từ năm ${prevYear}`,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          });
+
+          createdCount.push(emp.fullName);
+        }
+      }
+
+      return { success: true, count: createdCount.length, employees: createdCount };
+    } catch (e) {
+      console.error('[ApiService] Lỗi chuyển kỳ phép sang năm mới:', e);
+      throw new Error('Lỗi chuyển kỳ phép: ' + e.message);
+    }
   }
 };
 

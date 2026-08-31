@@ -196,6 +196,24 @@ const App = {
       this.currentPage = CategoriesManagementPage;
       appMain.innerHTML = CategoriesManagementPage.render();
       CategoriesManagementPage.init();
+    } else if (path === '#/admin/employees') {
+      if (!AuthService.canViewEmployees()) {
+        Utils.showToast('Từ chối quyền: Phải đăng nhập tài khoản Nội bộ để xem Danh bạ nhân sự!', 'warning', 4000);
+        window.location.hash = '#/login';
+        return;
+      }
+      this.currentPage = EmployeesManagementPage;
+      appMain.innerHTML = EmployeesManagementPage.render();
+      EmployeesManagementPage.init();
+    } else if (path === '#/admin/leave-management') {
+      if (!AuthService.canViewEmployees()) {
+        Utils.showToast('Từ chối quyền: Phải đăng nhập tài khoản Nội bộ để xem Quản lý ngày phép!', 'warning', 4000);
+        window.location.hash = '#/login';
+        return;
+      }
+      this.currentPage = LeaveManagementPage;
+      appMain.innerHTML = LeaveManagementPage.render();
+      LeaveManagementPage.init();
     } else if (path === '#/admin/users') {
       this.currentPage = UserManagementPage;
       appMain.innerHTML = UserManagementPage.render();

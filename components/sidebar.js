@@ -92,6 +92,25 @@ const SidebarComponent = {
               <i class="fa-solid fa-plus-circle w-5 text-center text-base"></i>
               <span>Giao việc mới</span>
             </a>
+          <!-- 👥 Quản lý Nhân sự & Ngày phép (Dành riêng cho Nội bộ) -->
+          <div class="pt-2">
+            <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Nhân sự & Ngày phép
+            </div>
+
+            <!-- 🪪 Danh bạ nhân sự -->
+            <a href="#/admin/employees" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/employees') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+              <i class="fa-solid fa-id-card w-5 text-center text-indigo-400"></i>
+              <span>Quản lý nhân sự</span>
+            </a>
+
+            <!-- 🌴 Quản lý ngày phép -->
+            <a href="#/admin/leave-management" class="sidebar-item flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/leave-management') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-calendar-check w-5 text-center text-emerald-400"></i>
+                <span>Quản lý ngày phép</span>
+              </div>
+            </a>
           </div>
 
           <!-- Quản trị chung -->
