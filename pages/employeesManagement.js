@@ -785,6 +785,11 @@ const EmployeesManagementPage = {
               </div>
             </div>
 
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-700">Khoa / Phòng ban:</label>
+              <input type="text" id="f-emp-dept" value="${emp?.departmentName || 'Phòng Quản trị Thiết bị và Cơ sở vật chất'}" placeholder="VD: Phòng Quản trị Thiết bị và Cơ sở vật chất" class="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500">
+            </div>
+
             <!-- Khối thông tin ngày phép tự động tính (Mục 2) -->
             <div class="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-100 space-y-3">
               <h5 class="font-extrabold text-indigo-900 text-xs flex items-center gap-1.5">
@@ -863,6 +868,7 @@ const EmployeesManagementPage = {
       qualification: document.getElementById('f-emp-qual').value.trim(),
       phone: document.getElementById('f-emp-phone').value.trim(),
       email: document.getElementById('f-emp-email').value.trim(),
+      departmentName: document.getElementById('f-emp-dept')?.value.trim() || 'Phòng Quản trị Thiết bị và Cơ sở vật chất',
       annualLeave: Number(document.getElementById('f-emp-annual').value) || 12,
       carryForward: Number(document.getElementById('f-emp-carry').value) || 0,
       notes: document.getElementById('f-emp-notes').value.trim(),

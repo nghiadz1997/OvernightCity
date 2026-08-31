@@ -1203,6 +1203,13 @@ const ApiService = {
         updatedAt: nowIso
       };
 
+      // Làm sạch các giá trị undefined để tránh lỗi Firestore
+      Object.keys(docData).forEach(key => {
+        if (docData[key] === undefined) {
+          docData[key] = '';
+        }
+      });
+
       const docRef = await db.collection('employees').add(docData);
       docData.id = docRef.id;
 
@@ -1252,23 +1259,31 @@ const ApiService = {
       const db = this.getDb();
       const currentUser = AuthService.getCurrentUser();
       const nowIso = new Date().toISOString();
+      const currentYear = new Date().getFullYear();
 
       const updatePayload = {
-        fullName: empData.fullName,
-        dateOfBirth: empData.dateOfBirth,
-        citizenId: empData.citizenId,
-        position: empData.position,
-        qualification: empData.qualification,
-        phone: empData.phone,
-        email: empData.email,
-        departmentName: empData.departmentName,
-        status: empData.status,
+        fullName: empData.fullName || '',
+        dateOfBirth: empData.dateOfBirth || '',
+        citizenId: empData.citizenId || '',
+        position: empData.position || 'Nhân viên',
+        qualification: empData.qualification || '',
+        phone: empData.phone || '',
+        email: empData.email || '',
+        departmentName: empData.departmentName || 'Phòng Quản trị Thiết bị và Cơ sở vật chất',
+        status: empData.status || 'ACTIVE',
         notes: empData.notes || '',
         updatedAt: nowIso
       };
 
       if (empData.employeeCode) updatePayload.employeeCode = empData.employeeCode;
       if (empData.userId) updatePayload.userId = empData.userId;
+
+      // Loại bỏ hoàn toàn bất kỳ trường undefined nào
+      Object.keys(updatePayload).forEach(key => {
+        if (updatePayload[key] === undefined) {
+          updatePayload[key] = '';
+        }
+      });
 
       await db.collection('employees').doc(empId).set(updatePayload, { merge: true });
 
@@ -1285,14 +1300,15 @@ const ApiService = {
       // Ghi audit log
       await db.collection('leave_audit_logs').add({
         employeeId: empId,
-        employeeName: empData.fullName,
+        employeeName: empData.fullName || '',
+        year: currentYear,
         action: 'CẬP NHẬT THÔNG TIN NHÂN SỰ',
         oldValue: null,
         newValue: updatePayload,
         performedBy: currentUser?.uid || '',
         performedByName: currentUser?.displayName || 'Quản trị viên',
         performedAt: nowIso,
-        note: `Cập nhật thông tin nhân sự ${empData.fullName}`
+        note: `Cập nhật thông tin nhân sự ${empData.fullName || ''}`
       });
 
       return { success: true };
