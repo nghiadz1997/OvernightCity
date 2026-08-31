@@ -1,7 +1,7 @@
 /**
- * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC (v8.1)
+ * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC (v8.2)
  * Cấu trúc: Cơ sở -> Khu vực / Tòa nhà -> Phòng -> Loại phòng -> Thiết bị -> Máy tính PC & Lý lịch phần cứng
- * Chế độ XEM (View Readonly) trực quan, chi tiết, không cho sửa trực tiếp tại trang xem
+ * Bổ sung: Theo dõi chu kỳ & lịch sử vệ sinh định kỳ cho MÁY LẠNH (Air Conditioner)
  */
 
 const RoomsManagementPage = {
@@ -18,6 +18,7 @@ const RoomsManagementPage = {
   // Cache modal state
   activeRoomId: null,
   activePCId: null,
+  activeACDevId: null,
 
   async init() {
     await this.loadData();
@@ -121,7 +122,7 @@ const RoomsManagementPage = {
             <div class="flex items-center gap-2 mb-1">
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5">
                 <i class="fa-solid fa-building-shield text-blue-600"></i>
-                <span>Cơ sở ➔ Tòa nhà ➔ Phòng ➔ Thiết bị ➔ Máy tính PC</span>
+                <span>Cơ sở ➔ Tòa nhà ➔ Phòng ➔ Thiết bị & Máy lạnh ➔ Máy tính PC</span>
               </span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -129,7 +130,7 @@ const RoomsManagementPage = {
               <span>QUẢN LÝ PHÒNG NSG</span>
             </h1>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">
-              Quản lý cơ sở vật chất phòng học, văn phòng khoa, phòng chức năng, thiết bị và lý lịch cấu hình máy tính PC
+              Quản lý cơ sở vật chất phòng học, văn phòng khoa, phòng chức năng, thiết bị, vệ sinh máy lạnh và máy tính PC
             </p>
           </div>
 
@@ -480,7 +481,7 @@ const RoomsManagementPage = {
 
           <!-- 6. THIẾT BỊ -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
-            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" title="Xem danh mục thiết bị" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
+            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" title="Xem danh mục thiết bị & máy lạnh" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
               <i class="fa-solid fa-boxes-stacked mr-1 text-teal-600"></i>
               <span>${devCount} món</span>
             </button>
@@ -584,6 +585,7 @@ const RoomsManagementPage = {
     const brokenPcs = roomPcs.filter(p => p.status === 'Hỏng' || p.status === 'Hư hỏng').length;
 
     const canEdit = AuthService.canManageUsers() || AuthService.isSuperAdmin();
+    const today = new Date().toISOString().split('T')[0];
 
     container.innerHTML = `
       <div id="room-details-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
@@ -628,7 +630,7 @@ const RoomsManagementPage = {
 
             <button id="rd-tab-btn-devices" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'devices' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('devices')">
               <i class="fa-solid fa-boxes-stacked mr-1"></i>
-              <span>2. Danh mục thiết bị (${devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)})</span>
+              <span>2. Danh mục thiết bị & Máy lạnh (${devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)})</span>
             </button>
 
             <button id="rd-tab-btn-pcs" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'pcs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('pcs')">
@@ -695,7 +697,7 @@ const RoomsManagementPage = {
               ` : ''}
             </div>
 
-            <!-- TAB 2: DANH MỤC THIẾT BỊ (READ-ONLY VIEW + NÚT SỬA) -->
+            <!-- TAB 2: DANH MỤC THIẾT BỊ & MÁY LẠNH (READ-ONLY VIEW + VỆ SINH MÁY LẠNH) -->
             <div id="rd-tab-devices" class="${activeTab === 'devices' ? 'block' : 'hidden'} space-y-4">
               <div class="flex items-center justify-between">
                 <div>
@@ -703,7 +705,7 @@ const RoomsManagementPage = {
                     <i class="fa-solid fa-boxes-stacked text-teal-600"></i>
                     <span>DANH MỤC THIẾT BỊ TRONG PHÒNG</span>
                   </h4>
-                  <p class="text-[11px] text-slate-400">Danh mục thiết bị và cơ sở vật chất đã trang bị trong phòng</p>
+                  <p class="text-[11px] text-slate-400">Thiết bị, máy lạnh, bàn ghế và cơ sở vật chất bàn giao</p>
                 </div>
 
                 ${canEdit ? `
@@ -721,24 +723,55 @@ const RoomsManagementPage = {
                     <tr>
                       <th class="py-3 px-3 text-center w-10">STT</th>
                       <th class="py-3 px-4">TÊN THIẾT BỊ</th>
-                      <th class="py-3 px-3 text-center w-24">SỐ LƯỢNG</th>
-                      <th class="py-3 px-3 text-center w-20">ĐVT</th>
+                      <th class="py-3 px-3 text-center w-20">SỐ LƯỢNG</th>
+                      <th class="py-3 px-3 text-center w-16">ĐVT</th>
                       <th class="py-3 px-3">MÃ TÀI SẢN</th>
                       <th class="py-3 px-3">SỐ SERIAL</th>
                       <th class="py-3 px-3 text-center">TÌNH TRẠNG</th>
+                      <th class="py-3 px-3 text-center w-36">VỆ SINH / BẢO TRÌ</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 font-medium">
                     ${devices.map((dev, i) => {
                       const qty = Number(dev.quantity) || 0;
+                      const isAC = dev.type === 'AC' || (dev.name && dev.name.toLowerCase().includes('máy lạnh'));
+                      
                       let statusBadge = 'bg-emerald-100 text-emerald-800';
                       if (dev.status === 'Cần bảo trì' || dev.status === 'Hư hỏng') statusBadge = 'bg-rose-100 text-rose-700 font-black';
                       else if (dev.status === 'Đang sửa chữa') statusBadge = 'bg-amber-100 text-amber-800 font-bold';
 
+                      // Trạng thái bảo trì máy lạnh
+                      let acMaintBadge = '<span class="text-slate-300">---</span>';
+                      if (isAC) {
+                        const sched = dev.maintenanceSchedule || {};
+                        const nextDate = sched.nextDate || (sched.lastDate ? ApiService.calculateNextMaintenanceDate(sched.lastDate, sched.intervalMonths || 6) : '');
+                        
+                        if (nextDate) {
+                          if (nextDate < today) {
+                            acMaintBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn</span>';
+                          } else {
+                            const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
+                            if (diffDays <= 15) {
+                              acMaintBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays}d)</span>`;
+                            } else {
+                              acMaintBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Đến: ${nextDate}</span>`;
+                            }
+                          }
+                        } else {
+                          acMaintBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500 font-semibold">Chưa đặt lịch</span>';
+                        }
+                      }
+
                       return `
                         <tr class="hover:bg-slate-50">
                           <td class="py-2.5 px-3 text-center text-slate-400 font-bold">${i + 1}</td>
-                          <td class="py-2.5 px-4 font-black text-slate-900">${dev.name}</td>
+                          <td class="py-2.5 px-4 font-black text-slate-900">
+                            <div class="flex items-center gap-1.5">
+                              ${isAC ? '<i class="fa-solid fa-snowflake text-sky-500 text-sm"></i>' : ''}
+                              <span>${dev.name}</span>
+                              ${isAC && dev.brand ? `<span class="text-[10px] font-bold text-slate-400">(${dev.brand})</span>` : ''}
+                            </div>
+                          </td>
                           <td class="py-2.5 px-3 text-center font-black ${qty > 0 ? 'text-blue-700 text-sm' : 'text-slate-300'}">${qty}</td>
                           <td class="py-2.5 px-3 text-center text-slate-600 font-semibold">${dev.unit || 'Bộ'}</td>
                           <td class="py-2.5 px-3 font-mono text-[11px] text-slate-700">${dev.assetCode || '---'}</td>
@@ -747,6 +780,16 @@ const RoomsManagementPage = {
                             <span class="px-2 py-0.5 rounded-full text-[10px] ${statusBadge}">
                               ${dev.status || 'Tốt'}
                             </span>
+                          </td>
+                          <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                            ${isAC ? `
+                              <button type="button" class="px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-[11px] border border-sky-200 cursor-pointer shadow-2xs flex items-center gap-1 mx-auto" onclick="RoomsManagementPage.openACMaintenanceModal('${room.id}', '${dev.id}')">
+                                <i class="fa-solid fa-snowflake text-sky-600"></i>
+                                <span>Vệ sinh (${(dev.maintenanceHistory || []).length})</span>
+                              </button>
+                            ` : `
+                              <span class="text-slate-300">---</span>
+                            `}
                           </td>
                         </tr>
                       `;
@@ -803,14 +846,13 @@ const RoomsManagementPage = {
                 ` : roomPcs.map((pc, idx) => {
                   const schedule = pc.maintenanceSchedule || {};
                   const nextDate = schedule.nextDate || ApiService.calculateNextMaintenanceDate(schedule.lastDate, schedule.intervalMonths || 6);
-                  const today = new Date().toISOString().split('T')[0];
                   
                   let maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Còn hạn</span>';
                   if (nextDate) {
-                    if (nextDate < today) maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn bảo trì</span>';
+                    if (nextDate < today) maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn</span>';
                     else {
                       const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
-                      if (diffDays <= 15) maintStatusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays} ngày)</span>`;
+                      if (diffDays <= 15) maintStatusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays}d)</span>`;
                     }
                   }
 
@@ -884,7 +926,278 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 2: XEM LÝ LỊCH MÁY TÍNH PC (READ-ONLY PROFILE VIEW)
+  // MODAL 2: VỆ SINH & BẢO TRÌ ĐỊNH KỲ MÁY LẠNH (AC MAINTENANCE)
+  // ========================================================
+  openACMaintenanceModal(roomId, deviceId) {
+    this.activeRoomId = roomId;
+    this.activeACDevId = deviceId;
+
+    const room = this.rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const devices = room.devices || [];
+    let ac = devices.find(d => d.id === deviceId);
+    if (!ac) ac = devices.find(d => d.type === 'AC' || (d.name && d.name.toLowerCase().includes('máy lạnh')));
+    if (!ac) return;
+
+    const container = document.getElementById('rooms-modal-container');
+    if (!container) return;
+
+    const sched = ac.maintenanceSchedule || { intervalMonths: 6, lastDate: '' };
+    const history = ac.maintenanceHistory || [];
+    const nextDate = sched.nextDate || (sched.lastDate ? ApiService.calculateNextMaintenanceDate(sched.lastDate, sched.intervalMonths || 6) : '');
+    const today = new Date().toISOString().split('T')[0];
+
+    let maintStatusBadge = '<span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Chưa đặt lịch vệ sinh</span>';
+    if (nextDate) {
+      if (nextDate < today) {
+        maintStatusBadge = '<span class="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Đã quá hạn vệ sinh máy lạnh</span>';
+      } else {
+        const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 15) {
+          maintStatusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays} ngày nữa)</span>`;
+        } else {
+          maintStatusBadge = `<span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">🟢 Còn hạn vệ sinh (Đến: ${nextDate})</span>`;
+        }
+      }
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'ac-maintenance-modal';
+    modal.className = 'fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="p-6 bg-gradient-to-r from-sky-900 via-blue-900 to-indigo-950 text-white flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-sky-600 text-white font-black text-2xl flex items-center justify-center shadow-lg">
+              <i class="fa-solid fa-snowflake"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h2 class="text-xl font-black">${ac.name} (${ac.brand || 'Daikin'})</h2>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/30 text-sky-200 border border-sky-400/30">
+                  ${ac.quantity || 1} Bộ
+                </span>
+              </div>
+              <p class="text-xs text-sky-200 mt-1 font-medium">
+                Phòng: <span class="font-bold text-white">${room.roomName}</span> (${room.roomCode}) • Tình trạng: <span class="font-bold text-white">${ac.status || 'Tốt'}</span>
+              </p>
+            </div>
+          </div>
+
+          <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('ac-maintenance-modal').remove()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+          <!-- 1. THÔNG TIN & CHU KỲ VỆ SINH -->
+          <div class="p-4 bg-sky-50/50 rounded-2xl border border-sky-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-extrabold text-sky-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-sky-600"></i>
+                <span>1. CHU KỲ & HẠN VỆ SINH MÁY LẠNH</span>
+              </h4>
+              ${maintStatusBadge}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-sky-100">
+              <div>
+                <label class="block font-bold text-slate-500 text-[10px] uppercase">Chu kỳ vệ sinh:</label>
+                <span class="font-black text-slate-900 text-sm">${sched.intervalMonths || 6} tháng / lần</span>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-500 text-[10px] uppercase">Ngày vệ sinh gần nhất:</label>
+                <span class="font-bold text-slate-800">${sched.lastDate || 'Chưa thực hiện'}</span>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-500 text-[10px] uppercase">Ngày bảo trì tiếp theo:</label>
+                <span class="font-black text-emerald-700 text-sm">${nextDate || '---'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. LỊCH SỬ VỆ SINH BẢO TRÌ (MỤC QUAN TRỌNG) -->
+          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-sky-600"></i>
+                  <span>2. LỊCH SỬ VỆ SINH & BẢO TRÌ (${history.length} lần)</span>
+                </h4>
+                <p class="text-[11px] text-slate-400">Theo dõi toàn bộ quá trình xịt rửa dàn lạnh, dàn nóng, bơm gas máy lạnh</p>
+              </div>
+
+              <button type="button" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs" onclick="RoomsManagementPage.openAddACMaintenanceModal('${room.id}', '${ac.id}')">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>Ghi nhận vệ sinh mới</span>
+              </button>
+            </div>
+
+            <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-500">
+                  <tr>
+                    <th class="p-2.5 text-center w-10">STT</th>
+                    <th class="p-2.5 w-28">Ngày</th>
+                    <th class="p-2.5 w-40">Loại công việc</th>
+                    <th class="p-2.5">Nội dung thực hiện</th>
+                    <th class="p-2.5 w-28">Kỹ thuật viên</th>
+                    <th class="p-2.5 w-24 text-center">Tình trạng</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                  ${history.length === 0 ? `
+                    <tr><td colspan="6" class="p-5 text-center text-slate-400">Chưa có lịch sử vệ sinh máy lạnh nào. Bấm nút <b>Ghi nhận vệ sinh mới</b> để lưu lần bảo trì đầu tiên.</td></tr>
+                  ` : history.map((h, i) => `
+                    <tr class="hover:bg-slate-50">
+                      <td class="p-2.5 text-center text-slate-400 font-bold">${i + 1}</td>
+                      <td class="p-2.5 font-bold text-slate-800">${h.date}</td>
+                      <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-sky-50 text-sky-800 font-bold text-[10px]">${h.type}</span></td>
+                      <td class="p-2.5 text-slate-700">${h.content || '---'}</td>
+                      <td class="p-2.5 text-slate-900 font-bold">${h.performer || 'KTV'}</td>
+                      <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">${h.statusAfter || 'Tốt'}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+          <button type="button" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer" onclick="document.getElementById('ac-maintenance-modal').remove()">
+            Đóng
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  // Modal ghi nhận vệ sinh máy lạnh mới
+  openAddACMaintenanceModal(roomId, deviceId) {
+    const room = this.rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const devices = room.devices || [];
+    let ac = devices.find(d => d.id === deviceId);
+    if (!ac) ac = devices.find(d => d.type === 'AC' || (d.name && d.name.toLowerCase().includes('máy lạnh')));
+    if (!ac) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const formModal = document.createElement('div');
+    formModal.id = 'ac-maint-form-modal';
+    formModal.className = 'fixed inset-0 z-80 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    formModal.innerHTML = `
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
+        <div class="p-5 bg-gradient-to-r from-sky-700 to-blue-800 text-white flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center text-base font-black">
+              <i class="fa-solid fa-snowflake"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-black">GHI NHẬN VỆ SINH MÁY LẠNH</h3>
+              <p class="text-[11px] text-sky-100 font-medium">Phòng: ${room.roomName} (${ac.name})</p>
+            </div>
+          </div>
+          <button class="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('ac-maint-form-modal').remove()">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+
+        <form onsubmit="RoomsManagementPage.handleACMaintenanceSubmit(event, '${room.id}', '${ac.id}')" class="p-5 space-y-3.5 text-xs">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-700">Ngày vệ sinh <span class="text-rose-500">*</span>:</label>
+              <input type="date" id="ac-mf-date" value="${today}" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900" required>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-700">Loại công việc:</label>
+              <select id="ac-mf-type" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
+                <option value="Vệ sinh lưới lọc & xịt dàn lạnh">Vệ sinh lưới lọc & xịt dàn lạnh</option>
+                <option value="Bảo dưỡng toàn diện (Dàn lạnh + Dàn nóng)">Bảo dưỡng toàn diện (Dàn lạnh + Dàn nóng)</option>
+                <option value="Kiểm tra & Bơm nạp thêm Gas">Kiểm tra & Bơm nạp thêm Gas</option>
+                <option value="Sửa chữa chảy nước / nghẹt máng">Sửa chữa chảy nước / nghẹt máng</option>
+                <option value="Thay thế linh kiện (Board, Motor, Block)">Thay thế linh kiện (Board, Motor, Block)</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block font-bold text-slate-700">Nội dung thực hiện chi tiết <span class="text-rose-500">*</span>:</label>
+            <textarea id="ac-mf-content" rows="2" placeholder="VD: Tháo vỏ xịt rửa dàn lạnh, thông ống thoát nước thải, xịt rửa dàn nóng ngoài ban công, đo áp suất gas đủ..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-medium text-slate-900" required></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-700">Kỹ thuật viên thực hiện:</label>
+              <input type="text" id="ac-mf-performer" value="${AuthService.getCurrentUser()?.displayName || 'Kỹ thuật viên'}" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-700">Tình trạng sau vệ sinh:</label>
+              <select id="ac-mf-status-after" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-emerald-700">
+                <option value="Tốt" selected>Tốt - Mát sâu, hoạt động êm</option>
+                <option value="Đang sử dụng">Bình thường</option>
+                <option value="Cần theo dõi">Cần theo dõi thêm</option>
+                <option value="Cần thay linh kiện">Cần thay linh kiện / Bơm gas</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-200 flex justify-end gap-2">
+            <button type="button" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer" onclick="document.getElementById('ac-maint-form-modal').remove()">
+              Hủy
+            </button>
+            <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl shadow-md cursor-pointer flex items-center gap-2">
+              <i class="fa-solid fa-check"></i>
+              <span>LƯU LỊCH SỬ VỆ SINH</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(formModal);
+  },
+
+  async handleACMaintenanceSubmit(e, roomId, deviceId) {
+    e.preventDefault();
+
+    const logData = {
+      date: document.getElementById('ac-mf-date').value,
+      type: document.getElementById('ac-mf-type').value,
+      content: document.getElementById('ac-mf-content').value.trim(),
+      performer: document.getElementById('ac-mf-performer').value.trim(),
+      statusAfter: document.getElementById('ac-mf-status-after').value
+    };
+
+    try {
+      await ApiService.addACMaintenanceLog(roomId, deviceId, logData);
+      Utils.showToast('Đã ghi nhận vệ sinh máy lạnh thành công!', 'success');
+
+      const modal = document.getElementById('ac-maint-form-modal');
+      if (modal) modal.remove();
+
+      await this.loadData();
+
+      // Mở lại modal AC view
+      const acModal = document.getElementById('ac-maintenance-modal');
+      if (acModal) acModal.remove();
+      this.openACMaintenanceModal(roomId, deviceId);
+    } catch (err) {
+      Utils.showToast('Lỗi ghi nhận vệ sinh máy lạnh: ' + err.message, 'error');
+    }
+  },
+
+  // ========================================================
+  // MODAL 3: XEM LÝ LỊCH MÁY TÍNH PC (READ-ONLY PROFILE VIEW)
   // ========================================================
   openPCViewModal(pcId) {
     this.activePCId = pcId;
@@ -1251,7 +1564,7 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 3: CHỈNH SỬA THIẾT BỊ TRONG PHÒNG
+  // MODAL 4: CHỈNH SỬA THIẾT BỊ TRONG PHÒNG
   // ========================================================
   openEditDevicesModal(roomId) {
     const room = this.rooms.find(r => r.id === roomId);
@@ -1448,7 +1761,7 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 4: THÊM / CHỈNH SỬA PHÒNG
+  // MODAL 5: THÊM / CHỈNH SỬA PHÒNG
   // ========================================================
   openCreateRoomModal() {
     this.renderRoomFormModal(null);
@@ -1683,7 +1996,7 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 5: THÊM / CHỈNH SỬA CẤU HÌNH MÁY PC (EDIT FORM)
+  // MODAL 6: THÊM / CHỈNH SỬA CẤU HÌNH MÁY PC (EDIT FORM)
   // ========================================================
   openCreatePCModal(roomId) {
     const room = this.rooms.find(r => r.id === roomId);
@@ -2235,7 +2548,7 @@ const RoomsManagementPage = {
     }
   },
 
-  // Modal ghi nhận bảo trì mới
+  // Modal ghi nhận bảo trì mới cho PC
   openAddMaintenanceModal(pcId) {
     const pc = this.pcs.find(p => p.id === pcId);
     if (!pc) return;
@@ -2255,7 +2568,7 @@ const RoomsManagementPage = {
               <i class="fa-solid fa-screwdriver-wrench"></i>
             </div>
             <div>
-              <h3 class="text-sm font-black">GHI NHẬN BẢO TRÌ / VỆ SINH</h3>
+              <h3 class="text-sm font-black">GHI NHẬN BẢO TRÌ PC</h3>
               <p class="text-[11px] text-emerald-100 font-medium">Máy PC: ${pc.pcName} (${pc.pcCode})</p>
             </div>
           </div>
@@ -2345,7 +2658,7 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 6: QUẢN LÝ CƠ SỞ & KHU VỰC / TÒA NHÀ (Mục 1)
+  // MODAL 7: QUẢN LÝ CƠ SỞ & KHU VỰC / TÒA NHÀ (Mục 1)
   // ========================================================
   openCampusModal() {
     const container = document.getElementById('rooms-modal-container');

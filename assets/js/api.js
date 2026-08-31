@@ -1868,7 +1868,7 @@ const ApiService = {
   getDefaultRoomDevices() {
     return [
       { id: 'dev_1', name: 'Máy chiếu', type: 'PROJECTOR', quantity: 0, unit: 'Bộ', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
-      { id: 'dev_2', name: 'Máy lạnh', type: 'AC', quantity: 0, unit: 'Bộ', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_2', name: 'Máy lạnh', type: 'AC', quantity: 0, unit: 'Bộ', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '', brand: 'Daikin', capacityBtu: '2 HP (18000 BTU)', maintenanceSchedule: { intervalMonths: 6, lastDate: '', nextDate: '' }, maintenanceHistory: [] },
       { id: 'dev_3', name: 'Tivi', type: 'TV', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
       { id: 'dev_4', name: 'Loa', type: 'SPEAKER', quantity: 0, unit: 'Cặp', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
       { id: 'dev_5', name: 'Dây HDMI', type: 'CABLE', quantity: 0, unit: 'Sợi', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
@@ -1878,6 +1878,75 @@ const ApiService = {
       { id: 'dev_9', name: 'Máy in', type: 'PRINTER', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
       { id: 'dev_10', name: 'Máy scan', type: 'SCANNER', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' }
     ];
+  },
+
+  async addACMaintenanceLog(roomId, deviceId, logData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const roomDoc = await db.collection('rooms').doc(roomId).get();
+      if (!roomDoc.exists) throw new Error('Không tìm thấy thông tin phòng');
+
+      const room = roomDoc.data();
+      const devices = Array.isArray(room.devices) ? [...room.devices] : [];
+      let devIndex = devices.findIndex(d => d.id === deviceId);
+      if (devIndex === -1) {
+        devIndex = devices.findIndex(d => d.type === 'AC' || (d.name && d.name.toLowerCase().includes('máy lạnh')));
+      }
+
+      if (devIndex === -1) throw new Error('Không tìm thấy thiết bị máy lạnh trong phòng');
+
+      const ac = devices[devIndex];
+      const history = Array.isArray(ac.maintenanceHistory) ? [...ac.maintenanceHistory] : [];
+
+      const newEntry = {
+        id: 'ac_maint_' + Date.now(),
+        date: logData.date || new Date().toISOString().split('T')[0],
+        type: logData.type || 'Vệ sinh lưới lọc & xịt dàn lạnh',
+        content: logData.content || '',
+        performer: logData.performer || currentUser?.displayName || 'Kỹ thuật viên',
+        statusAfter: logData.statusAfter || 'Tốt',
+        cost: Number(logData.cost) || 0,
+        notes: logData.notes || '',
+        createdAt: nowIso
+      };
+
+      history.unshift(newEntry);
+
+      const schedule = ac.maintenanceSchedule || { intervalMonths: 6 };
+      schedule.lastDate = newEntry.date;
+      schedule.nextDate = this.calculateNextMaintenanceDate(newEntry.date, schedule.intervalMonths || 6);
+
+      ac.maintenanceHistory = history;
+      ac.maintenanceSchedule = schedule;
+      if (logData.statusAfter) ac.status = logData.statusAfter === 'Tốt' ? 'Đang sử dụng' : logData.statusAfter;
+
+      devices[devIndex] = ac;
+
+      await db.collection('rooms').doc(roomId).update({
+        devices: devices,
+        updatedAt: nowIso
+      });
+
+      // Audit Log
+      await db.collection('room_audit_logs').add({
+        targetType: 'AC',
+        targetId: `${roomId}_${deviceId || 'ac'}`,
+        targetName: `Máy lạnh - ${room.roomName}`,
+        action: 'VỆ SINH MÁY LẠNH',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Ghi nhận vệ sinh máy lạnh phòng ${room.roomName} ngày ${newEntry.date}`
+      });
+
+      return { success: true, entry: newEntry, schedule: schedule };
+    } catch (e) {
+      console.error('[ApiService] Lỗi ghi nhận vệ sinh máy lạnh:', e);
+      throw new Error('Lỗi ghi nhận vệ sinh máy lạnh: ' + e.message);
+    }
   },
 
   async loadRooms() {
