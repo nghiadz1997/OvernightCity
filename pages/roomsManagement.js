@@ -1,7 +1,7 @@
 /**
- * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC (v8.2)
- * Cấu trúc: Cơ sở -> Khu vực / Tòa nhà -> Phòng -> Loại phòng -> Thiết bị -> Máy tính PC & Lý lịch phần cứng
- * Bổ sung: Theo dõi chu kỳ & lịch sử vệ sinh định kỳ cho MÁY LẠNH (Air Conditioner)
+ * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC (v8.3)
+ * Cấu trúc: Cơ sở -> Khu vực / Tòa nhà -> Phòng -> Loại phòng -> Thiết bị -> Máy lạnh & Máy tính PC
+ * Bổ sung: Thống kê Máy lạnh chuyên biệt & Tương tác mở Modal Vệ sinh Máy lạnh siêu mượt tức thì
  */
 
 const RoomsManagementPage = {
@@ -57,6 +57,8 @@ const RoomsManagementPage = {
     const facultyRoomsEl = document.getElementById('stat-r-faculty');
     const funcRoomsEl = document.getElementById('stat-r-func');
     const totalPCsEl = document.getElementById('stat-r-pcs');
+    const totalACsEl = document.getElementById('stat-r-acs');
+    const dueACsEl = document.getElementById('stat-r-due-acs');
     const totalDevicesEl = document.getElementById('stat-r-devices');
     const maintDevicesEl = document.getElementById('stat-r-maint-devices');
 
@@ -75,12 +77,26 @@ const RoomsManagementPage = {
 
     let totalDevices = 0;
     let maintDevices = 0;
+    let totalACs = 0;
+    let dueACs = 0;
+    const today = new Date().toISOString().split('T')[0];
+
     this.rooms.forEach(r => {
       (r.devices || []).forEach(d => {
         const qty = Number(d.quantity) || 0;
         totalDevices += qty;
         if (d.status === 'Cần bảo trì' || d.status === 'Hư hỏng' || d.status === 'Đang sửa chữa') {
           maintDevices += qty;
+        }
+
+        const isAC = d.type === 'AC' || (d.name && (d.name.toLowerCase().includes('máy lạnh') || d.name.toLowerCase().includes('điều hòa')));
+        if (isAC) {
+          totalACs += qty;
+          const sched = d.maintenanceSchedule || {};
+          const nextDate = sched.nextDate || (sched.lastDate ? ApiService.calculateNextMaintenanceDate(sched.lastDate, sched.intervalMonths || 6) : '');
+          if (nextDate && nextDate <= today && qty > 0) {
+            dueACs += qty;
+          }
         }
       });
     });
@@ -93,6 +109,8 @@ const RoomsManagementPage = {
     if (facultyRoomsEl) facultyRoomsEl.innerText = facultyRooms;
     if (funcRoomsEl) funcRoomsEl.innerText = funcRooms;
     if (totalPCsEl) totalPCsEl.innerText = totalPCs;
+    if (totalACsEl) totalACsEl.innerText = totalACs;
+    if (dueACsEl) dueACsEl.innerText = dueACs;
     if (totalDevicesEl) totalDevicesEl.innerText = totalDevices;
     if (maintDevicesEl) maintDevicesEl.innerText = maintDevices;
   },
@@ -100,7 +118,7 @@ const RoomsManagementPage = {
   renderLoading() {
     return `
       <tr>
-        <td colspan="9" class="p-12 text-center text-slate-400">
+        <td colspan="10" class="p-12 text-center text-slate-400">
           <div class="inline-block animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-3"></div>
           <p class="text-xs font-bold text-slate-600">Đang tải danh sách phòng và cơ sở vật chất...</p>
         </td>
@@ -122,7 +140,7 @@ const RoomsManagementPage = {
             <div class="flex items-center gap-2 mb-1">
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5">
                 <i class="fa-solid fa-building-shield text-blue-600"></i>
-                <span>Cơ sở ➔ Tòa nhà ➔ Phòng ➔ Thiết bị & Máy lạnh ➔ Máy tính PC</span>
+                <span>Cơ sở ➔ Tòa nhà ➔ Phòng ➔ Máy lạnh ❄️ ➔ Máy tính PC 💻</span>
               </span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -130,7 +148,7 @@ const RoomsManagementPage = {
               <span>QUẢN LÝ PHÒNG NSG</span>
             </h1>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">
-              Quản lý cơ sở vật chất phòng học, văn phòng khoa, phòng chức năng, thiết bị, vệ sinh máy lạnh và máy tính PC
+              Hệ thống quản lý cơ sở vật chất, theo dõi vệ sinh định kỳ máy lạnh và cấu hình máy bộ PC
             </p>
           </div>
 
@@ -159,8 +177,8 @@ const RoomsManagementPage = {
           </div>
         </div>
 
-        <!-- 10 Metric Stat Cards (Mục 13) -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <!-- 12 Metric Stat Cards (Bổ sung Thống Kê Máy Lạnh Chuyên Biệt) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
           <!-- 1. Cơ sở -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shrink-0">
@@ -178,7 +196,7 @@ const RoomsManagementPage = {
               <i class="fa-solid fa-building"></i>
             </div>
             <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tòa nhà / Khu vực</p>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tòa nhà / Khu</p>
               <h3 id="stat-r-zones" class="text-xl font-black text-indigo-600">0</h3>
             </div>
           </div>
@@ -200,7 +218,7 @@ const RoomsManagementPage = {
               <i class="fa-solid fa-chalkboard-user"></i>
             </div>
             <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Phòng lý thuyết</p>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Lý thuyết</p>
               <h3 id="stat-r-theory" class="text-xl font-black text-cyan-700">0</h3>
             </div>
           </div>
@@ -211,7 +229,7 @@ const RoomsManagementPage = {
               <i class="fa-solid fa-flask-vial"></i>
             </div>
             <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Phòng thực hành</p>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Thực hành</p>
               <h3 id="stat-r-practice" class="text-xl font-black text-purple-700">0</h3>
             </div>
           </div>
@@ -222,7 +240,7 @@ const RoomsManagementPage = {
               <i class="fa-solid fa-briefcase"></i>
             </div>
             <div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Văn phòng khoa</p>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">VP Khoa</p>
               <h3 id="stat-r-faculty" class="text-xl font-black text-amber-700">0</h3>
             </div>
           </div>
@@ -238,7 +256,29 @@ const RoomsManagementPage = {
             </div>
           </div>
 
-          <!-- 8. Tổng số PC -->
+          <!-- 8. MÁY LẠNH (TỔNG) - MỤC YÊU CẦU MỚI -->
+          <div class="bg-gradient-to-br from-sky-50 to-blue-50 p-4 rounded-2xl border border-sky-200 shadow-xs flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+              <i class="fa-solid fa-snowflake"></i>
+            </div>
+            <div>
+              <p class="text-[10px] text-sky-800 font-black uppercase tracking-wider">Tổng Máy Lạnh</p>
+              <h3 id="stat-r-acs" class="text-xl font-black text-sky-700">0</h3>
+            </div>
+          </div>
+
+          <!-- 9. MÁY LẠNH ĐẾN HẠN VỆ SINH -->
+          <div class="bg-gradient-to-br from-rose-50 to-amber-50 p-4 rounded-2xl border border-rose-200 shadow-xs flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+              <i class="fa-solid fa-hand-holding-droplet"></i>
+            </div>
+            <div>
+              <p class="text-[10px] text-rose-800 font-black uppercase tracking-wider">ML Cần Vệ Sinh</p>
+              <h3 id="stat-r-due-acs" class="text-xl font-black text-rose-600">0</h3>
+            </div>
+          </div>
+
+          <!-- 10. Tổng số PC -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
               <i class="fa-solid fa-desktop"></i>
@@ -249,7 +289,7 @@ const RoomsManagementPage = {
             </div>
           </div>
 
-          <!-- 9. Tổng thiết bị -->
+          <!-- 11. Tổng thiết bị -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-lg shrink-0">
               <i class="fa-solid fa-boxes-stacked"></i>
@@ -260,7 +300,7 @@ const RoomsManagementPage = {
             </div>
           </div>
 
-          <!-- 10. Thiết bị cần bảo trì -->
+          <!-- 12. Thiết bị cần bảo trì -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg shrink-0">
               <i class="fa-solid fa-triangle-exclamation"></i>
@@ -325,7 +365,7 @@ const RoomsManagementPage = {
           </div>
         </div>
 
-        <!-- BẢNG DANH SÁCH PHÒNG (Mục 14) -->
+        <!-- BẢNG DANH SÁCH PHÒNG (Bổ sung Cột MÁY LẠNH chuyên biệt) -->
         <div class="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -336,8 +376,9 @@ const RoomsManagementPage = {
                   <th class="py-4 px-3">KHU VỰC / TÒA</th>
                   <th class="py-4 px-4">MÃ & TÊN PHÒNG</th>
                   <th class="py-4 px-3">LOẠI PHÒNG</th>
-                  <th class="py-4 px-3 text-center">THIẾT BỊ</th>
-                  <th class="py-4 px-3 text-center">MÁY PC</th>
+                  <th class="py-4 px-3 text-center">MÁY LẠNH ❄️</th>
+                  <th class="py-4 px-3 text-center">MÁY PC 💻</th>
+                  <th class="py-4 px-3 text-center">THIẾT BỊ 📦</th>
                   <th class="py-4 px-3 text-center">TÌNH TRẠNG</th>
                   <th class="py-4 px-4 text-center w-36">THAO TÁC</th>
                 </tr>
@@ -350,7 +391,7 @@ const RoomsManagementPage = {
         </div>
       </div>
 
-      <!-- Container Modal Chi tiết, Phòng & PC -->
+      <!-- Container Modal Chi tiết, Phòng & PC & Máy lạnh -->
       <div id="rooms-modal-container"></div>
     `;
   },
@@ -408,7 +449,7 @@ const RoomsManagementPage = {
     if (filtered.length === 0) {
       return `
         <tr>
-          <td colspan="9" class="p-12 text-center text-slate-400">
+          <td colspan="10" class="p-12 text-center text-slate-400">
             <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl mx-auto mb-2">
               <i class="fa-solid fa-door-open"></i>
             </div>
@@ -420,12 +461,33 @@ const RoomsManagementPage = {
     }
 
     const canEdit = AuthService.canManageUsers() || AuthService.isSuperAdmin();
+    const today = new Date().toISOString().split('T')[0];
 
     return filtered.map((room, index) => {
       const isFacultyOrFunction = room.roomType === 'Văn phòng khoa' || room.roomType === 'Phòng chức năng' || room.roomType === 'Phòng máy';
       const devCount = (room.devices || []).reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
       const roomPcs = this.pcs.filter(p => p.roomId === room.id);
       const pcCount = roomPcs.length;
+
+      // Tìm máy lạnh trong phòng
+      const acDevice = (room.devices || []).find(d => d.type === 'AC' || (d.name && (d.name.toLowerCase().includes('máy lạnh') || d.name.toLowerCase().includes('điều hòa'))));
+      const acCount = Number(acDevice?.quantity) || 0;
+
+      // Hạn vệ sinh máy lạnh
+      let acStatusHtml = '';
+      if (acCount > 0) {
+        const sched = acDevice?.maintenanceSchedule || {};
+        const nextDate = sched.nextDate || (sched.lastDate ? ApiService.calculateNextMaintenanceDate(sched.lastDate, sched.intervalMonths || 6) : '');
+        if (nextDate) {
+          if (nextDate <= today) {
+            acStatusHtml = '<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block mr-1"></span>';
+          } else {
+            const diff = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
+            if (diff <= 15) acStatusHtml = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1"></span>';
+            else acStatusHtml = '<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1"></span>';
+          }
+        }
+      }
 
       // Badge loại phòng
       let typeBadge = '';
@@ -479,15 +541,16 @@ const RoomsManagementPage = {
             </span>
           </td>
 
-          <!-- 6. THIẾT BỊ -->
+          <!-- 6. MÁY LẠNH ❄️ (BẤM NHẢY NGAY VÀO LỊCH VỆ SINH) -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
-            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" title="Xem danh mục thiết bị & máy lạnh" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
-              <i class="fa-solid fa-boxes-stacked mr-1 text-teal-600"></i>
-              <span>${devCount} món</span>
+            <button type="button" class="px-2.5 py-1 rounded-xl ${acCount > 0 ? 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-300 font-black' : 'bg-slate-50 hover:bg-slate-100 text-slate-400 border-slate-200 font-bold'} text-xs border cursor-pointer shadow-2xs inline-flex items-center gap-1 transition-all hover:scale-105" title="Bấm xem lịch sử & vệ sinh máy lạnh" onclick="RoomsManagementPage.openACMaintenanceModal('${room.id}', '${acDevice?.id || 'dev_2'}')">
+              ${acStatusHtml}
+              <i class="fa-solid fa-snowflake ${acCount > 0 ? 'text-sky-600' : 'text-slate-300'}"></i>
+              <span>${acCount > 0 ? `${acCount} Bộ` : '0 Bộ'}</span>
             </button>
           </td>
 
-          <!-- 7. MÁY PC -->
+          <!-- 7. MÁY PC 💻 -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
             ${isFacultyOrFunction || pcCount > 0 ? `
               <button type="button" class="px-2.5 py-1 rounded-xl ${pcCount > 0 ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'} font-black text-xs border cursor-pointer shadow-2xs" title="Xem & Quản lý máy PC" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'pcs')">
@@ -501,14 +564,22 @@ const RoomsManagementPage = {
             `}
           </td>
 
-          <!-- 8. TÌNH TRẠNG -->
+          <!-- 8. THIẾT BỊ 📦 -->
+          <td class="py-3.5 px-3 text-center whitespace-nowrap">
+            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" title="Xem danh mục thiết bị" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
+              <i class="fa-solid fa-boxes-stacked mr-1 text-teal-600"></i>
+              <span>${devCount} món</span>
+            </button>
+          </td>
+
+          <!-- 9. TÌNH TRẠNG -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
             <span class="px-2.5 py-1 rounded-full text-[10px] font-black ${statusBadge}">
               ${room.status || 'Đang sử dụng'}
             </span>
           </td>
 
-          <!-- 9. THAO TÁC -->
+          <!-- 10. THAO TÁC -->
           <td class="py-3.5 px-4 text-center whitespace-nowrap">
             <div class="flex items-center justify-center gap-1">
               <!-- Xem chi tiết (Read-only hồ sơ) -->
@@ -516,9 +587,9 @@ const RoomsManagementPage = {
                 <i class="fa-solid fa-eye text-xs"></i>
               </button>
 
-              <!-- Quản lý thiết bị / PC -->
-              <button type="button" class="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Quản lý thiết bị & máy tính" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
-                <i class="fa-solid fa-boxes-stacked text-xs"></i>
+              <!-- Vệ sinh máy lạnh nhanh -->
+              <button type="button" class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Lịch sử vệ sinh máy lạnh" onclick="RoomsManagementPage.openACMaintenanceModal('${room.id}', '${acDevice?.id || 'dev_2'}')">
+                <i class="fa-solid fa-snowflake text-xs"></i>
               </button>
 
               ${canEdit ? `
@@ -622,18 +693,18 @@ const RoomsManagementPage = {
           </div>
 
           <!-- Tab Bar -->
-          <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-6 py-2 text-xs font-bold">
-            <button id="rd-tab-btn-overview" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'overview' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('overview')">
+          <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-6 py-2 text-xs font-bold overflow-x-auto">
+            <button id="rd-tab-btn-overview" class="py-2 px-4 rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === 'overview' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('overview')">
               <i class="fa-solid fa-location-dot mr-1"></i>
               <span>1. Thông tin địa điểm</span>
             </button>
 
-            <button id="rd-tab-btn-devices" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'devices' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('devices')">
+            <button id="rd-tab-btn-devices" class="py-2 px-4 rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === 'devices' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('devices')">
               <i class="fa-solid fa-boxes-stacked mr-1"></i>
               <span>2. Danh mục thiết bị & Máy lạnh (${devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)})</span>
             </button>
 
-            <button id="rd-tab-btn-pcs" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'pcs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('pcs')">
+            <button id="rd-tab-btn-pcs" class="py-2 px-4 rounded-xl transition-all cursor-pointer whitespace-nowrap ${activeTab === 'pcs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('pcs')">
               <i class="fa-solid fa-desktop mr-1"></i>
               <span>3. Quản lý Máy PC (${roomPcs.length})</span>
             </button>
@@ -728,39 +799,17 @@ const RoomsManagementPage = {
                       <th class="py-3 px-3">MÃ TÀI SẢN</th>
                       <th class="py-3 px-3">SỐ SERIAL</th>
                       <th class="py-3 px-3 text-center">TÌNH TRẠNG</th>
-                      <th class="py-3 px-3 text-center w-36">VỆ SINH / BẢO TRÌ</th>
+                      <th class="py-3 px-3 text-center w-40">VỆ SINH / BẢO TRÌ</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 font-medium">
                     ${devices.map((dev, i) => {
                       const qty = Number(dev.quantity) || 0;
-                      const isAC = dev.type === 'AC' || (dev.name && dev.name.toLowerCase().includes('máy lạnh'));
+                      const isAC = dev.type === 'AC' || (dev.name && (dev.name.toLowerCase().includes('máy lạnh') || dev.name.toLowerCase().includes('điều hòa')));
                       
                       let statusBadge = 'bg-emerald-100 text-emerald-800';
                       if (dev.status === 'Cần bảo trì' || dev.status === 'Hư hỏng') statusBadge = 'bg-rose-100 text-rose-700 font-black';
                       else if (dev.status === 'Đang sửa chữa') statusBadge = 'bg-amber-100 text-amber-800 font-bold';
-
-                      // Trạng thái bảo trì máy lạnh
-                      let acMaintBadge = '<span class="text-slate-300">---</span>';
-                      if (isAC) {
-                        const sched = dev.maintenanceSchedule || {};
-                        const nextDate = sched.nextDate || (sched.lastDate ? ApiService.calculateNextMaintenanceDate(sched.lastDate, sched.intervalMonths || 6) : '');
-                        
-                        if (nextDate) {
-                          if (nextDate < today) {
-                            acMaintBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn</span>';
-                          } else {
-                            const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
-                            if (diffDays <= 15) {
-                              acMaintBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays}d)</span>`;
-                            } else {
-                              acMaintBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Đến: ${nextDate}</span>`;
-                            }
-                          }
-                        } else {
-                          acMaintBadge = '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500 font-semibold">Chưa đặt lịch</span>';
-                        }
-                      }
 
                       return `
                         <tr class="hover:bg-slate-50">
@@ -783,7 +832,7 @@ const RoomsManagementPage = {
                           </td>
                           <td class="py-2.5 px-3 text-center whitespace-nowrap">
                             ${isAC ? `
-                              <button type="button" class="px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-[11px] border border-sky-200 cursor-pointer shadow-2xs flex items-center gap-1 mx-auto" onclick="RoomsManagementPage.openACMaintenanceModal('${room.id}', '${dev.id}')">
+                              <button type="button" class="px-3 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-[11px] border border-sky-300 cursor-pointer shadow-2xs flex items-center gap-1.5 mx-auto transition-transform hover:scale-105" onclick="RoomsManagementPage.openACMaintenanceModal('${room.id}', '${dev.id || 'dev_2'}')">
                                 <i class="fa-solid fa-snowflake text-sky-600"></i>
                                 <span>Vệ sinh (${(dev.maintenanceHistory || []).length})</span>
                               </button>
@@ -801,7 +850,7 @@ const RoomsManagementPage = {
 
             <!-- TAB 3: QUẢN LÝ MÁY TÍNH PC (ÁP DỤNG CHO VĂN PHÒNG KHOA & PHÒNG CHỨC NĂNG) -->
             <div id="rd-tab-pcs" class="${activeTab === 'pcs' ? 'block' : 'hidden'} space-y-4">
-              <!-- Thống kê máy bộ PC (Mục 5) -->
+              <!-- Thống kê máy bộ PC -->
               <div class="bg-gradient-to-r from-blue-900 to-indigo-950 p-5 rounded-2xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
                 <div>
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 border border-blue-400/30">
@@ -916,8 +965,8 @@ const RoomsManagementPage = {
       const btn = document.getElementById(`rd-tab-btn-${t}`);
       const content = document.getElementById(`rd-tab-${t}`);
       if (btn) {
-        if (t === tabName) btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-xs';
-        else btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer text-slate-600 hover:bg-slate-200';
+        if (t === tabName) btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer whitespace-nowrap bg-blue-600 text-white shadow-xs';
+        else btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer whitespace-nowrap text-slate-600 hover:bg-slate-200';
       }
       if (content) {
         content.className = t === tabName ? 'block space-y-4' : 'hidden space-y-4';
@@ -926,22 +975,29 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 2: VỆ SINH & BẢO TRÌ ĐỊNH KỲ MÁY LẠNH (AC MAINTENANCE)
+  // MODAL 2: VỆ SINH & BẢO TRÌ ĐỊNH KỲ MÁY LẠNH (AC MAINTENANCE - SIÊU MƯỢT TỨC THÌ)
   // ========================================================
   openACMaintenanceModal(roomId, deviceId) {
     this.activeRoomId = roomId;
     this.activeACDevId = deviceId;
 
     const room = this.rooms.find(r => r.id === roomId);
-    if (!room) return;
+    if (!room) {
+      Utils.showToast('Không tìm thấy thông tin phòng.', 'warning');
+      return;
+    }
 
-    const devices = room.devices || [];
+    const devices = room.devices || ApiService.getDefaultRoomDevices();
     let ac = devices.find(d => d.id === deviceId);
-    if (!ac) ac = devices.find(d => d.type === 'AC' || (d.name && d.name.toLowerCase().includes('máy lạnh')));
-    if (!ac) return;
+    if (!ac) {
+      ac = devices.find(d => d.type === 'AC' || (d.name && (d.name.toLowerCase().includes('máy lạnh') || d.name.toLowerCase().includes('điều hòa'))));
+    }
+    if (!ac) {
+      ac = { id: 'dev_2', name: 'Máy lạnh', type: 'AC', quantity: 0, unit: 'Bộ', brand: 'Daikin', maintenanceSchedule: { intervalMonths: 6, lastDate: '', nextDate: '' }, maintenanceHistory: [] };
+    }
 
-    const container = document.getElementById('rooms-modal-container');
-    if (!container) return;
+    // Xóa ngay modal cũ nếu có để tránh đè layer
+    document.querySelectorAll('#ac-maintenance-modal, #ac-maint-form-modal').forEach(el => el.remove());
 
     const sched = ac.maintenanceSchedule || { intervalMonths: 6, lastDate: '' };
     const history = ac.maintenanceHistory || [];
@@ -964,7 +1020,8 @@ const RoomsManagementPage = {
 
     const modal = document.createElement('div');
     modal.id = 'ac-maintenance-modal';
-    modal.className = 'fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    // Đặt z-[9999] đảm bảo luôn hiển thị ngay lập tức lên trên cùng
+    modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs animate-fade-in pointer-events-auto';
     modal.innerHTML = `
       <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col">
         <!-- Header -->
@@ -977,7 +1034,7 @@ const RoomsManagementPage = {
               <div class="flex items-center gap-2.5">
                 <h2 class="text-xl font-black">${ac.name} (${ac.brand || 'Daikin'})</h2>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/30 text-sky-200 border border-sky-400/30">
-                  ${ac.quantity || 1} Bộ
+                  ${ac.quantity || 0} Bộ
                 </span>
               </div>
               <p class="text-xs text-sky-200 mt-1 font-medium">
@@ -986,7 +1043,7 @@ const RoomsManagementPage = {
             </div>
           </div>
 
-          <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('ac-maintenance-modal').remove()">
+          <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition-colors" onclick="document.getElementById('ac-maintenance-modal').remove()">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -1030,7 +1087,7 @@ const RoomsManagementPage = {
                 <p class="text-[11px] text-slate-400">Theo dõi toàn bộ quá trình xịt rửa dàn lạnh, dàn nóng, bơm gas máy lạnh</p>
               </div>
 
-              <button type="button" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs" onclick="RoomsManagementPage.openAddACMaintenanceModal('${room.id}', '${ac.id}')">
+              <button type="button" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-transform hover:scale-105" onclick="RoomsManagementPage.openAddACMaintenanceModal('${room.id}', '${ac.id || 'dev_2'}')">
                 <i class="fa-solid fa-plus text-xs"></i>
                 <span>Ghi nhận vệ sinh mới</span>
               </button>
@@ -1078,21 +1135,23 @@ const RoomsManagementPage = {
     document.body.appendChild(modal);
   },
 
-  // Modal ghi nhận vệ sinh máy lạnh mới
+  // Modal ghi nhận vệ sinh máy lạnh mới (Layer z-[10000])
   openAddACMaintenanceModal(roomId, deviceId) {
     const room = this.rooms.find(r => r.id === roomId);
     if (!room) return;
 
     const devices = room.devices || [];
     let ac = devices.find(d => d.id === deviceId);
-    if (!ac) ac = devices.find(d => d.type === 'AC' || (d.name && d.name.toLowerCase().includes('máy lạnh')));
-    if (!ac) return;
+    if (!ac) ac = devices.find(d => d.type === 'AC' || (d.name && (d.name.toLowerCase().includes('máy lạnh') || d.name.toLowerCase().includes('điều hòa'))));
+    if (!ac) ac = { id: 'dev_2', name: 'Máy lạnh' };
 
     const today = new Date().toISOString().split('T')[0];
 
+    document.querySelectorAll('#ac-maint-form-modal').forEach(el => el.remove());
+
     const formModal = document.createElement('div');
     formModal.id = 'ac-maint-form-modal';
-    formModal.className = 'fixed inset-0 z-80 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    formModal.className = 'fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs animate-fade-in pointer-events-auto';
     formModal.innerHTML = `
       <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
         <div class="p-5 bg-gradient-to-r from-sky-700 to-blue-800 text-white flex items-center justify-between">
@@ -1110,7 +1169,7 @@ const RoomsManagementPage = {
           </button>
         </div>
 
-        <form onsubmit="RoomsManagementPage.handleACMaintenanceSubmit(event, '${room.id}', '${ac.id}')" class="p-5 space-y-3.5 text-xs">
+        <form onsubmit="RoomsManagementPage.handleACMaintenanceSubmit(event, '${room.id}', '${ac.id || 'dev_2'}')" class="p-5 space-y-3.5 text-xs">
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1">
               <label class="block font-bold text-slate-700">Ngày vệ sinh <span class="text-rose-500">*</span>:</label>
@@ -1182,14 +1241,12 @@ const RoomsManagementPage = {
       await ApiService.addACMaintenanceLog(roomId, deviceId, logData);
       Utils.showToast('Đã ghi nhận vệ sinh máy lạnh thành công!', 'success');
 
-      const modal = document.getElementById('ac-maint-form-modal');
-      if (modal) modal.remove();
+      const formModal = document.getElementById('ac-maint-form-modal');
+      if (formModal) formModal.remove();
 
       await this.loadData();
 
-      // Mở lại modal AC view
-      const acModal = document.getElementById('ac-maintenance-modal');
-      if (acModal) acModal.remove();
+      // Mở lại modal AC view đã cập nhật
       this.openACMaintenanceModal(roomId, deviceId);
     } catch (err) {
       Utils.showToast('Lỗi ghi nhận vệ sinh máy lạnh: ' + err.message, 'error');
@@ -1311,7 +1368,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 2. CẤU HÌNH PHẦN CỨNG CHI TIẾT (Mục 7) -->
+            <!-- 2. CẤU HÌNH PHẦN CỨNG CHI TIẾT -->
             <div class="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-200 space-y-3">
               <h4 class="font-extrabold text-indigo-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-microchip text-indigo-600"></i>
@@ -1384,7 +1441,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 3. WINDOWS & MICROSOFT OFFICE (Mục 8, 9) -->
+            <!-- 3. WINDOWS & MICROSOFT OFFICE -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Windows -->
               <div class="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-2.5">
@@ -1442,7 +1499,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 4. CÁC PHẦN MỀM KHÁC (Mục 10) -->
+            <!-- 4. CÁC PHẦN MỀM KHÁC -->
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
               <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-cubes text-blue-600"></i>
@@ -1481,7 +1538,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 5. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ (Mục 11) -->
+            <!-- 5. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ -->
             <div class="p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200 space-y-3">
               <div class="flex items-center justify-between">
                 <h4 class="font-extrabold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-2">
@@ -1507,7 +1564,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 6. LỊCH SỬ BẢO TRÌ MÁY (Mục 12) -->
+            <!-- 6. LỊCH SỬ BẢO TRÌ MÁY -->
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
               <div class="flex items-center justify-between">
                 <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
@@ -1803,7 +1860,7 @@ const RoomsManagementPage = {
 
           <!-- Form Body -->
           <form onsubmit="RoomsManagementPage.handleRoomFormSubmit(event, '${room?.id || ''}')" class="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
-            <!-- 1. Cấu trúc địa điểm phân cấp (Mục 1) -->
+            <!-- 1. Cấu trúc địa điểm phân cấp -->
             <div class="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-3">
               <h4 class="font-extrabold text-blue-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-map-location-dot text-blue-600"></i>
@@ -1831,7 +1888,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 2. Thông tin chi tiết phòng (Mục 2 & 3) -->
+            <!-- 2. Thông tin chi tiết phòng -->
             <div class="grid grid-cols-2 gap-3">
               <div class="space-y-1">
                 <label class="block font-bold text-slate-700">Mã phòng <span class="text-rose-500">*</span>:</label>
@@ -2017,7 +2074,6 @@ const RoomsManagementPage = {
     if (!container) return;
 
     const targetRoomId = pc?.roomId || room?.id || '';
-    const targetRoom = room || this.rooms.find(r => r.id === targetRoomId);
 
     const hw = pc?.hardware || {};
     const os = pc?.os || {};
@@ -2110,7 +2166,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 2. CẤU HÌNH PHẦN CỨNG (Mục 7) -->
+            <!-- 2. CẤU HÌNH PHẦN CỨNG -->
             <div class="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-200 space-y-3">
               <h4 class="font-extrabold text-indigo-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-microchip text-indigo-600"></i>
@@ -2205,7 +2261,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 3. HỆ ĐIỀU HÀNH WINDOWS & MICROSOFT OFFICE (Mục 8, 9) -->
+            <!-- 3. HỆ ĐIỀU HÀNH WINDOWS & MICROSOFT OFFICE -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Windows -->
               <div class="p-4 bg-blue-50/40 rounded-2xl border border-blue-200 space-y-2.5">
@@ -2279,7 +2335,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 4. CÁC PHẦN MỀM KHÁC (Mục 10) -->
+            <!-- 4. CÁC PHẦN MỀM KHÁC -->
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
               <div class="flex items-center justify-between">
                 <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
@@ -2329,7 +2385,7 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 5. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ (Mục 11) -->
+            <!-- 5. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ -->
             <div class="p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200 space-y-3">
               <h4 class="font-extrabold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-calendar-check text-emerald-600"></i>
@@ -2825,7 +2881,7 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // XUẤT BÁO CÁO EXCEL
+  // XUẤT BÁO CÁO EXCEL (BỔ SUNG MÁY LẠNH)
   // ========================================================
   exportExcel() {
     const filtered = this.getFilteredRooms();
@@ -2835,19 +2891,22 @@ const RoomsManagementPage = {
     }
 
     let csv = '\uFEFF'; // UTF-8 BOM
-    csv += 'STT,CƠ SỞ,KHU VỰC,MÃ PHÒNG,TÊN PHÒNG,LOẠI PHÒNG,TẦNG,SỨC CHỨA,DIỆN TÍCH,NGƯỜI PHỤ TRÁCH,SĐT,TỔNG THIẾT BỊ,MÁY PC,TÌNH TRẠNG\n';
+    csv += 'STT,CƠ SỞ,KHU VỰC,MÃ PHÒNG,TÊN PHÒNG,LOẠI PHÒNG,TẦNG,SỨC CHỨA,DIỆN TÍCH,NGƯỜI PHỤ TRÁCH,SĐT,MÁY LẠNH,MÁY PC,TỔNG THIẾT BỊ,TÌNH TRẠNG\n';
 
     filtered.forEach((r, i) => {
       const devCount = (r.devices || []).reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
       const roomPcs = this.pcs.filter(p => p.roomId === r.id);
-      csv += `"${i + 1}","${r.campusName || ''}","${r.zoneName || ''}","${r.roomCode || ''}","${r.roomName || ''}","${r.roomType || ''}","${r.floor || ''}","${r.capacity || 0}","${r.area || 0}","${r.managerName || ''}","${r.managerPhone || ''}","${devCount}","${roomPcs.length}","${r.status || ''}"\n`;
+      const acDev = (r.devices || []).find(d => d.type === 'AC' || (d.name && (d.name.toLowerCase().includes('máy lạnh') || d.name.toLowerCase().includes('điều hòa'))));
+      const acQty = Number(acDev?.quantity) || 0;
+
+      csv += `"${i + 1}","${r.campusName || ''}","${r.zoneName || ''}","${r.roomCode || ''}","${r.roomName || ''}","${r.roomType || ''}","${r.floor || ''}","${r.capacity || 0}","${r.area || 0}","${r.managerName || ''}","${r.managerPhone || ''}","${acQty}","${roomPcs.length}","${devCount}","${r.status || ''}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Danh_sach_phong_va_thiet_bi_NSG_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Danh_sach_phong_thiet_bi_may_lanh_NSG_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
