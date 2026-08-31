@@ -22,11 +22,17 @@ const NavbarComponent = {
               </button>
 
               <a href="#/" class="flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+                <div class="h-10 w-10 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                   ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
-                    <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="w-full h-full object-contain p-1" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='block' : null;">
-                    <i class="fa-solid fa-headset hidden"></i>
-                  ` : `<i class="fa-solid fa-headset"></i>`}
+                    <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="max-h-10 max-w-10 w-auto h-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='flex' : null;">
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 text-white items-center justify-center text-xl shadow-md hidden">
+                      <i class="fa-solid fa-headset"></i>
+                    </div>
+                  ` : `
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md">
+                      <i class="fa-solid fa-headset"></i>
+                    </div>
+                  `}
                 </div>
                 <div>
                   <div class="flex items-center gap-2">

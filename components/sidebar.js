@@ -20,11 +20,17 @@ const SidebarComponent = {
         <!-- Brand Header -->
         <div class="h-16 flex items-center justify-between px-6 bg-slate-950 border-b border-slate-800">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow overflow-hidden">
+            <div class="h-9 w-9 flex items-center justify-center shrink-0">
               ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
-                <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="w-full h-full object-contain p-0.5" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='block' : null;">
-                <i class="fa-solid fa-headset hidden"></i>
-              ` : `<i class="fa-solid fa-headset"></i>`}
+                <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="max-h-9 max-w-9 w-auto h-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='flex' : null;">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white items-center justify-center text-base shadow hidden">
+                  <i class="fa-solid fa-headset"></i>
+                </div>
+              ` : `
+                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-base shadow">
+                  <i class="fa-solid fa-headset"></i>
+                </div>
+              `}
             </div>
             <span class="font-extrabold text-white text-base tracking-wider">NSG SUPPORT</span>
           </div>
