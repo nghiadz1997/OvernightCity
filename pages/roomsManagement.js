@@ -1,6 +1,7 @@
 /**
- * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC
- * Cấu trúc phân cấp: Cơ sở -> Khu vực / Tòa nhà -> Phòng / Vị trí -> Loại phòng -> Thiết bị -> Máy tính PC & Lý lịch phần cứng
+ * NSG SUPPORT - QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC (v8.1)
+ * Cấu trúc: Cơ sở -> Khu vực / Tòa nhà -> Phòng -> Loại phòng -> Thiết bị -> Máy tính PC & Lý lịch phần cứng
+ * Chế độ XEM (View Readonly) trực quan, chi tiết, không cho sửa trực tiếp tại trang xem
  */
 
 const RoomsManagementPage = {
@@ -58,7 +59,6 @@ const RoomsManagementPage = {
     const totalDevicesEl = document.getElementById('stat-r-devices');
     const maintDevicesEl = document.getElementById('stat-r-maint-devices');
 
-    // Tính tổng khu vực từ campuses
     let totalZones = 0;
     this.campuses.forEach(c => {
       totalZones += (c.zones || []).length;
@@ -129,7 +129,7 @@ const RoomsManagementPage = {
               <span>QUẢN LÝ PHÒNG NSG</span>
             </h1>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">
-              Hệ thống quản lý cơ sở vật chất phòng học, văn phòng khoa, thiết bị và lý lịch cấu hình máy tính PC
+              Quản lý cơ sở vật chất phòng học, văn phòng khoa, phòng chức năng, thiết bị và lý lịch cấu hình máy tính PC
             </p>
           </div>
 
@@ -292,7 +292,6 @@ const RoomsManagementPage = {
             <div>
               <select id="room-zone-filter" class="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500" onchange="RoomsManagementPage.handleZoneFilter(this.value)">
                 <option value="ALL">-- Tất cả khu vực / tòa --</option>
-                <!-- Rendered dynamically depending on selected campus -->
               </select>
             </div>
 
@@ -420,10 +419,9 @@ const RoomsManagementPage = {
     }
 
     const canEdit = AuthService.canManageUsers() || AuthService.isSuperAdmin();
-    const isSuperAdmin = AuthService.isSuperAdmin();
 
     return filtered.map((room, index) => {
-      const isFaculty = room.roomType === 'Văn phòng khoa';
+      const isFacultyOrFunction = room.roomType === 'Văn phòng khoa' || room.roomType === 'Phòng chức năng' || room.roomType === 'Phòng máy';
       const devCount = (room.devices || []).reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
       const roomPcs = this.pcs.filter(p => p.roomId === room.id);
       const pcCount = roomPcs.length;
@@ -433,7 +431,7 @@ const RoomsManagementPage = {
       if (room.roomType === 'Lý thuyết') typeBadge = 'bg-cyan-50 text-cyan-800 border-cyan-200';
       else if (room.roomType === 'Thực hành') typeBadge = 'bg-purple-50 text-purple-800 border-purple-200';
       else if (room.roomType === 'Văn phòng khoa') typeBadge = 'bg-amber-50 text-amber-800 border-amber-200 font-black';
-      else if (room.roomType === 'Phòng chức năng') typeBadge = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      else if (room.roomType === 'Phòng chức năng') typeBadge = 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold';
       else typeBadge = 'bg-slate-100 text-slate-700 border-slate-200';
 
       // Badge tình trạng
@@ -482,7 +480,7 @@ const RoomsManagementPage = {
 
           <!-- 6. THIẾT BỊ -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
-            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
+            <button type="button" class="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-black text-xs border border-teal-200 cursor-pointer shadow-2xs" title="Xem danh mục thiết bị" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'devices')">
               <i class="fa-solid fa-boxes-stacked mr-1 text-teal-600"></i>
               <span>${devCount} món</span>
             </button>
@@ -490,13 +488,15 @@ const RoomsManagementPage = {
 
           <!-- 7. MÁY PC -->
           <td class="py-3.5 px-3 text-center whitespace-nowrap">
-            ${isFaculty || pcCount > 0 ? `
-              <button type="button" class="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 font-black text-xs border border-blue-200 cursor-pointer shadow-2xs" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'pcs')">
-                <i class="fa-solid fa-desktop mr-1 text-blue-600"></i>
-                <span>${pcCount} PC</span>
+            ${isFacultyOrFunction || pcCount > 0 ? `
+              <button type="button" class="px-2.5 py-1 rounded-xl ${pcCount > 0 ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'} font-black text-xs border cursor-pointer shadow-2xs" title="Xem & Quản lý máy PC" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'pcs')">
+                <i class="fa-solid fa-desktop mr-1 ${pcCount > 0 ? 'text-blue-600' : 'text-slate-400'}"></i>
+                <span>${pcCount > 0 ? `${pcCount} PC` : '+ Thêm PC'}</span>
               </button>
             ` : `
-              <span class="text-slate-300 text-xs font-bold">---</span>
+              <button type="button" class="px-2 py-0.5 rounded-lg text-slate-400 hover:text-blue-600 text-xs font-semibold hover:bg-blue-50 cursor-pointer" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}', 'pcs')">
+                + Thêm
+              </button>
             `}
           </td>
 
@@ -510,7 +510,7 @@ const RoomsManagementPage = {
           <!-- 9. THAO TÁC -->
           <td class="py-3.5 px-4 text-center whitespace-nowrap">
             <div class="flex items-center justify-center gap-1">
-              <!-- Xem chi tiết cây phân cấp -->
+              <!-- Xem chi tiết (Read-only hồ sơ) -->
               <button type="button" class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center cursor-pointer shadow-2xs" title="Xem chi tiết hồ sơ phòng" onclick="RoomsManagementPage.openRoomDetailsModal('${room.id}')">
                 <i class="fa-solid fa-eye text-xs"></i>
               </button>
@@ -565,7 +565,890 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 1: THÊM / CHỈNH SỬA PHÒNG (Mục 1, 2, 3)
+  // MODAL 1: XEM CHI TIẾT PHÒNG (READ-ONLY VIEW MODE)
+  // ========================================================
+  openRoomDetailsModal(roomId, activeTab = 'overview') {
+    this.activeRoomId = roomId;
+    const room = this.rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const container = document.getElementById('rooms-modal-container');
+    if (!container) return;
+
+    const devices = room.devices || ApiService.getDefaultRoomDevices();
+    const roomPcs = this.pcs.filter(p => p.roomId === room.id);
+
+    // Thống kê PC
+    const activePcs = roomPcs.filter(p => p.status === 'Đang sử dụng').length;
+    const maintPcs = roomPcs.filter(p => p.status === 'Đang bảo trì').length;
+    const brokenPcs = roomPcs.filter(p => p.status === 'Hỏng' || p.status === 'Hư hỏng').length;
+
+    const canEdit = AuthService.canManageUsers() || AuthService.isSuperAdmin();
+
+    container.innerHTML = `
+      <div id="room-details-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+          <!-- Header -->
+          <div class="p-6 bg-gradient-to-r from-slate-900 to-blue-950 text-white flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-door-open"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-xl sm:text-2xl font-black">${room.roomName}</h2>
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                    ${room.roomCode}
+                  </span>
+                </div>
+                <p class="text-xs text-blue-200 mt-1 font-medium">
+                  ${room.campusName} • ${room.zoneName} • ${room.roomType} • ${room.floor}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              ${canEdit ? `
+                <button class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs" onclick="RoomsManagementPage.openEditRoomModal('${room.id}')">
+                  <i class="fa-solid fa-pen"></i>
+                  <span>Sửa phòng</span>
+                </button>
+              ` : ''}
+              <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('room-details-modal').remove()">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab Bar -->
+          <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-6 py-2 text-xs font-bold">
+            <button id="rd-tab-btn-overview" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'overview' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('overview')">
+              <i class="fa-solid fa-location-dot mr-1"></i>
+              <span>1. Thông tin địa điểm</span>
+            </button>
+
+            <button id="rd-tab-btn-devices" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'devices' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('devices')">
+              <i class="fa-solid fa-boxes-stacked mr-1"></i>
+              <span>2. Danh mục thiết bị (${devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)})</span>
+            </button>
+
+            <button id="rd-tab-btn-pcs" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'pcs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('pcs')">
+              <i class="fa-solid fa-desktop mr-1"></i>
+              <span>3. Quản lý Máy PC (${roomPcs.length})</span>
+            </button>
+          </div>
+
+          <!-- Body Tabs -->
+          <div class="p-6 overflow-y-auto flex-1 space-y-6 text-xs">
+            <!-- TAB 1: THÔNG TIN ĐỊA ĐIỂM (READ-ONLY) -->
+            <div id="rd-tab-overview" class="${activeTab === 'overview' ? 'block' : 'hidden'} space-y-4">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Cơ sở:</span>
+                  <span class="font-extrabold text-slate-800 text-sm">${room.campusName || 'Cơ sở chính'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Khu vực / Tòa nhà:</span>
+                  <span class="font-extrabold text-indigo-700 text-sm">${room.zoneName || 'Tòa A'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Loại phòng:</span>
+                  <span class="font-extrabold text-blue-700 text-sm">${room.roomType || 'Lý thuyết'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Tầng:</span>
+                  <span class="font-extrabold text-slate-800">${room.floor || 'Tầng 1'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Sức chứa:</span>
+                  <span class="font-extrabold text-slate-800">${room.capacity || 0} người</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Diện tích:</span>
+                  <span class="font-extrabold text-slate-800">${room.area || 0} m²</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Người phụ trách:</span>
+                  <span class="font-extrabold text-slate-800">${room.managerName || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Số điện thoại:</span>
+                  <span class="font-extrabold text-slate-800">${room.managerPhone || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[11px]">Trạng thái:</span>
+                  <span class="font-extrabold text-emerald-600">${room.status || 'Đang sử dụng'}</span>
+                </div>
+              </div>
+
+              ${room.locationDetail ? `
+                <div class="p-3.5 bg-blue-50/50 rounded-xl border border-blue-200">
+                  <span class="font-bold text-blue-900 block text-[11px]">Vị trí chi tiết:</span>
+                  <p class="text-slate-700 mt-0.5 font-medium">${room.locationDetail}</p>
+                </div>
+              ` : ''}
+
+              ${room.notes ? `
+                <div class="p-3.5 bg-slate-100 rounded-xl border border-slate-200">
+                  <span class="font-bold text-slate-600 block text-[11px]">Ghi chú phòng:</span>
+                  <p class="text-slate-700 mt-0.5">${room.notes}</p>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- TAB 2: DANH MỤC THIẾT BỊ (READ-ONLY VIEW + NÚT SỬA) -->
+            <div id="rd-tab-devices" class="${activeTab === 'devices' ? 'block' : 'hidden'} space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked text-teal-600"></i>
+                    <span>DANH MỤC THIẾT BỊ TRONG PHÒNG</span>
+                  </h4>
+                  <p class="text-[11px] text-slate-400">Danh mục thiết bị và cơ sở vật chất đã trang bị trong phòng</p>
+                </div>
+
+                ${canEdit ? `
+                  <button type="button" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5" onclick="RoomsManagementPage.openEditDevicesModal('${room.id}')">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Chỉnh sửa thiết bị</span>
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- Bảng thiết bị dạng Readonly -->
+              <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th class="py-3 px-3 text-center w-10">STT</th>
+                      <th class="py-3 px-4">TÊN THIẾT BỊ</th>
+                      <th class="py-3 px-3 text-center w-24">SỐ LƯỢNG</th>
+                      <th class="py-3 px-3 text-center w-20">ĐVT</th>
+                      <th class="py-3 px-3">MÃ TÀI SẢN</th>
+                      <th class="py-3 px-3">SỐ SERIAL</th>
+                      <th class="py-3 px-3 text-center">TÌNH TRẠNG</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-medium">
+                    ${devices.map((dev, i) => {
+                      const qty = Number(dev.quantity) || 0;
+                      let statusBadge = 'bg-emerald-100 text-emerald-800';
+                      if (dev.status === 'Cần bảo trì' || dev.status === 'Hư hỏng') statusBadge = 'bg-rose-100 text-rose-700 font-black';
+                      else if (dev.status === 'Đang sửa chữa') statusBadge = 'bg-amber-100 text-amber-800 font-bold';
+
+                      return `
+                        <tr class="hover:bg-slate-50">
+                          <td class="py-2.5 px-3 text-center text-slate-400 font-bold">${i + 1}</td>
+                          <td class="py-2.5 px-4 font-black text-slate-900">${dev.name}</td>
+                          <td class="py-2.5 px-3 text-center font-black ${qty > 0 ? 'text-blue-700 text-sm' : 'text-slate-300'}">${qty}</td>
+                          <td class="py-2.5 px-3 text-center text-slate-600 font-semibold">${dev.unit || 'Bộ'}</td>
+                          <td class="py-2.5 px-3 font-mono text-[11px] text-slate-700">${dev.assetCode || '---'}</td>
+                          <td class="py-2.5 px-3 font-mono text-[11px] text-slate-700">${dev.serialNumber || '---'}</td>
+                          <td class="py-2.5 px-3 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] ${statusBadge}">
+                              ${dev.status || 'Tốt'}
+                            </span>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- TAB 3: QUẢN LÝ MÁY TÍNH PC (ÁP DỤNG CHO VĂN PHÒNG KHOA & PHÒNG CHỨC NĂNG) -->
+            <div id="rd-tab-pcs" class="${activeTab === 'pcs' ? 'block' : 'hidden'} space-y-4">
+              <!-- Thống kê máy bộ PC (Mục 5) -->
+              <div class="bg-gradient-to-r from-blue-900 to-indigo-950 p-5 rounded-2xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+                <div>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                    💻 THỐNG KÊ MÁY BỘ PC
+                  </span>
+                  <div class="flex items-center gap-4 mt-2">
+                    <div>
+                      <span class="text-[11px] text-blue-200">Tổng số PC:</span>
+                      <span class="text-xl font-black ml-1">${String(roomPcs.length).padStart(2, '0')}</span>
+                    </div>
+                    <div>
+                      <span class="text-[11px] text-emerald-300">Đang sử dụng:</span>
+                      <span class="text-xl font-black text-emerald-400 ml-1">${String(activePcs).padStart(2, '0')}</span>
+                    </div>
+                    <div>
+                      <span class="text-[11px] text-amber-300">Đang bảo trì:</span>
+                      <span class="text-xl font-black text-amber-400 ml-1">${String(maintPcs).padStart(2, '0')}</span>
+                    </div>
+                    <div>
+                      <span class="text-[11px] text-rose-300">Hỏng:</span>
+                      <span class="text-xl font-black text-rose-400 ml-1">${String(brokenPcs).padStart(2, '0')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                ${canEdit ? `
+                  <button type="button" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-md cursor-pointer flex items-center gap-2" onclick="RoomsManagementPage.openCreatePCModal('${room.id}')">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>+ THÊM MÁY PC</span>
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- Danh sách thẻ máy PC -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                ${roomPcs.length === 0 ? `
+                  <div class="col-span-full p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                    <i class="fa-solid fa-desktop text-2xl text-slate-300 mb-2 block"></i>
+                    <p class="font-bold text-slate-600">Chưa có máy PC nào được khai báo trong phòng này.</p>
+                    <p class="text-[11px] mt-0.5">Bấm nút "+ THÊM MÁY PC" ở trên để tạo hồ sơ lý lịch máy tính.</p>
+                  </div>
+                ` : roomPcs.map((pc, idx) => {
+                  const schedule = pc.maintenanceSchedule || {};
+                  const nextDate = schedule.nextDate || ApiService.calculateNextMaintenanceDate(schedule.lastDate, schedule.intervalMonths || 6);
+                  const today = new Date().toISOString().split('T')[0];
+                  
+                  let maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Còn hạn</span>';
+                  if (nextDate) {
+                    if (nextDate < today) maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn bảo trì</span>';
+                    else {
+                      const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
+                      if (diffDays <= 15) maintStatusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays} ngày)</span>`;
+                    }
+                  }
+
+                  return `
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all space-y-3 cursor-pointer group" onclick="RoomsManagementPage.openPCViewModal('${pc.id}')">
+                      <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-2.5">
+                          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 font-black text-sm flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                            <i class="fa-solid fa-desktop"></i>
+                          </div>
+                          <div>
+                            <h5 class="font-black text-slate-900 text-xs group-hover:text-blue-600 transition-colors">${pc.pcName || 'Máy PC'}</h5>
+                            <span class="font-mono text-[10px] font-bold text-blue-600">${pc.pcCode}</span>
+                          </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${pc.status === 'Đang sử dụng' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                          ${pc.status}
+                        </span>
+                      </div>
+
+                      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] space-y-1">
+                        <div class="flex justify-between">
+                          <span class="text-slate-400 font-semibold">Người dùng:</span>
+                          <span class="font-extrabold text-slate-800">${pc.userName || 'Chưa gán'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-slate-400 font-semibold">CPU / RAM:</span>
+                          <span class="font-bold text-slate-700">${pc.hardware?.cpu || '---'} / ${pc.hardware?.ram || '---'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-slate-400 font-semibold">Windows:</span>
+                          <span class="font-bold text-slate-700">${pc.os?.name || 'Win 11'} ${pc.os?.isLicensed ? '☑ Có bản quyền' : '☐ Không bản quyền'}</span>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-100">
+                        <span class="text-slate-400 font-medium">Bảo trì: ${nextDate || '---'}</span>
+                        ${maintStatusBadge}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <button type="button" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer" onclick="document.getElementById('room-details-modal').remove()">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  switchDetailsTab(tabName) {
+    const tabs = ['overview', 'devices', 'pcs'];
+    tabs.forEach(t => {
+      const btn = document.getElementById(`rd-tab-btn-${t}`);
+      const content = document.getElementById(`rd-tab-${t}`);
+      if (btn) {
+        if (t === tabName) btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-xs';
+        else btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer text-slate-600 hover:bg-slate-200';
+      }
+      if (content) {
+        content.className = t === tabName ? 'block space-y-4' : 'hidden space-y-4';
+      }
+    });
+  },
+
+  // ========================================================
+  // MODAL 2: XEM LÝ LỊCH MÁY TÍNH PC (READ-ONLY PROFILE VIEW)
+  // ========================================================
+  openPCViewModal(pcId) {
+    this.activePCId = pcId;
+    const pc = this.pcs.find(p => p.id === pcId);
+    if (!pc) return;
+
+    const room = this.rooms.find(r => r.id === pc.roomId);
+    const container = document.getElementById('rooms-modal-container');
+    if (!container) return;
+
+    const hw = pc.hardware || {};
+    const os = pc.os || {};
+    const office = pc.office || {};
+    const softwares = pc.softwares || [];
+    const schedule = pc.maintenanceSchedule || {};
+    const history = pc.maintenanceHistory || [];
+
+    const nextDate = schedule.nextDate || ApiService.calculateNextMaintenanceDate(schedule.lastDate, schedule.intervalMonths || 6);
+    const today = new Date().toISOString().split('T')[0];
+
+    let maintStatusBadge = '<span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">🟢 Còn hạn bảo trì</span>';
+    if (nextDate) {
+      if (nextDate < today) maintStatusBadge = '<span class="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Đã quá hạn bảo trì</span>';
+      else {
+        const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 15) maintStatusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays} ngày nữa)</span>`;
+      }
+    }
+
+    const canEdit = AuthService.canManageUsers() || AuthService.isSuperAdmin();
+
+    container.innerHTML = `
+      <div id="pc-view-modal" class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+          <!-- Header -->
+          <div class="p-6 bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 text-white flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-desktop"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2.5">
+                  <h2 class="text-xl sm:text-2xl font-black">${pc.pcName}</h2>
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                    ${pc.pcCode}
+                  </span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${pc.status === 'Đang sử dụng' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+                    ${pc.status}
+                  </span>
+                </div>
+                <p class="text-xs text-blue-200 mt-1 font-medium">
+                  Phòng: <span class="font-bold text-white">${room?.roomName || '---'}</span> (${room?.roomCode || ''}) • Người sử dụng: <span class="font-bold text-white">${pc.userName || '---'}</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              ${canEdit ? `
+                <button type="button" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer" onclick="RoomsManagementPage.openPCEditModal('${pc.id}')">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                  <span>Chỉnh sửa cấu hình PC</span>
+                </button>
+              ` : ''}
+              <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('pc-view-modal').remove()">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Body Hồ Sơ Lý Lịch (Chế độ Xem Trực Quan, Sang Trọng, Readonly) -->
+          <div class="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+            <!-- 1. THÔNG TIN CƠ BẢN -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-blue-600"></i>
+                <span>1. THÔNG TIN CƠ BẢN</span>
+              </h4>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Mã máy:</span>
+                  <span class="font-mono font-black text-blue-600 text-sm">${pc.pcCode}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Tên máy:</span>
+                  <span class="font-extrabold text-slate-900">${pc.pcName}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Người sử dụng:</span>
+                  <span class="font-extrabold text-slate-900">${pc.userName || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Tình trạng:</span>
+                  <span class="font-extrabold text-emerald-700">${pc.status}</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Phòng / Vị trí:</span>
+                  <span class="font-extrabold text-slate-800">${room?.roomName || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Vị trí bàn:</span>
+                  <span class="font-semibold text-slate-700">${pc.positionDetail || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-100">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Ngày bàn giao:</span>
+                  <span class="font-semibold text-slate-700">${pc.handoverDate || '---'}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. CẤU HÌNH PHẦN CỨNG CHI TIẾT (Mục 7) -->
+            <div class="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-200 space-y-3">
+              <h4 class="font-extrabold text-indigo-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-indigo-600"></i>
+                <span>2. CẤU HÌNH PHẦN CỨNG (HARDWARE)</span>
+              </h4>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Số Serial Mainboard:</span>
+                  <span class="font-mono font-bold text-slate-900">${hw.mainboardSerial || '---'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Hãng sản xuất Mainboard:</span>
+                  <span class="font-extrabold text-slate-900">${hw.mainboardBrand || 'ASUS'}</span>
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Mã Model Mainboard:</span>
+                  <span class="font-bold text-indigo-700">${hw.mainboardModel || 'H510M-K'}</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">CPU:</span>
+                    <span class="font-black text-slate-900">${hw.cpu || '---'}</span>
+                  </div>
+                  ${hw.cpuSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.cpuSerial}</span>` : ''}
+                </div>
+
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">RAM:</span>
+                    <span class="font-black text-slate-900">${hw.ram || '---'}</span>
+                  </div>
+                  ${hw.ramSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.ramSerial}</span>` : ''}
+                </div>
+
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">Ổ Cứng:</span>
+                    <span class="font-black text-slate-900">${hw.storage || '---'}</span>
+                  </div>
+                  ${hw.storageSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.storageSerial}</span>` : ''}
+                </div>
+
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">Card Màn hình (VGA):</span>
+                    <span class="font-black text-slate-900">${hw.vga || 'Onboard'}</span>
+                  </div>
+                  ${hw.vgaSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.vgaSerial}</span>` : ''}
+                </div>
+
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">Màn hình:</span>
+                    <span class="font-black text-slate-900">${hw.screen || '---'}</span>
+                  </div>
+                  ${hw.screenSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.screenSerial}</span>` : ''}
+                </div>
+
+                <div class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <span class="text-slate-400 font-bold block text-[10px] uppercase">Bộ nguồn (PSU):</span>
+                    <span class="font-black text-slate-900">${hw.psu || '---'}</span>
+                  </div>
+                  ${hw.psuSerial ? `<span class="font-mono text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border">SN: ${hw.psuSerial}</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. WINDOWS & MICROSOFT OFFICE (Mục 8, 9) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Windows -->
+              <div class="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-2.5">
+                <h4 class="font-extrabold text-blue-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-brands fa-windows text-blue-600"></i>
+                  <span>3. HỆ ĐIỀU HÀNH WINDOWS</span>
+                </h4>
+
+                <div class="bg-white p-3 rounded-xl border border-blue-100 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-slate-900 text-sm">${os.name || 'Windows 11'}</span>
+                    ${os.isLicensed ? `
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <i class="fa-solid fa-check"></i> Có bản quyền
+                      </span>
+                    ` : `
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">
+                        Không có bản quyền
+                      </span>
+                    `}
+                  </div>
+
+                  <div class="text-[11px] text-slate-600 flex justify-between pt-1 border-t border-slate-100">
+                    <span>Thời hạn: <b>${os.duration || (os.isLicensed ? 'Vĩnh viễn' : '---')}</b></span>
+                    ${os.licenseKey ? `<span class="font-mono text-slate-500">Key: ${os.licenseKey}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Microsoft Office -->
+              <div class="p-4 bg-amber-50/50 rounded-2xl border border-amber-200 space-y-2.5">
+                <h4 class="font-extrabold text-amber-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-file-word text-amber-600"></i>
+                  <span>4. MICROSOFT OFFICE</span>
+                </h4>
+
+                <div class="bg-white p-3 rounded-xl border border-amber-100 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-slate-900 text-sm">${office.version || 'Office 2021'}</span>
+                    ${office.isLicensed ? `
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <i class="fa-solid fa-check"></i> Có bản quyền
+                      </span>
+                    ` : `
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">
+                        Không có bản quyền
+                      </span>
+                    `}
+                  </div>
+
+                  <div class="text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                    <span>Thời hạn: <b>${office.duration || (office.isLicensed ? 'Vĩnh viễn' : '---')}</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. CÁC PHẦN MỀM KHÁC (Mục 10) -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-cubes text-blue-600"></i>
+                <span>5. CÁC PHẦN MỀM ĐÃ CÀI ĐẶT (${softwares.length})</span>
+              </h4>
+
+              <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-500">
+                    <tr>
+                      <th class="p-2.5">Tên phần mềm</th>
+                      <th class="p-2.5 w-24">Phiên bản</th>
+                      <th class="p-2.5 w-32">Bản quyền</th>
+                      <th class="p-2.5 w-28">Ngày cài đặt</th>
+                      <th class="p-2.5 w-28">Hạn sử dụng</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-medium">
+                    ${softwares.length === 0 ? `
+                      <tr><td colspan="5" class="p-3 text-center text-slate-400">Không có phần mềm bổ sung nào được ghi nhận.</td></tr>
+                    ` : softwares.map(sw => `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2.5 font-bold text-slate-900">${sw.name}</td>
+                        <td class="p-2.5 text-slate-600">${sw.version || '---'}</td>
+                        <td class="p-2.5">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${sw.license === 'Bản quyền' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
+                            ${sw.license || 'Bản quyền'}
+                          </span>
+                        </td>
+                        <td class="p-2.5 text-slate-600">${sw.installDate || '---'}</td>
+                        <td class="p-2.5 text-slate-600">${sw.expireDate || 'Vĩnh viễn'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 5. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ (Mục 11) -->
+            <div class="p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200 space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="font-extrabold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-calendar-check text-emerald-600"></i>
+                  <span>6. LỊCH BẢO TRÌ VỆ SINH ĐỊNH KỲ</span>
+                </h4>
+                ${maintStatusBadge}
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-emerald-100">
+                <div>
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Chu kỳ vệ sinh:</span>
+                  <span class="font-black text-slate-900 text-sm">${schedule.intervalMonths || 6} tháng / lần</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Ngày vệ sinh gần nhất:</span>
+                  <span class="font-bold text-slate-800">${schedule.lastDate || '---'}</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-bold block text-[10px] uppercase">Ngày bảo trì tiếp theo:</span>
+                  <span class="font-black text-emerald-700 text-sm">${nextDate || '---'}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 6. LỊCH SỬ BẢO TRÌ MÁY (Mục 12) -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-blue-600"></i>
+                  <span>7. LỊCH SỬ BẢO TRÌ (${history.length} lần)</span>
+                </h4>
+
+                <button type="button" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-2xs" onclick="RoomsManagementPage.openAddMaintenanceModal('${pc.id}')">
+                  <i class="fa-solid fa-plus text-[10px]"></i>
+                  <span>Ghi nhận bảo trì mới</span>
+                </button>
+              </div>
+
+              <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-500">
+                    <tr>
+                      <th class="p-2.5 text-center w-10">STT</th>
+                      <th class="p-2.5">Ngày</th>
+                      <th class="p-2.5">Loại bảo trì</th>
+                      <th class="p-2.5">Nội dung thực hiện</th>
+                      <th class="p-2.5">Kỹ thuật viên</th>
+                      <th class="p-2.5">Tình trạng sau</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-medium">
+                    ${history.length === 0 ? `
+                      <tr><td colspan="6" class="p-4 text-center text-slate-400">Chưa có lịch sử bảo trì nào được ghi nhận. Bấm nút <b>Ghi nhận bảo trì mới</b> để thêm.</td></tr>
+                    ` : history.map((h, i) => `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2.5 text-center text-slate-400 font-bold">${i + 1}</td>
+                        <td class="p-2.5 font-bold text-slate-800">${h.date}</td>
+                        <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">${h.type}</span></td>
+                        <td class="p-2.5 text-slate-700">${h.content || '---'}</td>
+                        <td class="p-2.5 text-slate-900 font-bold">${h.performer || 'KTV'}</td>
+                        <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">${h.statusAfter || 'Tốt'}</span></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <button type="button" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer" onclick="document.getElementById('pc-view-modal').remove()">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  // ========================================================
+  // MODAL 3: CHỈNH SỬA THIẾT BỊ TRONG PHÒNG
+  // ========================================================
+  openEditDevicesModal(roomId) {
+    const room = this.rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const devices = room.devices || ApiService.getDefaultRoomDevices();
+    const container = document.getElementById('rooms-modal-container');
+    if (!container) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'room-devices-edit-modal';
+    modal.className = 'fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-5 bg-gradient-to-r from-teal-800 to-slate-900 text-white flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center text-lg font-black">
+              <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-black">CHỈNH SỬA THIẾT BỊ TRONG PHÒNG</h3>
+              <p class="text-xs text-teal-100 font-medium">Phòng: ${room.roomName} (${room.roomCode})</p>
+            </div>
+          </div>
+          <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('room-devices-edit-modal').remove()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500">Cập nhật số lượng, mã tài sản và tình trạng từng thiết bị:</span>
+            <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer" onclick="RoomsManagementPage.addCustomDeviceRow('${room.id}')">
+              + Thêm thiết bị khác
+            </button>
+          </div>
+
+          <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-2 text-center w-10">STT</th>
+                  <th class="py-2.5 px-3">TÊN THIẾT BỊ</th>
+                  <th class="py-2.5 px-2 text-center w-20">SỐ LƯỢNG</th>
+                  <th class="py-2.5 px-2 text-center w-16">ĐVT</th>
+                  <th class="py-2.5 px-3">MÃ TÀI SẢN</th>
+                  <th class="py-2.5 px-3">SỐ SERIAL</th>
+                  <th class="py-2.5 px-3">TÌNH TRẠNG</th>
+                  <th class="py-2.5 px-2 text-center w-10"></th>
+                </tr>
+              </thead>
+              <tbody id="rd-devices-tbody" class="divide-y divide-slate-100 font-medium">
+                ${devices.map((dev, i) => `
+                  <tr class="hover:bg-slate-50" data-dev-id="${dev.id}">
+                    <td class="py-2.5 px-2 text-center text-slate-400 font-bold">${i + 1}</td>
+                    <td class="py-2.5 px-3">
+                      <input type="text" class="dev-input-name w-full p-1 bg-transparent font-extrabold text-slate-900 border-b border-transparent focus:border-blue-500 focus:bg-white rounded" value="${dev.name}">
+                    </td>
+                    <td class="py-2.5 px-2 text-center">
+                      <input type="number" min="0" class="dev-input-qty w-16 text-center font-black text-blue-700 p-1 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white" value="${dev.quantity || 0}">
+                    </td>
+                    <td class="py-2.5 px-2 text-center">
+                      <input type="text" class="dev-input-unit w-14 text-center font-semibold text-slate-600 p-1 bg-transparent border-b border-transparent focus:border-blue-500" value="${dev.unit || 'Bộ'}">
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <input type="text" class="dev-input-asset w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500 placeholder-slate-300" placeholder="Mã TS..." value="${dev.assetCode || ''}">
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <input type="text" class="dev-input-serial w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500 placeholder-slate-300" placeholder="Serial..." value="${dev.serialNumber || ''}">
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <select class="dev-input-status p-1 bg-white border border-slate-200 rounded-lg font-bold text-[11px] ${dev.status === 'Cần bảo trì' || dev.status === 'Hư hỏng' ? 'text-rose-600' : 'text-slate-800'}">
+                        <option value="Tốt" ${dev.status === 'Tốt' ? 'selected' : ''}>Tốt</option>
+                        <option value="Đang sử dụng" ${dev.status === 'Đang sử dụng' ? 'selected' : ''}>Đang sử dụng</option>
+                        <option value="Cần bảo trì" ${dev.status === 'Cần bảo trì' ? 'selected' : ''}>Cần bảo trì</option>
+                        <option value="Hư hỏng" ${dev.status === 'Hư hỏng' ? 'selected' : ''}>Hư hỏng</option>
+                        <option value="Đang sửa chữa" ${dev.status === 'Đang sửa chữa' ? 'selected' : ''}>Đang sửa chữa</option>
+                        <option value="Thanh lý" ${dev.status === 'Thanh lý' ? 'selected' : ''}>Thanh lý</option>
+                      </select>
+                    </td>
+                    <td class="py-2.5 px-2 text-center">
+                      <button type="button" class="text-slate-300 hover:text-rose-600 p-1 cursor-pointer" onclick="this.closest('tr').remove()">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+          <button type="button" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer" onclick="document.getElementById('room-devices-edit-modal').remove()">
+            Hủy
+          </button>
+          <button type="button" class="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-black rounded-xl shadow-md cursor-pointer flex items-center gap-2" onclick="RoomsManagementPage.saveRoomDevices('${room.id}')">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>LƯU DANH MỤC THIẾT BỊ</span>
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  addCustomDeviceRow(roomId) {
+    const tbody = document.getElementById('rd-devices-tbody');
+    if (!tbody) return;
+
+    const rowCount = tbody.querySelectorAll('tr').length + 1;
+    const newId = 'dev_custom_' + Date.now();
+
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 animate-fade-in';
+    tr.setAttribute('data-dev-id', newId);
+    tr.innerHTML = `
+      <td class="py-2.5 px-2 text-center text-slate-400 font-bold">${rowCount}</td>
+      <td class="py-2.5 px-3">
+        <input type="text" class="dev-input-name w-full p-1 bg-white font-extrabold text-slate-900 border border-blue-400 rounded" placeholder="Nhập tên thiết bị...">
+      </td>
+      <td class="py-2.5 px-2 text-center">
+        <input type="number" min="1" class="dev-input-qty w-16 text-center font-black text-blue-700 p-1 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white" value="1">
+      </td>
+      <td class="py-2.5 px-2 text-center">
+        <input type="text" class="dev-input-unit w-14 text-center font-semibold text-slate-600 p-1 bg-transparent border-b border-transparent focus:border-blue-500" value="Cái">
+      </td>
+      <td class="py-2.5 px-3">
+        <input type="text" class="dev-input-asset w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500" placeholder="Mã TS...">
+      </td>
+      <td class="py-2.5 px-3">
+        <input type="text" class="dev-input-serial w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500" placeholder="Serial...">
+      </td>
+      <td class="py-2.5 px-3">
+        <select class="dev-input-status p-1 bg-white border border-slate-200 rounded-lg font-bold text-[11px] text-slate-800">
+          <option value="Tốt" selected>Tốt</option>
+          <option value="Đang sử dụng">Đang sử dụng</option>
+          <option value="Cần bảo trì">Cần bảo trì</option>
+          <option value="Hư hỏng">Hư hỏng</option>
+          <option value="Đang sửa chữa">Đang sửa chữa</option>
+          <option value="Thanh lý">Thanh lý</option>
+        </select>
+      </td>
+      <td class="py-2.5 px-2 text-center">
+        <button type="button" class="text-slate-300 hover:text-rose-600 p-1 cursor-pointer" onclick="this.closest('tr').remove()">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  },
+
+  async saveRoomDevices(roomId) {
+    const tbody = document.getElementById('rd-devices-tbody');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    const devicesList = [];
+
+    rows.forEach(r => {
+      const devId = r.getAttribute('data-dev-id') || ('dev_' + Date.now());
+      const name = r.querySelector('.dev-input-name')?.value.trim();
+      const qty = Number(r.querySelector('.dev-input-qty')?.value) || 0;
+      const unit = r.querySelector('.dev-input-unit')?.value.trim() || 'Bộ';
+      const assetCode = r.querySelector('.dev-input-asset')?.value.trim() || '';
+      const serialNumber = r.querySelector('.dev-input-serial')?.value.trim() || '';
+      const status = r.querySelector('.dev-input-status')?.value || 'Tốt';
+
+      if (name) {
+        devicesList.push({
+          id: devId,
+          name: name,
+          quantity: qty,
+          unit: unit,
+          assetCode: assetCode,
+          serialNumber: serialNumber,
+          status: status
+        });
+      }
+    });
+
+    try {
+      await ApiService.updateRoom(roomId, { devices: devicesList });
+      Utils.showToast('Đã lưu danh mục thiết bị của phòng thành công!', 'success');
+      
+      const modal = document.getElementById('room-devices-edit-modal');
+      if (modal) modal.remove();
+
+      await this.loadData();
+      this.openRoomDetailsModal(roomId, 'devices');
+    } catch (err) {
+      Utils.showToast('Lỗi lưu thiết bị: ' + err.message, 'error');
+    }
+  },
+
+  // ========================================================
+  // MODAL 4: THÊM / CHỈNH SỬA PHÒNG
   // ========================================================
   openCreateRoomModal() {
     this.renderRoomFormModal(null);
@@ -800,432 +1683,22 @@ const RoomsManagementPage = {
   },
 
   // ========================================================
-  // MODAL 2: CHI TIẾT HỒ SƠ PHÒNG & THIẾT BỊ & MÁY PC (Mục 4, 5, 15)
-  // ========================================================
-  openRoomDetailsModal(roomId, activeTab = 'overview') {
-    this.activeRoomId = roomId;
-    const room = this.rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    const container = document.getElementById('rooms-modal-container');
-    if (!container) return;
-
-    const devices = room.devices || ApiService.getDefaultRoomDevices();
-    const isFaculty = room.roomType === 'Văn phòng khoa';
-    const roomPcs = this.pcs.filter(p => p.roomId === room.id);
-
-    // Thống kê PC
-    const activePcs = roomPcs.filter(p => p.status === 'Đang sử dụng').length;
-    const maintPcs = roomPcs.filter(p => p.status === 'Đang bảo trì').length;
-    const brokenPcs = roomPcs.filter(p => p.status === 'Hỏng' || p.status === 'Hư hỏng').length;
-
-    container.innerHTML = `
-      <div id="room-details-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
-          <!-- Header -->
-          <div class="p-6 bg-gradient-to-r from-slate-900 to-blue-950 text-white flex items-center justify-between">
-            <div class="flex items-center gap-4">
-              <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-lg">
-                <i class="fa-solid fa-door-open"></i>
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h2 class="text-xl sm:text-2xl font-black">${room.roomName}</h2>
-                  <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">
-                    ${room.roomCode}
-                  </span>
-                </div>
-                <p class="text-xs text-blue-200 mt-1 font-medium">
-                  ${room.campusName} • ${room.zoneName} • ${room.roomType} • ${room.floor}
-                </p>
-              </div>
-            </div>
-            <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('room-details-modal').remove()">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-
-          <!-- Tab Bar -->
-          <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-6 py-2 text-xs font-bold">
-            <button id="rd-tab-btn-overview" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'overview' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('overview')">
-              <i class="fa-solid fa-location-dot mr-1"></i>
-              <span>1. Thông tin địa điểm</span>
-            </button>
-
-            <button id="rd-tab-btn-devices" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'devices' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('devices')">
-              <i class="fa-solid fa-boxes-stacked mr-1"></i>
-              <span>2. Danh mục thiết bị (${devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0)})</span>
-            </button>
-
-            ${isFaculty || roomPcs.length > 0 ? `
-              <button id="rd-tab-btn-pcs" class="py-2 px-4 rounded-xl transition-all cursor-pointer ${activeTab === 'pcs' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}" onclick="RoomsManagementPage.switchDetailsTab('pcs')">
-                <i class="fa-solid fa-desktop mr-1"></i>
-                <span>3. Quản lý Máy PC (${roomPcs.length})</span>
-              </button>
-            ` : ''}
-          </div>
-
-          <!-- Body Tabs -->
-          <div class="p-6 overflow-y-auto flex-1 space-y-6 text-xs">
-            <!-- TAB 1: THÔNG TIN ĐỊA ĐIỂM -->
-            <div id="rd-tab-overview" class="${activeTab === 'overview' ? 'block' : 'hidden'} space-y-4">
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Cơ sở:</span>
-                  <span class="font-extrabold text-slate-800 text-sm">${room.campusName || 'Cơ sở chính'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Khu vực / Tòa nhà:</span>
-                  <span class="font-extrabold text-indigo-700 text-sm">${room.zoneName || 'Tòa A'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Loại phòng:</span>
-                  <span class="font-extrabold text-blue-700 text-sm">${room.roomType || 'Lý thuyết'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Tầng:</span>
-                  <span class="font-extrabold text-slate-800">${room.floor || 'Tầng 1'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Sức chứa:</span>
-                  <span class="font-extrabold text-slate-800">${room.capacity || 0} người</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Diện tích:</span>
-                  <span class="font-extrabold text-slate-800">${room.area || 0} m²</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Người phụ trách:</span>
-                  <span class="font-extrabold text-slate-800">${room.managerName || '---'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Số điện thoại:</span>
-                  <span class="font-extrabold text-slate-800">${room.managerPhone || '---'}</span>
-                </div>
-                <div>
-                  <span class="text-slate-400 font-bold block text-[11px]">Trạng thái:</span>
-                  <span class="font-extrabold text-emerald-600">${room.status || 'Đang sử dụng'}</span>
-                </div>
-              </div>
-
-              ${room.locationDetail ? `
-                <div class="p-3 bg-blue-50/50 rounded-xl border border-blue-200">
-                  <span class="font-bold text-blue-900 block text-[11px]">Vị trí chi tiết:</span>
-                  <p class="text-slate-700 mt-0.5">${room.locationDetail}</p>
-                </div>
-              ` : ''}
-
-              ${room.notes ? `
-                <div class="p-3 bg-slate-100 rounded-xl border border-slate-200">
-                  <span class="font-bold text-slate-600 block text-[11px]">Ghi chú:</span>
-                  <p class="text-slate-700 mt-0.5">${room.notes}</p>
-                </div>
-              ` : ''}
-            </div>
-
-            <!-- TAB 2: DANH MỤC THIẾT BỊ TRONG PHÒNG (Mục 4) -->
-            <div id="rd-tab-devices" class="${activeTab === 'devices' ? 'block' : 'hidden'} space-y-4">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked text-teal-600"></i>
-                    <span>TÊN CHI TIẾT & SỐ LƯỢNG THIẾT BỊ TRONG PHÒNG</span>
-                  </h4>
-                  <p class="text-[11px] text-slate-400">Danh mục thiết bị cố định và tài sản bàn giao cho phòng</p>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer" onclick="RoomsManagementPage.addCustomDeviceRow('${room.id}')">
-                    + Thêm thiết bị khác
-                  </button>
-                  <button type="button" class="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl shadow-xs cursor-pointer" onclick="RoomsManagementPage.saveRoomDevices('${room.id}')">
-                    <i class="fa-solid fa-floppy-disk mr-1"></i> Lưu thiết bị
-                  </button>
-                </div>
-              </div>
-
-              <!-- Bảng thiết bị -->
-              <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th class="py-2.5 px-2.5 text-center w-10">STT</th>
-                      <th class="py-2.5 px-3">TÊN THIẾT BỊ</th>
-                      <th class="py-2.5 px-2 text-center w-20">SỐ LƯỢNG</th>
-                      <th class="py-2.5 px-2 text-center w-16">ĐVT</th>
-                      <th class="py-2.5 px-3">MÃ TÀI SẢN</th>
-                      <th class="py-2.5 px-3">SỐ SERIAL</th>
-                      <th class="py-2.5 px-3">TÌNH TRẠNG</th>
-                      <th class="py-2.5 px-2 text-center w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="rd-devices-tbody" class="divide-y divide-slate-100 font-medium">
-                    ${devices.map((dev, i) => `
-                      <tr class="hover:bg-slate-50" data-dev-id="${dev.id}">
-                        <td class="py-2.5 px-2 text-center text-slate-400 font-bold">${i + 1}</td>
-                        <td class="py-2.5 px-3">
-                          <input type="text" class="dev-input-name w-full p-1 bg-transparent font-extrabold text-slate-900 border-b border-transparent focus:border-blue-500 focus:bg-white rounded" value="${dev.name}">
-                        </td>
-                        <td class="py-2.5 px-2 text-center">
-                          <input type="number" min="0" class="dev-input-qty w-16 text-center font-black text-blue-700 p-1 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white" value="${dev.quantity || 0}">
-                        </td>
-                        <td class="py-2.5 px-2 text-center">
-                          <input type="text" class="dev-input-unit w-14 text-center font-semibold text-slate-600 p-1 bg-transparent border-b border-transparent focus:border-blue-500" value="${dev.unit || 'Bộ'}">
-                        </td>
-                        <td class="py-2.5 px-3">
-                          <input type="text" class="dev-input-asset w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500 placeholder-slate-300" placeholder="Mã TS..." value="${dev.assetCode || ''}">
-                        </td>
-                        <td class="py-2.5 px-3">
-                          <input type="text" class="dev-input-serial w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500 placeholder-slate-300" placeholder="Serial..." value="${dev.serialNumber || ''}">
-                        </td>
-                        <td class="py-2.5 px-3">
-                          <select class="dev-input-status p-1 bg-white border border-slate-200 rounded-lg font-bold text-[11px] ${dev.status === 'Cần bảo trì' || dev.status === 'Hư hỏng' ? 'text-rose-600' : 'text-slate-800'}">
-                            <option value="Tốt" ${dev.status === 'Tốt' ? 'selected' : ''}>Tốt</option>
-                            <option value="Đang sử dụng" ${dev.status === 'Đang sử dụng' ? 'selected' : ''}>Đang sử dụng</option>
-                            <option value="Cần bảo trì" ${dev.status === 'Cần bảo trì' ? 'selected' : ''}>Cần bảo trì</option>
-                            <option value="Hư hỏng" ${dev.status === 'Hư hỏng' ? 'selected' : ''}>Hư hỏng</option>
-                            <option value="Đang sửa chữa" ${dev.status === 'Đang sửa chữa' ? 'selected' : ''}>Đang sửa chữa</option>
-                            <option value="Thanh lý" ${dev.status === 'Thanh lý' ? 'selected' : ''}>Thanh lý</option>
-                          </select>
-                        </td>
-                        <td class="py-2.5 px-2 text-center">
-                          <button type="button" class="text-slate-300 hover:text-rose-600 p-1 cursor-pointer" onclick="this.closest('tr').remove()">
-                            <i class="fa-solid fa-trash-can"></i>
-                          </button>
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- TAB 3: QUẢN LÝ MÁY TÍNH PC (Mục 5, 6, 7, 8, 9, 10, 11, 12) -->
-            <div id="rd-tab-pcs" class="${activeTab === 'pcs' ? 'block' : 'hidden'} space-y-4">
-              <!-- Thống kê máy bộ PC (Mục 5) -->
-              <div class="bg-gradient-to-r from-blue-900 to-indigo-950 p-5 rounded-2xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
-                <div>
-                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 border border-blue-400/30">
-                    💻 THỐNG KÊ MÁY BỘ PC
-                  </span>
-                  <div class="flex items-center gap-4 mt-2">
-                    <div>
-                      <span class="text-[11px] text-blue-200">Tổng số PC:</span>
-                      <span class="text-xl font-black ml-1">${String(roomPcs.length).padStart(2, '0')}</span>
-                    </div>
-                    <div>
-                      <span class="text-[11px] text-emerald-300">Đang sử dụng:</span>
-                      <span class="text-xl font-black text-emerald-400 ml-1">${String(activePcs).padStart(2, '0')}</span>
-                    </div>
-                    <div>
-                      <span class="text-[11px] text-amber-300">Đang bảo trì:</span>
-                      <span class="text-xl font-black text-amber-400 ml-1">${String(maintPcs).padStart(2, '0')}</span>
-                    </div>
-                    <div>
-                      <span class="text-[11px] text-rose-300">Hỏng:</span>
-                      <span class="text-xl font-black text-rose-400 ml-1">${String(brokenPcs).padStart(2, '0')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button type="button" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-md cursor-pointer flex items-center gap-2" onclick="RoomsManagementPage.openCreatePCModal('${room.id}')">
-                  <i class="fa-solid fa-plus"></i>
-                  <span>+ THÊM MÁY PC</span>
-                </button>
-              </div>
-
-              <!-- Danh sách thẻ máy PC -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                ${roomPcs.length === 0 ? `
-                  <div class="col-span-full p-8 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
-                    <i class="fa-solid fa-desktop text-2xl text-slate-300 mb-2 block"></i>
-                    <p class="font-bold text-slate-600">Chưa có máy PC nào trong phòng này.</p>
-                    <p class="text-[11px] mt-0.5">Bấm nút "+ THÊM MÁY PC" ở trên để tạo hồ sơ lý lịch máy tính.</p>
-                  </div>
-                ` : roomPcs.map((pc, idx) => {
-                  const schedule = pc.maintenanceSchedule || {};
-                  const nextDate = schedule.nextDate || ApiService.calculateNextMaintenanceDate(schedule.lastDate, schedule.intervalMonths || 6);
-                  const today = new Date().toISOString().split('T')[0];
-                  
-                  let maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Còn hạn</span>';
-                  if (nextDate) {
-                    if (nextDate < today) maintStatusBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">🔴 Quá hạn bảo trì</span>';
-                    else {
-                      const diffDays = Math.ceil((new Date(nextDate) - new Date(today)) / (1000 * 60 * 60 * 24));
-                      if (diffDays <= 15) maintStatusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800">🟡 Sắp đến hạn (${diffDays} ngày)</span>`;
-                    }
-                  }
-
-                  return `
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all space-y-3 cursor-pointer" onclick="RoomsManagementPage.openPCProfileModal('${pc.id}')">
-                      <div class="flex items-start justify-between">
-                        <div class="flex items-center gap-2.5">
-                          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 font-black text-sm flex items-center justify-center shadow-2xs">
-                            <i class="fa-solid fa-desktop"></i>
-                          </div>
-                          <div>
-                            <h5 class="font-black text-slate-900 text-xs">${pc.pcName || 'Máy PC'}</h5>
-                            <span class="font-mono text-[10px] font-bold text-blue-600">${pc.pcCode}</span>
-                          </div>
-                        </div>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${pc.status === 'Đang sử dụng' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-                          ${pc.status}
-                        </span>
-                      </div>
-
-                      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] space-y-1">
-                        <div class="flex justify-between">
-                          <span class="text-slate-400">Người dùng:</span>
-                          <span class="font-extrabold text-slate-800">${pc.userName || 'Chưa gán'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                          <span class="text-slate-400">CPU / RAM:</span>
-                          <span class="font-bold text-slate-700">${pc.hardware?.cpu || 'i5'} / ${pc.hardware?.ram || '8GB'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                          <span class="text-slate-400">Windows:</span>
-                          <span class="font-bold text-slate-700">${pc.os?.name || 'Win 11'} ${pc.os?.isLicensed ? '☑' : '☐'}</span>
-                        </div>
-                      </div>
-
-                      <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-100">
-                        <span class="text-slate-400">Vệ sinh tiếp: ${nextDate || '---'}</span>
-                        ${maintStatusBadge}
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-            <button type="button" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer" onclick="document.getElementById('room-details-modal').remove()">
-              Đóng
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  },
-
-  switchDetailsTab(tabName) {
-    const tabs = ['overview', 'devices', 'pcs'];
-    tabs.forEach(t => {
-      const btn = document.getElementById(`rd-tab-btn-${t}`);
-      const content = document.getElementById(`rd-tab-${t}`);
-      if (btn) {
-        if (t === tabName) btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-xs';
-        else btn.className = 'py-2 px-4 rounded-xl transition-all cursor-pointer text-slate-600 hover:bg-slate-200';
-      }
-      if (content) {
-        content.className = t === tabName ? 'block space-y-4' : 'hidden space-y-4';
-      }
-    });
-  },
-
-  addCustomDeviceRow(roomId) {
-    const tbody = document.getElementById('rd-devices-tbody');
-    if (!tbody) return;
-
-    const rowCount = tbody.querySelectorAll('tr').length + 1;
-    const newId = 'dev_custom_' + Date.now();
-
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-slate-50 animate-fade-in';
-    tr.setAttribute('data-dev-id', newId);
-    tr.innerHTML = `
-      <td class="py-2.5 px-2 text-center text-slate-400 font-bold">${rowCount}</td>
-      <td class="py-2.5 px-3">
-        <input type="text" class="dev-input-name w-full p-1 bg-white font-extrabold text-slate-900 border border-blue-400 rounded" placeholder="Nhập tên thiết bị...">
-      </td>
-      <td class="py-2.5 px-2 text-center">
-        <input type="number" min="1" class="dev-input-qty w-16 text-center font-black text-blue-700 p-1 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white" value="1">
-      </td>
-      <td class="py-2.5 px-2 text-center">
-        <input type="text" class="dev-input-unit w-14 text-center font-semibold text-slate-600 p-1 bg-transparent border-b border-transparent focus:border-blue-500" value="Cái">
-      </td>
-      <td class="py-2.5 px-3">
-        <input type="text" class="dev-input-asset w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500" placeholder="Mã TS...">
-      </td>
-      <td class="py-2.5 px-3">
-        <input type="text" class="dev-input-serial w-full p-1 bg-transparent font-mono text-[11px] text-slate-700 border-b border-transparent focus:border-blue-500" placeholder="Serial...">
-      </td>
-      <td class="py-2.5 px-3">
-        <select class="dev-input-status p-1 bg-white border border-slate-200 rounded-lg font-bold text-[11px] text-slate-800">
-          <option value="Tốt" selected>Tốt</option>
-          <option value="Đang sử dụng">Đang sử dụng</option>
-          <option value="Cần bảo trì">Cần bảo trì</option>
-          <option value="Hư hỏng">Hư hỏng</option>
-          <option value="Đang sửa chữa">Đang sửa chữa</option>
-          <option value="Thanh lý">Thanh lý</option>
-        </select>
-      </td>
-      <td class="py-2.5 px-2 text-center">
-        <button type="button" class="text-slate-300 hover:text-rose-600 p-1 cursor-pointer" onclick="this.closest('tr').remove()">
-          <i class="fa-solid fa-trash-can"></i>
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  },
-
-  async saveRoomDevices(roomId) {
-    const tbody = document.getElementById('rd-devices-tbody');
-    if (!tbody) return;
-
-    const rows = tbody.querySelectorAll('tr');
-    const devicesList = [];
-
-    rows.forEach(r => {
-      const devId = r.getAttribute('data-dev-id') || ('dev_' + Date.now());
-      const name = r.querySelector('.dev-input-name')?.value.trim();
-      const qty = Number(r.querySelector('.dev-input-qty')?.value) || 0;
-      const unit = r.querySelector('.dev-input-unit')?.value.trim() || 'Bộ';
-      const assetCode = r.querySelector('.dev-input-asset')?.value.trim() || '';
-      const serialNumber = r.querySelector('.dev-input-serial')?.value.trim() || '';
-      const status = r.querySelector('.dev-input-status')?.value || 'Tốt';
-
-      if (name) {
-        devicesList.push({
-          id: devId,
-          name: name,
-          quantity: qty,
-          unit: unit,
-          assetCode: assetCode,
-          serialNumber: serialNumber,
-          status: status
-        });
-      }
-    });
-
-    try {
-      await ApiService.updateRoom(roomId, { devices: devicesList });
-      Utils.showToast('Đã lưu danh mục thiết bị của phòng thành công!', 'success');
-      await this.loadData();
-    } catch (err) {
-      Utils.showToast('Lỗi lưu thiết bị: ' + err.message, 'error');
-    }
-  },
-
-  // ========================================================
-  // MODAL 3: LÝ LỊCH MÁY TÍNH PC (Mục 6, 7, 8, 9, 10, 11, 12)
+  // MODAL 5: THÊM / CHỈNH SỬA CẤU HÌNH MÁY PC (EDIT FORM)
   // ========================================================
   openCreatePCModal(roomId) {
     const room = this.rooms.find(r => r.id === roomId);
-    this.renderPCModal(null, room);
+    this.renderPCEditModal(null, room);
   },
 
-  openPCProfileModal(pcId) {
+  openPCEditModal(pcId) {
     this.activePCId = pcId;
     const pc = this.pcs.find(p => p.id === pcId);
     if (!pc) return;
     const room = this.rooms.find(r => r.id === pc.roomId);
-    this.renderPCModal(pc, room);
+    this.renderPCEditModal(pc, room);
   },
 
-  renderPCModal(pc = null, room = null) {
+  renderPCEditModal(pc = null, room = null) {
     const isEdit = Boolean(pc);
     const container = document.getElementById('rooms-modal-container');
     if (!container) return;
@@ -1238,12 +1711,11 @@ const RoomsManagementPage = {
     const office = pc?.office || {};
     const softwares = pc?.softwares || [];
     const schedule = pc?.maintenanceSchedule || { intervalMonths: 6, lastDate: new Date().toISOString().split('T')[0] };
-    const history = pc?.maintenanceHistory || [];
 
     const nextDate = schedule.nextDate || ApiService.calculateNextMaintenanceDate(schedule.lastDate, schedule.intervalMonths || 6);
 
     container.innerHTML = `
-      <div id="pc-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      <div id="pc-edit-modal" class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col">
           <!-- Header -->
           <div class="p-6 bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 text-white flex items-center justify-between">
@@ -1253,22 +1725,22 @@ const RoomsManagementPage = {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <h2 class="text-xl sm:text-2xl font-black">${isEdit ? pc.pcName : 'THÊM MÁY TÍNH PC MỚI'}</h2>
+                  <h2 class="text-xl sm:text-2xl font-black">${isEdit ? 'CHỈNH SỬA CẤU HÌNH MÁY PC' : 'THÊM MỚI MÁY BỘ PC'}</h2>
                   ${isEdit ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">${pc.pcCode}</span>` : ''}
                 </div>
                 <p class="text-xs text-blue-200 mt-1 font-medium">
-                  Phòng: ${targetRoom?.roomName || 'Chưa gán'} • Người sử dụng: ${pc?.userName || 'Chưa gán'}
+                  Cung cấp thông tin cấu hình phần cứng, bản quyền Windows & Office cho Văn phòng khoa & Phòng chức năng
                 </p>
               </div>
             </div>
-            <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('pc-profile-modal').remove()">
+            <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" onclick="document.getElementById('pc-edit-modal').remove()">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
 
-          <!-- Form / Profile Scrollable Body -->
+          <!-- Form Body -->
           <form onsubmit="RoomsManagementPage.handlePCFormSubmit(event, '${pc?.id || ''}')" class="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-            <!-- 1. THÔNG TIN CƠ BẢN (Mục 6) -->
+            <!-- 1. THÔNG TIN CƠ BẢN -->
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
               <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-circle-info text-blue-600"></i>
@@ -1329,20 +1801,20 @@ const RoomsManagementPage = {
             <div class="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-200 space-y-3">
               <h4 class="font-extrabold text-indigo-900 text-xs uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-microchip text-indigo-600"></i>
-                <span>2. CẤU HÌNH PHẦN CỨNG CHI TIẾT</span>
+                <span>2. CẤU HÌNH PHẦN CỨNG (HARDWARE)</span>
               </h4>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="space-y-1">
-                  <label class="block font-bold text-slate-700">Serial Mainboard:</label>
+                  <label class="block font-bold text-slate-700">Số Serial Mainboard:</label>
                   <input type="text" id="pcf-hw-mb-serial" value="${hw.mainboardSerial || ''}" placeholder="SN Mainboard..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-mono text-[11px] text-slate-900">
                 </div>
                 <div class="space-y-1">
-                  <label class="block font-bold text-slate-700">Hãng SX Mainboard:</label>
+                  <label class="block font-bold text-slate-700">Hãng sản xuất Mainboard:</label>
                   <input type="text" id="pcf-hw-mb-brand" value="${hw.mainboardBrand || 'ASUS'}" placeholder="ASUS, Gigabyte, MSI..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900">
                 </div>
                 <div class="space-y-1">
-                  <label class="block font-bold text-slate-700">Model Mainboard:</label>
+                  <label class="block font-bold text-slate-700">Mã Model Mainboard:</label>
                   <input type="text" id="pcf-hw-mb-model" value="${hw.mainboardModel || 'H510M-K'}" placeholder="B560, H610, H510..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900">
                 </div>
               </div>
@@ -1374,7 +1846,7 @@ const RoomsManagementPage = {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div class="grid grid-cols-2 gap-2">
                   <div class="space-y-1">
-                    <label class="block font-bold text-slate-700">Ổ cứng (SSD/HDD):</label>
+                    <label class="block font-bold text-slate-700">Ổ Cứng:</label>
                     <input type="text" id="pcf-hw-storage" value="${hw.storage || 'SSD NVMe 512GB Kingston'}" placeholder="SSD 512GB..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
                   </div>
                   <div class="space-y-1">
@@ -1385,7 +1857,7 @@ const RoomsManagementPage = {
 
                 <div class="grid grid-cols-2 gap-2">
                   <div class="space-y-1">
-                    <label class="block font-bold text-slate-700">Card màn hình (VGA):</label>
+                    <label class="block font-bold text-slate-700">Card Màn hình (VGA):</label>
                     <input type="text" id="pcf-hw-vga" value="${hw.vga || 'Intel UHD Graphics 630'}" placeholder="GTX 1650, Onboard..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
                   </div>
                   <div class="space-y-1">
@@ -1431,7 +1903,7 @@ const RoomsManagementPage = {
 
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block font-bold text-slate-700">Phiên bản:</label>
+                    <label class="block font-bold text-slate-700">Hệ điều hành:</label>
                     <select id="pcf-os-name" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
                       <option value="Windows 11" ${os.name === 'Windows 11' ? 'selected' : ''}>Windows 11</option>
                       <option value="Windows 10" ${os.name === 'Windows 10' ? 'selected' : ''}>Windows 10</option>
@@ -1442,15 +1914,15 @@ const RoomsManagementPage = {
                   </div>
 
                   <div>
-                    <label class="block font-bold text-slate-700">Thời hạn:</label>
-                    <input type="text" id="pcf-os-duration" value="${os.duration || 'Vĩnh viễn'}" placeholder="Vĩnh viễn, 1 năm..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-semibold">
+                    <label class="block font-bold text-slate-700">Thời hạn bản quyền:</label>
+                    <input type="text" id="pcf-os-duration" value="${os.duration || 'Vĩnh viễn'}" placeholder="Vĩnh viễn, 1 năm, 3 năm..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-semibold">
                   </div>
                 </div>
 
                 <div class="flex items-center gap-2 pt-1">
                   <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
                     <input type="checkbox" id="pcf-os-licensed" class="w-4 h-4 text-blue-600 rounded" ${os.isLicensed ? 'checked' : ''}>
-                    <span>☑ Có bản quyền (Licensed)</span>
+                    <span>☑ Có bản quyền</span>
                   </label>
                 </div>
 
@@ -1469,7 +1941,7 @@ const RoomsManagementPage = {
 
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block font-bold text-slate-700">Phiên bản:</label>
+                    <label class="block font-bold text-slate-700">Phiên bản Office:</label>
                     <select id="pcf-office-ver" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900">
                       <option value="Office 365 (O365)" ${office.version === 'Office 365 (O365)' ? 'selected' : ''}>Office 365 (O365)</option>
                       <option value="Office 2021" ${office.version === 'Office 2021' ? 'selected' : ''}>Office 2021</option>
@@ -1480,7 +1952,7 @@ const RoomsManagementPage = {
                   </div>
 
                   <div>
-                    <label class="block font-bold text-slate-700">Thời hạn:</label>
+                    <label class="block font-bold text-slate-700">Thời hạn bản quyền:</label>
                     <input type="text" id="pcf-office-duration" value="${office.duration || 'Vĩnh viễn'}" placeholder="Vĩnh viễn, Theo năm..." class="w-full p-2 bg-white border border-slate-300 rounded-xl font-semibold">
                   </div>
                 </div>
@@ -1512,9 +1984,9 @@ const RoomsManagementPage = {
                     <tr>
                       <th class="p-2">Tên phần mềm</th>
                       <th class="p-2 w-28">Phiên bản</th>
-                      <th class="p-2 w-28">Bản quyền</th>
-                      <th class="p-2 w-28">Ngày cài</th>
-                      <th class="p-2 w-28">Hết hạn</th>
+                      <th class="p-2 w-32">Bản quyền & Thời hạn</th>
+                      <th class="p-2 w-28">Ngày cài đặt</th>
+                      <th class="p-2 w-28">Hạn sử dụng</th>
                       <th class="p-2 w-8"></th>
                     </tr>
                   </thead>
@@ -1527,9 +1999,11 @@ const RoomsManagementPage = {
                         <td class="p-1.5"><input type="text" class="sw-ver w-full p-1 bg-slate-50 border border-slate-200 rounded" value="${sw.version || ''}" placeholder="2024"></td>
                         <td class="p-1.5">
                           <select class="sw-lic w-full p-1 bg-slate-50 border border-slate-200 rounded font-bold">
-                            <option value="Bản quyền" ${sw.license === 'Bản quyền' ? 'selected' : ''}>Bản quyền</option>
-                            <option value="Miễn phí" ${sw.license === 'Miễn phí' ? 'selected' : ''}>Miễn phí</option>
-                            <option value="Dùng thử" ${sw.license === 'Dùng thử' ? 'selected' : ''}>Dùng thử</option>
+                            <option value="Bản quyền" ${sw.license === 'Bản quyền' ? 'selected' : ''}>Bản quyền (Vĩnh viễn)</option>
+                            <option value="Bản quyền 1 năm" ${sw.license === 'Bản quyền 1 năm' ? 'selected' : ''}>Bản quyền (1 năm)</option>
+                            <option value="Miễn phí" ${sw.license === 'Miễn phí' ? 'selected' : ''}>Miễn phí (Free)</option>
+                            <option value="Không bản quyền" ${sw.license === 'Không bản quyền' ? 'selected' : ''}>Không có bản quyền</option>
+                            <option value="Dùng thử" ${sw.license === 'Dùng thử' ? 'selected' : ''}>Dùng thử (Trial)</option>
                           </select>
                         </td>
                         <td class="p-1.5"><input type="date" class="sw-install w-full p-1 bg-slate-50 border border-slate-200 rounded" value="${sw.installDate || ''}"></td>
@@ -1571,51 +2045,6 @@ const RoomsManagementPage = {
               </div>
             </div>
 
-            <!-- 6. LỊCH SỬ BẢO TRÌ MÁY (Mục 12) -->
-            ${isEdit ? `
-              <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                <div class="flex items-center justify-between">
-                  <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-blue-600"></i>
-                    <span>7. LỊCH SỬ BẢO TRÌ MÁY (${history.length} lần)</span>
-                  </h4>
-                  <button type="button" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer flex items-center gap-1" onclick="RoomsManagementPage.openAddMaintenanceModal('${pc.id}')">
-                    <i class="fa-solid fa-plus text-[10px]"></i>
-                    <span>Ghi nhận bảo trì mới</span>
-                  </button>
-                </div>
-
-                <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                  <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-500">
-                      <tr>
-                        <th class="p-2.5 text-center w-10">STT</th>
-                        <th class="p-2.5">Ngày</th>
-                        <th class="p-2.5">Loại bảo trì</th>
-                        <th class="p-2.5">Nội dung thực hiện</th>
-                        <th class="p-2.5">Người thực hiện</th>
-                        <th class="p-2.5">Tình trạng sau</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium">
-                      ${history.length === 0 ? `
-                        <tr><td colspan="6" class="p-4 text-center text-slate-400">Chưa có lịch sử bảo trì nào được ghi nhận.</td></tr>
-                      ` : history.map((h, i) => `
-                        <tr class="hover:bg-slate-50">
-                          <td class="p-2 text-center text-slate-400 font-bold">${i + 1}</td>
-                          <td class="p-2 font-semibold">${h.date}</td>
-                          <td class="p-2"><span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">${h.type}</span></td>
-                          <td class="p-2 text-slate-700 font-medium">${h.content || '---'}</td>
-                          <td class="p-2 text-slate-800 font-bold">${h.performer || 'KTV'}</td>
-                          <td class="p-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">${h.statusAfter || 'Tốt'}</span></td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ` : ''}
-
             <!-- Submit Buttons -->
             <div class="pt-3 border-t border-slate-200 flex items-center justify-between">
               <div>
@@ -1627,12 +2056,12 @@ const RoomsManagementPage = {
               </div>
 
               <div class="flex items-center gap-2">
-                <button type="button" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer" onclick="document.getElementById('pc-profile-modal').remove()">
-                  Đóng
+                <button type="button" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer" onclick="document.getElementById('pc-edit-modal').remove()">
+                  Hủy bỏ
                 </button>
                 <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md cursor-pointer flex items-center gap-2">
                   <i class="fa-solid fa-floppy-disk"></i>
-                  <span>${isEdit ? 'LƯU LÝ LỊCH MÁY PC' : 'TẠO MÁY PC MỚI'}</span>
+                  <span>${isEdit ? 'LƯU CẤU HÌNH MÁY PC' : 'TẠO MÁY PC MỚI'}</span>
                 </button>
               </div>
             </div>
@@ -1666,9 +2095,11 @@ const RoomsManagementPage = {
       <td class="p-1.5"><input type="text" class="sw-ver w-full p-1 bg-slate-50 border border-slate-200 rounded" placeholder="Phiên bản"></td>
       <td class="p-1.5">
         <select class="sw-lic w-full p-1 bg-slate-50 border border-slate-200 rounded font-bold">
-          <option value="Bản quyền" selected>Bản quyền</option>
-          <option value="Miễn phí">Miễn phí</option>
-          <option value="Dùng thử">Dùng thử</option>
+          <option value="Bản quyền" selected>Bản quyền (Vĩnh viễn)</option>
+          <option value="Bản quyền 1 năm">Bản quyền (1 năm)</option>
+          <option value="Miễn phí">Miễn phí (Free)</option>
+          <option value="Không bản quyền">Không có bản quyền</option>
+          <option value="Dùng thử">Dùng thử (Trial)</option>
         </select>
       </td>
       <td class="p-1.5"><input type="date" class="sw-install w-full p-1 bg-slate-50 border border-slate-200 rounded" value="${today}"></td>
@@ -1766,12 +2197,14 @@ const RoomsManagementPage = {
         Utils.showToast(`Đã tạo mới máy PC ${pcData.pcName}!`, 'success');
       }
 
-      const modal = document.getElementById('pc-profile-modal');
+      const modal = document.getElementById('pc-edit-modal');
       if (modal) modal.remove();
       await this.loadData();
 
-      // Cập nhật lại view modal chi tiết phòng nếu đang mở
-      if (this.activeRoomId) {
+      // Nếu đang mở từ View PC thì mở lại View PC mới
+      if (pcId) {
+        this.openPCViewModal(pcId);
+      } else if (this.activeRoomId) {
         this.openRoomDetailsModal(this.activeRoomId, 'pcs');
       }
     } catch (err) {
@@ -1787,8 +2220,12 @@ const RoomsManagementPage = {
     try {
       await ApiService.deletePC(pcId);
       Utils.showToast(`Đã xóa máy PC ${pcName}.`, 'success');
-      const modal = document.getElementById('pc-profile-modal');
-      if (modal) modal.remove();
+      
+      const modalEdit = document.getElementById('pc-edit-modal');
+      if (modalEdit) modalEdit.remove();
+      const modalView = document.getElementById('pc-view-modal');
+      if (modalView) modalView.remove();
+
       await this.loadData();
       if (this.activeRoomId) {
         this.openRoomDetailsModal(this.activeRoomId, 'pcs');
@@ -1809,7 +2246,7 @@ const RoomsManagementPage = {
 
     const maintModal = document.createElement('div');
     maintModal.id = 'pc-maint-form-modal';
-    maintModal.className = 'fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
+    maintModal.className = 'fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in';
     maintModal.innerHTML = `
       <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
         <div class="p-5 bg-gradient-to-r from-emerald-700 to-teal-800 text-white flex items-center justify-between">
@@ -1901,14 +2338,14 @@ const RoomsManagementPage = {
       if (modal) modal.remove();
 
       await this.loadData();
-      this.openPCProfileModal(pcId);
+      this.openPCViewModal(pcId);
     } catch (err) {
       Utils.showToast('Lỗi ghi nhận bảo trì: ' + err.message, 'error');
     }
   },
 
   // ========================================================
-  // MODAL 4: QUẢN LÝ CƠ SỞ & KHU VỰC / TÒA NHÀ (Mục 1)
+  // MODAL 6: QUẢN LÝ CƠ SỞ & KHU VỰC / TÒA NHÀ (Mục 1)
   // ========================================================
   openCampusModal() {
     const container = document.getElementById('rooms-modal-container');
