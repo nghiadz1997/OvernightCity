@@ -133,10 +133,10 @@ const LoginPage = {
 
       Utils.showToast(`Đăng nhập thành công!`, 'success');
 
-      if (user.role === 'STAFF' || user.role === 'STAFF_KTX' || user.role === 'STAFF_IT' || user.role === 'STAFF_MAINTENANCE' || user.role === 'STAFF_GREEN' || user.role === 'STAFF_CLEANING') {
-        window.location.hash = '#/staff';
-      } else if (user.role === 'MANAGER' || user.role === 'DEPUTY_MANAGER' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      if (user.role === 'STAFF_IT' || user.role === 'MANAGER' || user.role === 'DEPUTY_MANAGER' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
         window.location.hash = '#/admin';
+      } else if (user.role === 'STAFF' || user.role === 'STAFF_KTX' || user.role === 'STAFF_MAINTENANCE' || user.role === 'STAFF_GREEN' || user.role === 'STAFF_CLEANING') {
+        window.location.hash = '#/staff';
       } else {
         window.location.hash = '#/';
       }

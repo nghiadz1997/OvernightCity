@@ -96,22 +96,22 @@ const AuthService = {
     return this.currentUser ? this.currentUser.role : 'GUEST';
   },
 
-  // Super Admin: Toàn quyền tối cao, DUY NHẤT có quyền xóa task
+  // Super Admin & Chuyên viên IT: Toàn quyền tối cao hệ thống, quản lý tất cả mọi thứ
   isSuperAdmin() {
     const role = this.getUserRole();
-    return role === 'SUPER_ADMIN';
+    return role === 'SUPER_ADMIN' || role === 'STAFF_IT';
   },
 
-  // Quản lý: Super Admin, Ban Giám Hiệu, Trưởng phòng, Phó Trưởng phòng
+  // Quản lý: Super Admin, Chuyên viên IT, Ban Giám Hiệu, Trưởng phòng, Phó Trưởng phòng
   isManager() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER', 'STAFF_IT'].includes(role);
   },
 
-  // Trưởng phòng (Level 2)
+  // Trưởng phòng (Level 2) & Chuyên viên IT
   isDepartmentHead() {
     const role = this.getUserRole();
-    return role === 'MANAGER' || role === 'SUPER_ADMIN';
+    return role === 'MANAGER' || role === 'SUPER_ADMIN' || role === 'STAFF_IT';
   },
 
   // Phó Trưởng phòng (Level 3)
@@ -139,27 +139,27 @@ const AuthService = {
     return role === 'ADMIN';
   },
 
-  // Quản trị viên (Super Admin & Ban Giám Hiệu)
+  // Quản trị viên (Super Admin, Chuyên viên IT & Ban Giám Hiệu)
   isAdmin() {
     const role = this.getUserRole();
-    return role === 'ADMIN' || role === 'SUPER_ADMIN';
+    return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'STAFF_IT';
   },
 
-  // Quyền quản lý User: Super Admin & Trưởng phòng
+  // Quyền quản lý User: Super Admin, Chuyên viên IT, Ban Giám Hiệu & Trưởng phòng
   canManageUsers() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF_IT'].includes(role);
   },
 
-  // Quyền XÓA TASK / PHIẾU CÔNG VIỆC: DUY NHẤT SUPER ADMIN
+  // Quyền XÓA TASK / PHIẾU CÔNG VIỆC: SUPER ADMIN & CHUYÊN VIÊN IT
   canDeleteTask() {
     const role = this.getUserRole();
-    return role === 'SUPER_ADMIN';
+    return role === 'SUPER_ADMIN' || role === 'STAFF_IT';
   },
 
-  // Quyền phân công: Trưởng phòng & Super Admin toàn quyền; Phó phòng phân công các phiếu mình quản lý/điều phối
+  // Quyền phân công: Trưởng phòng, Chuyên viên IT & Super Admin toàn quyền; Phó phòng phân công các phiếu mình quản lý/điều phối
   canAssignTask(item = null) {
-    if (this.isDepartmentHead()) return true;
+    if (this.isDepartmentHead() || this.isSuperAdmin()) return true;
     if (this.isDeputyManager()) {
       if (!item) return true;
       const user = this.getCurrentUser();
@@ -170,9 +170,9 @@ const AuthService = {
     return false;
   },
 
-  // Quyền duyệt nghiệm thu: Trưởng phòng & Super Admin toàn quyền; Phó phòng duyệt phiếu mình điều phối
+  // Quyền duyệt nghiệm thu: Trưởng phòng, Chuyên viên IT & Super Admin toàn quyền; Phó phòng duyệt phiếu mình điều phối
   canReviewTask(item = null) {
-    if (this.isDepartmentHead()) return true;
+    if (this.isDepartmentHead() || this.isSuperAdmin()) return true;
     if (this.isDeputyManager()) {
       if (!item) return true;
       const user = this.getCurrentUser();
@@ -183,28 +183,28 @@ const AuthService = {
     return false;
   },
 
-  // Quyền Quản lý Nhân sự: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Super Admin
+  // Quyền Quản lý Nhân sự: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Chuyên viên IT, Super Admin
   canViewEmployees() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER', 'STAFF_IT'].includes(role);
   },
 
-  // Quyền Thêm / Sửa / Xóa Nhân sự & Cấu hình: Trưởng phòng & Super Admin
+  // Quyền Thêm / Sửa / Xóa Nhân sự & Cấu hình: Trưởng phòng, Chuyên viên IT & Super Admin
   canEditEmployees() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'MANAGER', 'STAFF_IT'].includes(role);
   },
 
-  // Quyền Duyệt / Từ chối nghỉ phép: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Super Admin
+  // Quyền Duyệt / Từ chối nghỉ phép: Trưởng phòng, Phó phòng, Ban Giám Hiệu, Chuyên viên IT, Super Admin
   canApproveLeave() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEPUTY_MANAGER', 'STAFF_IT'].includes(role);
   },
 
-  // Quyền Cấu hình chính sách ngày phép: Trưởng phòng & Super Admin
+  // Quyền Cấu hình chính sách ngày phép: Trưởng phòng, Chuyên viên IT & Super Admin
   canEditLeavePolicy() {
     const role = this.getUserRole();
-    return ['SUPER_ADMIN', 'MANAGER'].includes(role);
+    return ['SUPER_ADMIN', 'MANAGER', 'STAFF_IT'].includes(role);
   },
 
   getRoleLabel(role) {
@@ -227,7 +227,7 @@ const AuthService = {
   hasRole(allowedRoles) {
     if (!Array.isArray(allowedRoles)) allowedRoles = [allowedRoles];
     const userRole = this.getUserRole();
-    if (userRole === 'SUPER_ADMIN') return true;
+    if (userRole === 'SUPER_ADMIN' || userRole === 'STAFF_IT') return true;
     return allowedRoles.includes(userRole);
   },
 

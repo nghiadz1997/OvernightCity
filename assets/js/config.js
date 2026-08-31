@@ -143,7 +143,7 @@ const APP_CONFIG = {
     { id: 'ADMIN', name: 'Ban Giám Hiệu', level: 2, desc: 'Giám sát điều hành toàn diện & Giao việc trực tiếp cho Trưởng phòng' },
     { id: 'MANAGER', name: 'Trưởng phòng', level: 2, desc: 'Giao việc cho Phó phòng / KTV, Nghiệm thu, Phân quyền' },
     { id: 'DEPUTY_MANAGER', name: 'Phó Trưởng phòng', level: 3, desc: 'Nhận chỉ đạo từ Trưởng phòng, Chỉ định KTV xử lý, Nghiệm thu' },
-    { id: 'STAFF_IT', name: 'Chuyên Viên IT', level: 4, desc: 'Xử lý mạng máy tính, máy in, phần mềm, thiết bị CNTT' },
+    { id: 'STAFF_IT', name: 'Chuyên Viên IT', level: 1, desc: 'Toàn quyền quản trị hệ thống, xử lý CNTT & Quản lý như Super Admin' },
     { id: 'STAFF_MAINTENANCE', name: 'Chuyên Viên Bảo Trì', level: 4, desc: 'Xử lý điện nước, cơ sở vật chất, máy chiếu, âm thanh' },
     { id: 'STAFF_GREEN', name: 'Cây Xanh', level: 4, desc: 'Chăm sóc cảnh quan, cây xanh, khuôn viên trường' },
     { id: 'STAFF_CLEANING', name: 'Tạp Vụ', level: 4, desc: 'Vệ sinh phòng học, văn phòng, sảnh tòa nhà' },
