@@ -13,15 +13,21 @@ const NavbarComponent = {
 
     container.innerHTML = `
       <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between items-center h-16">
-            <!-- Left: Mobile Menu & Logo -->
-            <div class="flex items-center gap-3">
-              <button id="mobile-menu-toggle" class="md:hidden text-slate-500 hover:text-slate-700 p-2 rounded-lg focus:outline-none">
+            <!-- Left: Mobile Menu / Desktop Toggle & Logo -->
+            <div class="flex items-center gap-2 sm:gap-3">
+              <button id="mobile-menu-toggle" class="md:hidden text-slate-500 hover:text-slate-700 p-2 rounded-lg focus:outline-none cursor-pointer" onclick="SidebarComponent.toggleMobile()">
                 <i class="fa-solid fa-bars text-xl"></i>
               </button>
 
-              <a href="#/" class="flex items-center gap-3 group">
+              ${isAuth && (AuthService.isManager() || AuthService.isStaff()) ? `
+                <button id="desktop-sidebar-toggle" class="hidden md:flex items-center justify-center w-9 h-9 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors cursor-pointer" title="Ẩn / Hiện Menu bên trái (Sidebar)" onclick="SidebarComponent.toggleCollapse()">
+                  <i class="fa-solid fa-bars-staggered text-base"></i>
+                </button>
+              ` : ''}
+
+              <a href="#/" class="flex items-center gap-2.5 sm:gap-3 group">
                 <div class="h-10 w-10 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                   ${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.logoUrl) ? `
                     <img src="${APP_CONFIG.logoUrl}" alt="Logo" class="max-h-10 max-w-10 w-auto h-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling ? this.nextElementSibling.style.display='flex' : null;">
