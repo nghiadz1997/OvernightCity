@@ -1132,46 +1132,6 @@ const ApiService = {
         list.push({ id: doc.id, ...doc.data() });
       });
 
-      // Nếu collection employees chưa có dữ liệu, tự động đồng bộ từ collection users (KTV & Quản lý)
-      if (list.length === 0) {
-        const userSnap = await db.collection('users').get();
-        const seeded = [];
-        const currentYear = new Date().getFullYear();
-        let idx = 1;
-
-        for (const uDoc of userSnap.docs) {
-          const u = uDoc.data();
-          if (u.role !== 'USER' && u.isActive !== false) {
-            const empCode = `NSG-NV${String(idx).padStart(3, '0')}`;
-            const empData = {
-              employeeCode: empCode,
-              fullName: u.displayName || u.email.split('@')[0],
-              dateOfBirth: '1990-01-01',
-              citizenId: '079090' + String(100000 + idx),
-              position: AuthService.getRoleLabel(u.role),
-              qualification: u.role === 'STAFF_IT' ? 'Công nghệ thông tin & Mạng' : (u.role === 'STAFF_MAINTENANCE' ? 'Điện lạnh & Cơ điện' : (u.role === 'STAFF_KTX' ? 'Quản trị KTX' : (u.role === 'STAFF_GREEN' ? 'Cây xanh cảnh quan' : (u.role === 'STAFF_CLEANING' ? 'Vệ sinh môi trường' : 'Quản lý CSVC')))),
-              phone: u.phone || '090' + String(1000000 + idx),
-              email: u.email || '',
-              departmentName: u.departmentName || 'Phòng Quản trị Thiết bị và Cơ sở vật chất',
-              status: 'ACTIVE',
-              userId: uDoc.id,
-              notes: 'Tài khoản nội bộ hệ thống',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-
-            const newDoc = await db.collection('employees').add(empData);
-            empData.id = newDoc.id;
-            seeded.push(empData);
-
-            // Khởi tạo kỳ phép năm cho nhân sự
-            await this.getOrCreateLeaveBalance(newDoc.id, empData.fullName, currentYear);
-            idx++;
-          }
-        }
-        return seeded;
-      }
-
       return list.sort((a, b) => (a.employeeCode || '').localeCompare(b.employeeCode || ''));
     } catch (e) {
       console.error('[ApiService] Lỗi tải danh sách nhân sự:', e);
