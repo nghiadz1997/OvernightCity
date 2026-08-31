@@ -206,13 +206,18 @@ const TrackingPage = {
           </div>
 
           <!-- Cột thông tin xử lý -->
-          <div class="space-y-3">
-            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1">Đơn vị tiếp nhận & xử lý</h4>
-            <div><span class="text-slate-500">Kỹ thuật viên phụ trách:</span> <strong class="text-indigo-700">${report.assignedToName || 'Đang điều phối nhân sự'}</strong></div>
-            <div><span class="text-slate-500">Người giao việc:</span> <strong class="text-slate-800">${report.assignedByName || 'Trưởng phòng'}</strong></div>
-            <div><span class="text-slate-500">Hạn chót (Deadline):</span> <strong class="text-slate-800">${report.deadline ? Utils.formatDateTime(report.deadline) : 'Theo quy định'} (${deadlineInfo.label})</strong></div>
-            <div><span class="text-slate-500">Tiến độ cập nhật mới nhất:</span>
-              <p class="mt-1 bg-indigo-50/60 p-3 rounded-lg border border-indigo-100 text-indigo-950 font-medium">
+          <div class="space-y-2.5">
+            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 flex items-center gap-2">
+              <i class="fa-solid fa-building-circle-check text-blue-600"></i>
+              <span>Đơn vị tiếp nhận & xử lý</span>
+            </h4>
+            <div class="text-xs"><span class="text-slate-500">Đơn vị tiếp nhận:</span> <strong class="text-slate-800">${report.departmentName || report.department || 'Phòng Quản trị Thiết bị và Cơ sở vật chất'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Người giao việc (Trưởng phòng):</span> <strong class="text-slate-800 font-bold">👔 ${report.assignedByName || 'Trưởng phòng CSVC'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Người điều phối (Phó phòng):</span> <strong class="${report.assignedManagerName || report.deputyName || report.deputyCoordinator ? 'text-purple-700 font-bold' : 'text-slate-500'}">🎖️ ${report.assignedManagerName || report.deputyName || report.deputyCoordinator || 'Đang điều phối'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Kỹ thuật viên phụ trách:</span> <strong class="${report.assignedToName ? 'text-indigo-700 font-bold' : 'text-slate-500'}">🔧 ${report.assignedToName || 'Đang phân công kỹ thuật viên'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Hạn chót (Deadline):</span> <strong class="text-slate-800">${report.deadline ? Utils.formatDateTime(report.deadline) : 'Theo quy định'} (${deadlineInfo.label})</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Tiến độ cập nhật mới nhất:</span>
+              <p class="mt-1 bg-indigo-50/60 p-3 rounded-lg border border-indigo-100 text-indigo-950 font-medium leading-relaxed">
                 ${report.latestNote || report.completionNote || 'Hệ thống đã ghi nhận phiếu và chuyển tới bộ phận kỹ thuật để xử lý.'}
               </p>
             </div>

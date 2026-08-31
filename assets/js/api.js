@@ -178,11 +178,15 @@ const ApiService = {
       const code = `TASK-2026-${Math.floor(100000 + Math.random() * 900000)}`;
       const nowIso = new Date().toISOString();
 
+      const currentUser = AuthService.getCurrentUser();
       const fullData = {
         ...taskData,
         code,
         type: 'TASK',
         status: (taskData.assignedTo && (Array.isArray(taskData.assignedTo) ? taskData.assignedTo.length > 0 : true)) ? 'ĐÃ PHÂN CÔNG' : 'CHỜ PHÂN CÔNG',
+        assignedBy: taskData.assignedBy || currentUser?.uid || null,
+        assignedByName: taskData.assignedByName || currentUser?.displayName || 'Trưởng phòng CSVC',
+        assignedByRole: taskData.assignedByRole || currentUser?.role || 'MANAGER',
         createdAt: nowIso,
         updatedAt: nowIso,
         isOverdue: false

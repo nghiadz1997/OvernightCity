@@ -282,9 +282,23 @@ const TaskModalComponent = {
 
             <div class="space-y-2 text-xs">
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
-                <span class="text-slate-500">Người quản lý:</span>
+                <span class="text-slate-500">Đơn vị tiếp nhận:</span>
+                <span class="font-bold text-slate-800 truncate max-w-[65%]">
+                  ${item.departmentName || item.department || 'Phòng Quản trị Thiết bị và CSVC'}
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500">Người giao việc (Trưởng phòng):</span>
+                <span class="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                  👔 ${item.assignedByName || (item.assignedByRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Trưởng phòng CSVC')}
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500">Người điều phối (Phó phòng):</span>
                 <span class="font-bold ${managerName ? 'text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200' : 'text-slate-400 italic'}">
-                  ${managerName ? `🎖️ ${managerName}` : 'Chưa chỉ định'}
+                  ${managerName ? `🎖️ ${managerName}` : 'Đang điều phối'}
                 </span>
               </div>
 

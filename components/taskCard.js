@@ -54,16 +54,22 @@ const TaskCardComponent = {
               <i class="fa-solid fa-location-dot text-red-500"></i>
               <span class="font-medium text-slate-800">${item.location || 'Chưa rõ'} ${item.room ? `(${item.room})` : ''}</span>
             </div>
-            <div class="flex items-center gap-1.5 truncate">
-              <i class="fa-solid fa-user-tie text-purple-600"></i>
-              <span class="font-semibold ${item.assignedManagerName || item.deputyName ? 'text-purple-700' : 'text-slate-400 italic'} truncate">
-                ${item.assignedManagerName || item.deputyName ? `QL: ${item.assignedManagerName || item.deputyName}` : 'QL: Trưởng phòng'}
+            <div class="flex items-center gap-1.5 truncate" title="Người giao việc (Trưởng phòng): ${item.assignedByName || 'Trưởng phòng'}">
+              <i class="fa-solid fa-user-tie text-blue-600"></i>
+              <span class="font-semibold text-slate-700 truncate">
+                TP: ${item.assignedByName || 'Trưởng phòng'}
               </span>
             </div>
-            <div class="flex items-center gap-1.5 truncate">
+            <div class="flex items-center gap-1.5 truncate" title="Người điều phối (Phó phòng): ${item.assignedManagerName || item.deputyName || 'Đang điều phối'}">
+              <i class="fa-solid fa-user-shield text-purple-600"></i>
+              <span class="font-semibold ${item.assignedManagerName || item.deputyName ? 'text-purple-700' : 'text-slate-400 italic'} truncate">
+                ${item.assignedManagerName || item.deputyName ? `PP: ${item.assignedManagerName || item.deputyName}` : 'PP: Đang điều phối'}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5 truncate col-span-1 sm:col-span-2" title="Kỹ thuật viên thực hiện: ${item.assignedToName || 'Chưa phân công'}">
               <i class="fa-solid ${item.assignedToName && item.assignedToName.includes(',') ? 'fa-users text-indigo-600' : 'fa-screwdriver-wrench text-indigo-600'}"></i>
-              <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate" title="${item.assignedToName || 'Chưa phân công'}">
-                ${item.assignedToName ? (item.assignedToName.includes(',') ? `👥 ${item.assignedToName}` : `KTV: ${item.assignedToName}`) : 'KTV: Chưa phân công'}
+              <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate">
+                ${item.assignedToName ? (item.assignedToName.includes(',') ? `👥 KTV: ${item.assignedToName}` : `🔧 KTV: ${item.assignedToName}`) : 'KTV: Chưa phân công'}
               </span>
             </div>
           </div>

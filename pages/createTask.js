@@ -195,10 +195,21 @@ const CreateTaskPage = {
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Khoa / Phòng ban tiếp nhận</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Khoa / Phòng ban tiếp nhận & xử lý</label>
                 <select id="task-department" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                   ${departments.map(d => `<option value="${d}">${d}</option>`).join('')}
                 </select>
+              </div>
+
+              <div class="p-3 bg-blue-50/70 rounded-2xl border border-blue-200 flex items-center justify-between text-xs sm:col-span-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-user-tie text-blue-600 text-base"></i>
+                  <div>
+                    <span class="text-slate-500 font-semibold">Người giao việc:</span>
+                    <strong class="text-blue-900 font-bold ml-1">👔 ${currentUser?.displayName || 'Trưởng phòng'} (${AuthService.getRoleLabel(currentUser?.role)})</strong>
+                  </div>
+                </div>
+                <span class="text-[10px] bg-blue-200 text-blue-800 font-extrabold px-2.5 py-0.5 rounded-full uppercase">Khởi tạo</span>
               </div>
 
               <div class="sm:col-span-2">
