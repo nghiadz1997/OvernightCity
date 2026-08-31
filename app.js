@@ -178,6 +178,10 @@ const App = {
       this.currentPage = DepartmentsPage;
       appMain.innerHTML = DepartmentsPage.render();
       DepartmentsPage.init();
+    } else if (path === '#/admin/rooms') {
+      this.currentPage = RoomsManagementPage;
+      appMain.innerHTML = RoomsManagementPage.render();
+      RoomsManagementPage.init();
     } else if (path === '#/admin/locations') {
       if (!AuthService.isSuperAdmin()) {
         Utils.showToast('Từ chối quyền: Chỉ Super Admin mới có quyền quản lý địa điểm!', 'warning', 4000);

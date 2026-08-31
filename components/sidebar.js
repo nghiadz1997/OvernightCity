@@ -142,6 +142,12 @@ const SidebarComponent = {
               </a>
             ` : ''}
 
+            <!-- 🏢 Quản lý phòng NSG (Cơ sở -> Tòa nhà -> Phòng -> Thiết bị -> PC) -->
+            <a href="#/admin/rooms" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${currentHash.startsWith('#/admin/rooms') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-blue-300'}">
+              <i class="fa-solid fa-door-open w-5 text-center text-amber-400"></i>
+              <span>Quản lý phòng NSG</span>
+            </a>
+
             <!-- 🏢 Phòng/Khoa -->
             <a href="#/admin/departments" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/departments' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
               <i class="fa-solid fa-building-columns w-5 text-center text-amber-400"></i>

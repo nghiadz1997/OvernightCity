@@ -1860,6 +1860,522 @@ const ApiService = {
       console.error('[ApiService] Lỗi chuyển kỳ phép sang năm mới:', e);
       throw new Error('Lỗi chuyển kỳ phép: ' + e.message);
     }
+  },
+
+  // ========================================================
+  // 17. MODULE QUẢN LÝ PHÒNG NSG & THIẾT BỊ / MÁY TÍNH PC
+  // ========================================================
+  getDefaultRoomDevices() {
+    return [
+      { id: 'dev_1', name: 'Máy chiếu', type: 'PROJECTOR', quantity: 0, unit: 'Bộ', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_2', name: 'Máy lạnh', type: 'AC', quantity: 0, unit: 'Bộ', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_3', name: 'Tivi', type: 'TV', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_4', name: 'Loa', type: 'SPEAKER', quantity: 0, unit: 'Cặp', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_5', name: 'Dây HDMI', type: 'CABLE', quantity: 0, unit: 'Sợi', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_6', name: 'Bàn', type: 'FURNITURE', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_7', name: 'Ghế', type: 'FURNITURE', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_8', name: 'Màn chiếu', type: 'SCREEN', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_9', name: 'Máy in', type: 'PRINTER', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' },
+      { id: 'dev_10', name: 'Máy scan', type: 'SCANNER', quantity: 0, unit: 'Cái', assetCode: '', serialNumber: '', status: 'Tốt', inUseDate: '', purchaseDate: '', manager: '', notes: '' }
+    ];
+  },
+
+  async loadRooms() {
+    try {
+      const db = this.getDb();
+      const snap = await db.collection('rooms').get();
+      const list = [];
+      snap.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      return list.sort((a, b) => (a.roomCode || '').localeCompare(b.roomCode || ''));
+    } catch (e) {
+      console.error('[ApiService] Lỗi tải danh sách phòng:', e);
+      return [];
+    }
+  },
+
+  async getRoomById(roomId) {
+    try {
+      const db = this.getDb();
+      const doc = await db.collection('rooms').doc(roomId).get();
+      if (doc.exists) {
+        return { id: doc.id, ...doc.data() };
+      }
+      return null;
+    } catch (e) {
+      console.error('[ApiService] Lỗi lấy thông tin phòng:', e);
+      return null;
+    }
+  },
+
+  async createRoom(roomData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const devices = Array.isArray(roomData.devices) ? roomData.devices : this.getDefaultRoomDevices();
+      const totalDevices = devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
+
+      const docData = {
+        roomCode: roomData.roomCode || `P-${Math.floor(100 + Math.random() * 900)}`,
+        roomName: roomData.roomName || '',
+        campusId: roomData.campusId || '',
+        campusName: roomData.campusName || '',
+        zoneId: roomData.zoneId || '',
+        zoneName: roomData.zoneName || '',
+        locationDetail: roomData.locationDetail || '',
+        roomType: roomData.roomType || 'Lý thuyết',
+        floor: roomData.floor || 'Tầng 1',
+        capacity: Number(roomData.capacity) || 0,
+        area: Number(roomData.area) || 0,
+        managerName: roomData.managerName || '',
+        managerPhone: roomData.managerPhone || '',
+        status: roomData.status || 'Đang sử dụng',
+        notes: roomData.notes || '',
+        devices: devices,
+        deviceCount: totalDevices,
+        pcCount: Number(roomData.pcCount) || 0,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      // Xóa các key undefined
+      Object.keys(docData).forEach(k => {
+        if (docData[k] === undefined) docData[k] = '';
+      });
+
+      const docRef = await db.collection('rooms').add(docData);
+      docData.id = docRef.id;
+
+      // Ghi audit log
+      await db.collection('room_audit_logs').add({
+        targetType: 'ROOM',
+        targetId: docRef.id,
+        targetName: docData.roomName || docData.roomCode,
+        action: 'TẠO PHÒNG MỚI',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Tạo mới phòng ${docData.roomName} (${docData.roomCode}) - Loại: ${docData.roomType}`
+      });
+
+      return { success: true, data: docData };
+    } catch (e) {
+      console.error('[ApiService] Lỗi tạo phòng:', e);
+      throw new Error('Lỗi khi tạo phòng: ' + e.message);
+    }
+  },
+
+  async updateRoom(roomId, roomData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const devices = Array.isArray(roomData.devices) ? roomData.devices : undefined;
+      const updatePayload = {
+        roomName: roomData.roomName,
+        campusId: roomData.campusId,
+        campusName: roomData.campusName,
+        zoneId: roomData.zoneId,
+        zoneName: roomData.zoneName,
+        locationDetail: roomData.locationDetail,
+        roomType: roomData.roomType,
+        floor: roomData.floor,
+        capacity: Number(roomData.capacity) || 0,
+        area: Number(roomData.area) || 0,
+        managerName: roomData.managerName,
+        managerPhone: roomData.managerPhone,
+        status: roomData.status,
+        notes: roomData.notes,
+        updatedAt: nowIso
+      };
+
+      if (roomData.roomCode) updatePayload.roomCode = roomData.roomCode;
+      if (devices) {
+        updatePayload.devices = devices;
+        updatePayload.deviceCount = devices.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
+      }
+      if (roomData.pcCount !== undefined) {
+        updatePayload.pcCount = Number(roomData.pcCount) || 0;
+      }
+
+      // Xóa các key undefined
+      Object.keys(updatePayload).forEach(k => {
+        if (updatePayload[k] === undefined) delete updatePayload[k];
+      });
+
+      await db.collection('rooms').doc(roomId).set(updatePayload, { merge: true });
+
+      // Ghi audit log
+      await db.collection('room_audit_logs').add({
+        targetType: 'ROOM',
+        targetId: roomId,
+        targetName: roomData.roomName || roomId,
+        action: 'CẬP NHẬT PHÒNG',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Cập nhật thông tin phòng ${roomData.roomName || roomId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi cập nhật phòng:', e);
+      throw new Error('Lỗi cập nhật phòng: ' + e.message);
+    }
+  },
+
+  async deleteRoom(roomId, hardDelete = true) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      if (hardDelete) {
+        await db.collection('rooms').doc(roomId).delete();
+
+        // Xóa các máy PC liên thuộc phòng này
+        const pcSnap = await db.collection('pcs').where('roomId', '==', roomId).get();
+        if (!pcSnap.empty) {
+          const batch = db.batch();
+          pcSnap.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } else {
+        await db.collection('rooms').doc(roomId).update({
+          status: 'Không sử dụng',
+          updatedAt: nowIso
+        });
+      }
+
+      await db.collection('room_audit_logs').add({
+        targetType: 'ROOM',
+        targetId: roomId,
+        action: hardDelete ? 'XÓA PHÒNG VĨNH VIỄN' : 'NGƯNG HOẠT ĐỘNG PHÒNG',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Thao tác xóa phòng ID: ${roomId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi xóa phòng:', e);
+      throw new Error('Lỗi xóa phòng: ' + e.message);
+    }
+  },
+
+  // ========================================================
+  // MÁY TÍNH BỘ PC (FACULTY OFFICE & LAB PCs)
+  // ========================================================
+  async loadPCs(roomId = null) {
+    try {
+      const db = this.getDb();
+      let query = db.collection('pcs');
+      if (roomId) {
+        query = query.where('roomId', '==', roomId);
+      }
+      const snap = await query.get();
+      const list = [];
+      snap.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      return list.sort((a, b) => (a.pcCode || '').localeCompare(b.pcCode || ''));
+    } catch (e) {
+      console.error('[ApiService] Lỗi tải danh sách máy PC:', e);
+      return [];
+    }
+  },
+
+  async getPCById(pcId) {
+    try {
+      const db = this.getDb();
+      const doc = await db.collection('pcs').doc(pcId).get();
+      if (doc.exists) {
+        return { id: doc.id, ...doc.data() };
+      }
+      return null;
+    } catch (e) {
+      console.error('[ApiService] Lỗi lấy thông tin máy PC:', e);
+      return null;
+    }
+  },
+
+  async createPC(pcData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const docData = {
+        pcCode: pcData.pcCode || `PC-${Math.floor(100 + Math.random() * 900)}`,
+        pcName: pcData.pcName || '',
+        roomId: pcData.roomId || '',
+        roomName: pcData.roomName || '',
+        campusId: pcData.campusId || '',
+        zoneId: pcData.zoneId || '',
+        userName: pcData.userName || '',
+        positionDetail: pcData.positionDetail || '',
+        handoverDate: pcData.handoverDate || new Date().toISOString().split('T')[0],
+        status: pcData.status || 'Đang sử dụng',
+
+        // 2. Hardware
+        hardware: {
+          mainboardSerial: pcData.hardware?.mainboardSerial || '',
+          mainboardBrand: pcData.hardware?.mainboardBrand || '',
+          mainboardModel: pcData.hardware?.mainboardModel || '',
+          cpu: pcData.hardware?.cpu || '',
+          cpuSerial: pcData.hardware?.cpuSerial || '',
+          ram: pcData.hardware?.ram || '',
+          ramSerial: pcData.hardware?.ramSerial || '',
+          storage: pcData.hardware?.storage || '',
+          storageSerial: pcData.hardware?.storageSerial || '',
+          vga: pcData.hardware?.vga || '',
+          vgaSerial: pcData.hardware?.vgaSerial || '',
+          screen: pcData.hardware?.screen || '',
+          screenSerial: pcData.hardware?.screenSerial || '',
+          psu: pcData.hardware?.psu || '',
+          psuSerial: pcData.hardware?.psuSerial || ''
+        },
+
+        // 3. OS Windows
+        os: {
+          name: pcData.os?.name || 'Windows 11',
+          isLicensed: Boolean(pcData.os?.isLicensed),
+          duration: pcData.os?.duration || 'Vĩnh viễn',
+          licenseType: pcData.os?.licenseType || 'OEM',
+          licenseKey: pcData.os?.licenseKey || '',
+          activationDate: pcData.os?.activationDate || '',
+          expirationDate: pcData.os?.expirationDate || ''
+        },
+
+        // 4. Microsoft Office
+        office: {
+          version: pcData.office?.version || 'Office 2021',
+          isLicensed: Boolean(pcData.office?.isLicensed),
+          duration: pcData.office?.duration || 'Vĩnh viễn'
+        },
+
+        // 5. Softwares
+        softwares: Array.isArray(pcData.softwares) ? pcData.softwares : [],
+
+        // 6. Maintenance Schedule
+        maintenanceSchedule: {
+          intervalMonths: Number(pcData.maintenanceSchedule?.intervalMonths) || 6,
+          lastDate: pcData.maintenanceSchedule?.lastDate || new Date().toISOString().split('T')[0],
+          nextDate: pcData.maintenanceSchedule?.nextDate || '',
+          notes: pcData.maintenanceSchedule?.notes || ''
+        },
+
+        // 7. Maintenance History
+        maintenanceHistory: Array.isArray(pcData.maintenanceHistory) ? pcData.maintenanceHistory : [],
+
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      // Tự động tính next maintenance date nếu chưa có
+      if (!docData.maintenanceSchedule.nextDate && docData.maintenanceSchedule.lastDate) {
+        docData.maintenanceSchedule.nextDate = this.calculateNextMaintenanceDate(
+          docData.maintenanceSchedule.lastDate,
+          docData.maintenanceSchedule.intervalMonths
+        );
+      }
+
+      const docRef = await db.collection('pcs').add(docData);
+      docData.id = docRef.id;
+
+      // Cập nhật số lượng PC trong phòng
+      if (docData.roomId) {
+        await this.recalculateRoomPCCount(docData.roomId);
+      }
+
+      // Ghi audit log
+      await db.collection('room_audit_logs').add({
+        targetType: 'PC',
+        targetId: docRef.id,
+        targetName: docData.pcName || docData.pcCode,
+        action: 'TẠO MÁY PC MỚI',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Thêm máy tính PC ${docData.pcName} (${docData.pcCode}) vào phòng ${docData.roomName}`
+      });
+
+      return { success: true, data: docData };
+    } catch (e) {
+      console.error('[ApiService] Lỗi tạo máy PC:', e);
+      throw new Error('Lỗi khi tạo máy PC: ' + e.message);
+    }
+  },
+
+  async updatePC(pcId, pcData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const updatePayload = {
+        pcName: pcData.pcName,
+        roomId: pcData.roomId,
+        roomName: pcData.roomName,
+        campusId: pcData.campusId,
+        zoneId: pcData.zoneId,
+        userName: pcData.userName,
+        positionDetail: pcData.positionDetail,
+        handoverDate: pcData.handoverDate,
+        status: pcData.status,
+        hardware: pcData.hardware,
+        os: pcData.os,
+        office: pcData.office,
+        softwares: pcData.softwares,
+        maintenanceSchedule: pcData.maintenanceSchedule,
+        maintenanceHistory: pcData.maintenanceHistory,
+        updatedAt: nowIso
+      };
+
+      if (pcData.pcCode) updatePayload.pcCode = pcData.pcCode;
+
+      // Tính lại next maintenance date nếu cần
+      if (updatePayload.maintenanceSchedule && updatePayload.maintenanceSchedule.lastDate) {
+        updatePayload.maintenanceSchedule.nextDate = this.calculateNextMaintenanceDate(
+          updatePayload.maintenanceSchedule.lastDate,
+          updatePayload.maintenanceSchedule.intervalMonths
+        );
+      }
+
+      // Xóa các key undefined
+      Object.keys(updatePayload).forEach(k => {
+        if (updatePayload[k] === undefined) delete updatePayload[k];
+      });
+
+      await db.collection('pcs').doc(pcId).set(updatePayload, { merge: true });
+
+      if (pcData.roomId) {
+        await this.recalculateRoomPCCount(pcData.roomId);
+      }
+
+      await db.collection('room_audit_logs').add({
+        targetType: 'PC',
+        targetId: pcId,
+        targetName: pcData.pcName || pcId,
+        action: 'CẬP NHẬT MÁY PC',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Cập nhật cấu hình máy PC ${pcData.pcName || pcId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi cập nhật máy PC:', e);
+      throw new Error('Lỗi cập nhật máy PC: ' + e.message);
+    }
+  },
+
+  async deletePC(pcId) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+
+      const pcDoc = await db.collection('pcs').doc(pcId).get();
+      const roomId = pcDoc.exists ? pcDoc.data().roomId : null;
+
+      await db.collection('pcs').doc(pcId).delete();
+
+      if (roomId) {
+        await this.recalculateRoomPCCount(roomId);
+      }
+
+      await db.collection('room_audit_logs').add({
+        targetType: 'PC',
+        targetId: pcId,
+        action: 'XÓA MÁY PC VĨNH VIỄN',
+        performedBy: currentUser?.uid || '',
+        performedByName: currentUser?.displayName || 'Quản trị viên',
+        performedAt: nowIso,
+        note: `Xóa máy tính PC ID: ${pcId}`
+      });
+
+      return { success: true };
+    } catch (e) {
+      console.error('[ApiService] Lỗi xóa máy PC:', e);
+      throw new Error('Lỗi xóa máy PC: ' + e.message);
+    }
+  },
+
+  async addPCMaintenanceLog(pcId, logData) {
+    try {
+      const db = this.getDb();
+      const currentUser = AuthService.getCurrentUser();
+      const nowIso = new Date().toISOString();
+      const pcDoc = await db.collection('pcs').doc(pcId).get();
+      if (!pcDoc.exists) throw new Error('Không tìm thấy máy PC');
+
+      const pc = pcDoc.data();
+      const history = Array.isArray(pc.maintenanceHistory) ? [...pc.maintenanceHistory] : [];
+      
+      const newEntry = {
+        id: 'maint_' + Date.now(),
+        date: logData.date || new Date().toISOString().split('T')[0],
+        type: logData.type || 'Vệ sinh máy',
+        content: logData.content || '',
+        performer: logData.performer || currentUser?.displayName || 'Kỹ thuật viên',
+        cost: Number(logData.cost) || 0,
+        statusBefore: logData.statusBefore || 'Bình thường',
+        statusAfter: logData.statusAfter || 'Tốt',
+        notes: logData.notes || '',
+        createdAt: nowIso
+      };
+
+      history.unshift(newEntry);
+
+      // Cập nhật ngày bảo trì gần nhất và tính ngày tiếp theo
+      const schedule = pc.maintenanceSchedule || { intervalMonths: 6 };
+      schedule.lastDate = newEntry.date;
+      schedule.nextDate = this.calculateNextMaintenanceDate(newEntry.date, schedule.intervalMonths);
+
+      await db.collection('pcs').doc(pcId).update({
+        maintenanceHistory: history,
+        maintenanceSchedule: schedule,
+        updatedAt: nowIso
+      });
+
+      return { success: true, entry: newEntry };
+    } catch (e) {
+      console.error('[ApiService] Lỗi ghi nhận bảo trì:', e);
+      throw new Error('Lỗi ghi nhận bảo trì: ' + e.message);
+    }
+  },
+
+  calculateNextMaintenanceDate(lastDateStr, intervalMonths = 6) {
+    if (!lastDateStr) return '';
+    try {
+      const d = new Date(lastDateStr);
+      d.setMonth(d.getMonth() + Number(intervalMonths));
+      return d.toISOString().split('T')[0];
+    } catch (e) {
+      return '';
+    }
+  },
+
+  async recalculateRoomPCCount(roomId) {
+    try {
+      const db = this.getDb();
+      const pcSnap = await db.collection('pcs').where('roomId', '==', roomId).get();
+      const count = pcSnap.size;
+      await db.collection('rooms').doc(roomId).update({
+        pcCount: count,
+        updatedAt: new Date().toISOString()
+      });
+      return count;
+    } catch (e) {
+      console.warn('[ApiService] Lỗi cập nhật số lượng PC của phòng:', e);
+    }
   }
 };
 
