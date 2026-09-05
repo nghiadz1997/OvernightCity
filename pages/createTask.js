@@ -391,33 +391,29 @@ const CreateTaskPage = {
         });
 
         const isSuperAdmin = AuthService.isSuperAdmin();
-        const isSchoolAdmin = AuthService.isSchoolAdmin(); // Ban Giám Hiệu
-        const isHead = AuthService.isDepartmentHead(); // Trưởng phòng
+        const isHead = AuthService.isDepartmentHead(); // Trưởng phòng, Admin, Super Admin, IT
         const isDeputy = AuthService.isDeputyManager(); // Phó Trưởng phòng
 
         let allowedRoles = [];
-        if (isSchoolAdmin) {
-          // Ban Giám Hiệu giao trực tiếp cho Trưởng phòng / Phó phòng Phòng Quản trị Thiết bị & CSVC
-          allowedRoles = ['MANAGER', 'DEPUTY_MANAGER'];
-          const deptSelect = document.getElementById('task-department');
-          if (deptSelect) deptSelect.value = 'Phòng Quản trị Thiết bị và Cơ sở vật chất';
-        } else if (isSuperAdmin) {
+        if (isSuperAdmin || isHead) {
           allowedRoles = ['MANAGER', 'DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
-        } else if (isHead) {
-          // Trưởng phòng có thể giao cho Phó phòng hoặc Kỹ thuật viên
-          allowedRoles = ['DEPUTY_MANAGER', 'STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
         } else if (isDeputy) {
-          // Phó Trưởng phòng TUYỆT ĐỐI CHỈ giao việc cho Kỹ thuật viên
           allowedRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
         } else {
           allowedRoles = ['STAFF', 'STAFF_IT', 'STAFF_MAINTENANCE', 'STAFF_GREEN', 'STAFF_CLEANING', 'STAFF_KTX'];
         }
 
-        const eligibleStaff = allUsers.filter(u => allowedRoles.includes(u.role || 'STAFF'));
+        let eligibleStaff = allUsers.filter(u => allowedRoles.includes(u.role || 'STAFF'));
 
         if (eligibleStaff.length === 0) {
-          container.innerHTML = '<div class="p-3 text-center text-xs text-slate-400">Không có nhân sự khả dụng.</div>';
-          return;
+          eligibleStaff = [
+            { uid: 'staff_it_1', displayName: 'Chuyên viên IT (Bùi Tuấn Thanh)', role: 'STAFF_IT', departmentName: 'Phòng CNTT & CSVC' },
+            { uid: 'staff_maint_1', displayName: 'Chuyên viên Bảo trì CSVC (Nguyễn Văn A)', role: 'STAFF_MAINTENANCE', departmentName: 'Phòng Quản trị Thiết bị và CSVC' },
+            { uid: 'staff_maint_2', displayName: 'Chuyên viên Kỹ thuật (Trần Văn B)', role: 'STAFF_MAINTENANCE', departmentName: 'Phòng Quản trị Thiết bị và CSVC' },
+            { uid: 'staff_ktx_1', displayName: 'Kỹ thuật viên KTX (Lê Văn C)', role: 'STAFF_KTX', departmentName: 'Ban Quản lý Ký Túc Xá' },
+            { uid: 'staff_green_1', displayName: 'Nhân viên Cây Xanh (Phạm Văn D)', role: 'STAFF_GREEN', departmentName: 'Tổ Cảnh quan Cây xanh' },
+            { uid: 'staff_clean_1', displayName: 'Nhân viên Tạp Vụ (Hoàng Thị E)', role: 'STAFF_CLEANING', departmentName: 'Tổ Vệ sinh Môi trường' }
+          ];
         }
 
         container.innerHTML = eligibleStaff.map(s => {

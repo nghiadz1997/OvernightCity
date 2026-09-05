@@ -161,6 +161,7 @@ const App = {
     } else if (path === '#/admin/create-task') {
       this.currentPage = CreateTaskPage;
       appMain.innerHTML = CreateTaskPage.render();
+      CreateTaskPage.init();
     } else if (path === '#/admin/reports') {
       this.currentPage = ReportsExportPage;
       appMain.innerHTML = ReportsExportPage.render();

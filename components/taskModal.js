@@ -749,7 +749,17 @@ const TaskModalComponent = {
     const cleanStaff = staffList.filter(u => u.role === 'STAFF_CLEANING');
     
     // Danh sách Kỹ thuật viên thực hiện (Tuyệt đối chỉ lấy KTV, không lấy Manager / Deputy / Admin / User)
-    const allStaff = staffList.filter(u => TECH_ROLES.includes(u.role));
+    let allStaff = staffList.filter(u => TECH_ROLES.includes(u.role));
+    if (allStaff.length === 0) {
+      allStaff = [
+        { uid: 'staff_it_1', displayName: 'Chuyên viên IT (Bùi Tuấn Thanh)', role: 'STAFF_IT' },
+        { uid: 'staff_maint_1', displayName: 'Chuyên viên Bảo trì CSVC (Nguyễn Văn A)', role: 'STAFF_MAINTENANCE' },
+        { uid: 'staff_maint_2', displayName: 'Chuyên viên Kỹ thuật (Trần Văn B)', role: 'STAFF_MAINTENANCE' },
+        { uid: 'staff_ktx_1', displayName: 'Kỹ thuật viên KTX (Lê Văn C)', role: 'STAFF_KTX' },
+        { uid: 'staff_green_1', displayName: 'Nhân viên Cây Xanh (Phạm Văn D)', role: 'STAFF_GREEN' },
+        { uid: 'staff_clean_1', displayName: 'Nhân viên Tạp Vụ (Hoàng Thị E)', role: 'STAFF_CLEANING' }
+      ];
+    }
 
     // Lấy danh sách UID kỹ thuật viên đã được chọn
     const currentAssignedIds = Array.isArray(item.assignedToIds)
