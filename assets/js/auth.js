@@ -333,6 +333,29 @@ const AuthService = {
   },
 
   /**
+   * GỬI EMAIL ĐẶT LẠI MẬT KHẨU
+   */
+  async sendPasswordReset(email) {
+    if (!window.firebase || !window.firebase.auth) {
+      throw new Error('Firebase SDK chưa sẵn sàng.');
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      await window.firebase.auth().sendPasswordResetEmail(cleanEmail);
+      return { success: true };
+    } catch (err) {
+      console.error('[AuthService] sendPasswordReset error:', err);
+      let msg = err.message;
+      if (err.code === 'auth/user-not-found') {
+        msg = 'Không tìm thấy tài khoản với email này trên hệ thống.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Định dạng email không hợp lệ.';
+      }
+      throw new Error(msg);
+    }
+  },
+
+  /**
    * ĐĂNG XUẤT THỰC TẾ
    */
   async logout() {
