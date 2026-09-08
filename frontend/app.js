@@ -215,6 +215,11 @@ const App = {
       appMain.innerHTML = CreateTaskPage.render();
       CreateTaskPage.init();
     } else if (path === '#/admin/reports') {
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền xem Báo cáo & Xuất Excel!', 'warning', 4000);
+        window.location.hash = '#/admin';
+        return;
+      }
       this.currentPage = ReportsExportPage;
       appMain.innerHTML = ReportsExportPage.render();
       ReportsExportPage.init();
@@ -228,10 +233,20 @@ const App = {
       appMain.innerHTML = SettingsPage.render();
       SettingsPage.init();
     } else if (path === '#/admin/departments') {
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền quản lý Phòng / Khoa!', 'warning', 4000);
+        window.location.hash = '#/admin';
+        return;
+      }
       this.currentPage = DepartmentsPage;
       appMain.innerHTML = DepartmentsPage.render();
       DepartmentsPage.init();
     } else if (path === '#/admin/rooms') {
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền quản lý Cơ sở vật chất & Phòng ốc!', 'warning', 4000);
+        window.location.hash = '#/admin';
+        return;
+      }
       this.currentPage = RoomsManagementPage;
       appMain.innerHTML = RoomsManagementPage.render();
       RoomsManagementPage.init();
@@ -254,24 +269,29 @@ const App = {
       appMain.innerHTML = CategoriesManagementPage.render();
       CategoriesManagementPage.init();
     } else if (path === '#/admin/employees') {
-      if (!AuthService.canViewEmployees()) {
-        Utils.showToast('Từ chối quyền: Phải đăng nhập tài khoản Nội bộ để xem Danh bạ nhân sự!', 'warning', 4000);
-        window.location.hash = '#/login';
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền xem Danh bạ nhân sự!', 'warning', 4000);
+        window.location.hash = '#/admin';
         return;
       }
       this.currentPage = EmployeesManagementPage;
       appMain.innerHTML = EmployeesManagementPage.render();
       EmployeesManagementPage.init();
     } else if (path === '#/admin/leave-management') {
-      if (!AuthService.canViewEmployees()) {
-        Utils.showToast('Từ chối quyền: Phải đăng nhập tài khoản Nội bộ để xem Quản lý ngày phép!', 'warning', 4000);
-        window.location.hash = '#/login';
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền truy cập Quản lý ngày phép!', 'warning', 4000);
+        window.location.hash = '#/admin';
         return;
       }
       this.currentPage = LeaveManagementPage;
       appMain.innerHTML = LeaveManagementPage.render();
       LeaveManagementPage.init();
     } else if (path === '#/admin/users') {
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền quản lý Tài khoản & Phân quyền!', 'warning', 4000);
+        window.location.hash = '#/admin';
+        return;
+      }
       this.currentPage = UserManagementPage;
       appMain.innerHTML = UserManagementPage.render();
       UserManagementPage.init();

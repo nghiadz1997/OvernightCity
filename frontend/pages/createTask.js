@@ -112,8 +112,9 @@ const CreateTaskPage = {
   },
 
   render() {
-    const categories = window.APP_CONFIG.CATEGORIES;
-    const departments = window.APP_CONFIG.DEPARTMENTS;
+    const categories = window.APP_CONFIG?.CATEGORIES || [];
+    const departments = window.APP_CONFIG?.DEPARTMENTS || [];
+    const currentUser = AuthService.getCurrentUser();
 
     setTimeout(() => this.init(), 50);
 
@@ -311,27 +312,27 @@ const CreateTaskPage = {
       const techAssignees = assignees.filter(a => a.role !== 'DEPUTY_MANAGER');
 
       const payload = {
-        title: document.getElementById('task-title').value,
-        description: document.getElementById('task-desc').value,
-        categoryId: catSelect.value,
-        categoryName: catName,
-        departmentName: document.getElementById('task-department').value,
+        title: (document.getElementById('task-title')?.value || '').trim(),
+        description: (document.getElementById('task-desc')?.value || '').trim(),
+        categoryId: catSelect?.value || 'OTHER',
+        categoryName: catName || 'Khác',
+        departmentName: document.getElementById('task-department')?.value || 'Phòng Quản trị Thiết bị và CSVC',
         location: fullLocation,
         room: roomName,
-        assignedTo: assignedTo,
-        assignedToName: assignedToName,
-        assignedToIds: assignedToIds,
-        assignees: assignees,
-        status: assignedTo ? 'ĐÃ PHÂN CÔNG' : 'CHỜ PHÂN CÔNG',
-        priority: document.getElementById('task-priority').value,
-        deadline: document.getElementById('task-deadline').value || null
+        assignedTo: assignedTo || null,
+        assignedToName: assignedToName || null,
+        assignedToIds: assignedToIds || [],
+        assignees: assignees || [],
+        status: (assignedTo || deputyAssignee) ? 'ĐÃ PHÂN CÔNG' : 'CHỜ PHÂN CÔNG',
+        priority: document.getElementById('task-priority')?.value || 'TRUNG BÌNH',
+        deadline: document.getElementById('task-deadline')?.value || null
       };
 
       if (isDeputy) {
-        payload.assignedManagerId = currentUser?.uid;
+        payload.assignedManagerId = currentUser?.uid || null;
         payload.assignedManagerName = currentUser?.displayName || 'Phó Trưởng phòng';
         payload.deputyCoordinator = currentUser?.displayName || 'Phó Trưởng phòng';
-        payload.deputyCoordinatorId = currentUser?.uid;
+        payload.deputyCoordinatorId = currentUser?.uid || null;
       } else if (deputyAssignee) {
         payload.assignedManagerId = deputyAssignee.uid;
         payload.assignedManagerName = deputyAssignee.name;

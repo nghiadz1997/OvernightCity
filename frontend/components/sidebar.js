@@ -135,92 +135,93 @@ const SidebarComponent = {
             </a>
           </div>
 
-          <!-- 🏢 Quản lý phòng NSG (Cơ sở -> Tòa nhà -> Phòng -> Máy lạnh ❄️ -> Máy PC 💻) -->
-          <div class="pt-2">
-            ${!collapsed ? `
-              <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Cơ sở vật chất
-              </div>
-            ` : `<div class="border-t border-slate-800 my-2"></div>`}
+          <!-- 🏢 Cơ sở vật chất (Chỉ Super Admin) -->
+          ${AuthService.isSuperAdmin() ? `
+            <div class="pt-2">
+              ${!collapsed ? `
+                <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Cơ sở vật chất
+                </div>
+              ` : `<div class="border-t border-slate-800 my-2"></div>`}
 
-            <a href="#/admin/rooms" title="Quản lý phòng NSG, Máy lạnh & Máy tính PC" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-bold transition-all ${currentHash.startsWith('#/admin/rooms') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-sky-300'}">
-              <i class="fa-solid fa-door-open w-5 text-center text-sky-400"></i>
-              ${!collapsed ? `<span>Quản lý phòng NSG</span>` : ''}
-            </a>
-          </div>
+              <a href="#/admin/rooms" title="Quản lý phòng NSG, Máy lạnh & Máy tính PC" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-bold transition-all ${currentHash.startsWith('#/admin/rooms') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-sky-300'}">
+                <i class="fa-solid fa-door-open w-5 text-center text-sky-400"></i>
+                ${!collapsed ? `<span>Quản lý phòng NSG</span>` : ''}
+              </a>
+            </div>
+          ` : ''}
 
-          <!-- 👥 Quản lý Nhân sự & Ngày phép -->
-          <div class="pt-2">
-            ${!collapsed ? `
-              <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Nhân sự & Ngày phép
-              </div>
-            ` : `<div class="border-t border-slate-800 my-2"></div>`}
+          <!-- 👥 Quản lý Nhân sự & Ngày phép (Chỉ Super Admin) -->
+          ${AuthService.isSuperAdmin() ? `
+            <div class="pt-2">
+              ${!collapsed ? `
+                <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Nhân sự & Ngày phép
+                </div>
+              ` : `<div class="border-t border-slate-800 my-2"></div>`}
 
-            <!-- 🪪 Danh bạ nhân sự -->
-            <a href="#/admin/employees" title="Quản lý nhân sự" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/employees') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
-              <i class="fa-solid fa-id-card w-5 text-center text-indigo-400"></i>
-              ${!collapsed ? `<span>Quản lý nhân sự</span>` : ''}
-            </a>
+              <!-- 🪪 Danh bạ nhân sự -->
+              <a href="#/admin/employees" title="Quản lý nhân sự" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/employees') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-id-card w-5 text-center text-indigo-400"></i>
+                ${!collapsed ? `<span>Quản lý nhân sự</span>` : ''}
+              </a>
 
-            <!-- 🌴 Quản lý ngày phép -->
-            <a href="#/admin/leave-management" title="Quản lý ngày phép" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'justify-between px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/leave-management') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
-              <div class="flex items-center gap-3">
-                <i class="fa-solid fa-calendar-check w-5 text-center text-emerald-400"></i>
-                ${!collapsed ? `<span>Quản lý ngày phép</span>` : ''}
-              </div>
-            </a>
-          </div>
+              <!-- 🌴 Quản lý ngày phép -->
+              <a href="#/admin/leave-management" title="Quản lý ngày phép" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'justify-between px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash.startsWith('#/admin/leave-management') ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+                <div class="flex items-center gap-3">
+                  <i class="fa-solid fa-calendar-check w-5 text-center text-emerald-400"></i>
+                  ${!collapsed ? `<span>Quản lý ngày phép</span>` : ''}
+                </div>
+              </a>
+            </div>
+          ` : ''}
 
-          <!-- Quản trị hệ thống -->
-          <div class="pt-2">
-            ${!collapsed ? `
-              <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Hệ thống
-              </div>
-            ` : `<div class="border-t border-slate-800 my-2"></div>`}
+          <!-- ⚙️ Quản trị hệ thống (Chỉ Super Admin) -->
+          ${AuthService.isSuperAdmin() ? `
+            <div class="pt-2">
+              ${!collapsed ? `
+                <div class="px-3 pb-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Hệ thống
+                </div>
+              ` : `<div class="border-t border-slate-800 my-2"></div>`}
 
-            <!-- 👑 Tài khoản & Phân quyền -->
-            ${AuthService.canManageUsers() ? `
+              <!-- 👑 Tài khoản & Phân quyền -->
               <a href="#/admin/users" title="Tài khoản & Phân quyền" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-bold transition-all ${currentHash === '#/admin/users' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-purple-300'}">
                 <i class="fa-solid fa-users-gear w-5 text-center text-purple-400"></i>
                 ${!collapsed ? `<span>Tài khoản & Phân quyền</span>` : ''}
               </a>
-            ` : ''}
 
-            <!-- 🏢 Phòng/Khoa -->
-            <a href="#/admin/departments" title="Phòng / Khoa" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/departments' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
-              <i class="fa-solid fa-building-columns w-5 text-center text-amber-400"></i>
-              ${!collapsed ? `<span>Phòng / Khoa</span>` : ''}
-            </a>
+              <!-- 🏢 Phòng/Khoa -->
+              <a href="#/admin/departments" title="Phòng / Khoa" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/departments' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-building-columns w-5 text-center text-amber-400"></i>
+                ${!collapsed ? `<span>Phòng / Khoa</span>` : ''}
+              </a>
 
-            <!-- 🏛️ Địa điểm & Tòa nhà -->
-            ${AuthService.isSuperAdmin() ? `
+              <!-- 🏛️ Địa điểm & Tòa nhà -->
               <a href="#/admin/locations" title="Địa điểm & Tòa nhà" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/locations' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-emerald-300'}">
                 <i class="fa-solid fa-map-location-dot w-5 text-center text-emerald-400"></i>
                 ${!collapsed ? `<span>Địa điểm & Tòa nhà</span>` : ''}
               </a>
 
+              <!-- 🏷️ Loại thiết bị & SLA -->
               <a href="#/admin/categories" title="Loại thiết bị & SLA" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/categories' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-cyan-300'}">
                 <i class="fa-solid fa-layer-group w-5 text-center text-cyan-400"></i>
                 ${!collapsed ? `<span>Loại thiết bị & SLA</span>` : ''}
               </a>
-            ` : ''}
 
-            <!-- 📊 Báo cáo -->
-            <a href="#/admin/reports" title="Báo cáo & Xuất Excel" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/reports' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
-              <i class="fa-solid fa-chart-line w-5 text-center text-teal-400"></i>
-              ${!collapsed ? `<span>Báo cáo & Xuất Excel</span>` : ''}
-            </a>
+              <!-- 📊 Báo cáo -->
+              <a href="#/admin/reports" title="Báo cáo & Xuất Excel" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/reports' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-chart-line w-5 text-center text-teal-400"></i>
+                ${!collapsed ? `<span>Báo cáo & Xuất Excel</span>` : ''}
+              </a>
 
-            <!-- ⚙️ Cài đặt -->
-            ${AuthService.isSuperAdmin() ? `
+              <!-- ⚙️ Cài đặt -->
               <a href="#/admin/settings" title="Cài đặt hệ thống" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/settings' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
                 <i class="fa-solid fa-sliders w-5 text-center text-slate-400"></i>
                 ${!collapsed ? `<span>Cài đặt hệ thống</span>` : ''}
               </a>
-            ` : ''}
-          </div>
+            </div>
+          ` : ''}
         </div>
 
         <!-- Footer: Nút Chuyển Cổng & Nút Thu Gọn / Mở Rộng Nhanh -->

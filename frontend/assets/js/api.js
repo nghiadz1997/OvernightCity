@@ -193,8 +193,22 @@ const ApiService = {
         isOverdue: false
       };
 
+      // Đảm bảo không có trường undefined gây lỗi Firestore
+      Object.keys(fullData).forEach(key => {
+        if (fullData[key] === undefined) {
+          fullData[key] = null;
+        }
+      });
+
       const docRef = await db.collection('tasks').add(fullData);
       fullData.id = docRef.id;
+
+      // Broadcast realtime
+      try {
+        if (window.RealtimeService) {
+          window.RealtimeService.handleTaskUpdate(fullData, true);
+        }
+      } catch (rtErr) {}
 
       return { success: true, code, data: fullData };
     } catch (err) {
