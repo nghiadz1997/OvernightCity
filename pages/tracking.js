@@ -212,8 +212,8 @@ const TrackingPage = {
               <span>Đơn vị tiếp nhận & xử lý</span>
             </h4>
             <div class="text-xs"><span class="text-slate-500">Đơn vị tiếp nhận:</span> <strong class="text-slate-800">${report.departmentName || report.department || 'Phòng Quản trị Thiết bị và Cơ sở vật chất'}</strong></div>
-            <div class="text-xs"><span class="text-slate-500">Người giao việc (Trưởng phòng):</span> <strong class="text-slate-800 font-bold">👔 ${report.assignedByName || 'Trưởng phòng CSVC'}</strong></div>
-            <div class="text-xs"><span class="text-slate-500">Người điều phối (Phó phòng):</span> <strong class="${report.assignedManagerName || report.deputyName || report.deputyCoordinator ? 'text-purple-700 font-bold' : 'text-slate-500'}">🎖️ ${report.assignedManagerName || report.deputyName || report.deputyCoordinator || 'Đang điều phối'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Người giao việc:</span> <strong class="text-slate-800 font-bold">👔 ${report.assignedByName || 'Chưa chỉ định'}</strong></div>
+            <div class="text-xs"><span class="text-slate-500">Người điều phối:</span> <strong class="${report.assignedManagerName || report.deputyName || report.deputyCoordinator ? 'text-purple-700 font-bold' : 'text-slate-500'}">🎖️ ${report.assignedManagerName || report.deputyName || report.deputyCoordinator || 'Không có'}</strong></div>
             <div class="text-xs"><span class="text-slate-500">Kỹ thuật viên phụ trách:</span> <strong class="${report.assignedToName ? 'text-indigo-700 font-bold' : 'text-slate-500'}">🔧 ${report.assignedToName || 'Đang phân công kỹ thuật viên'}</strong></div>
             <div class="text-xs"><span class="text-slate-500">Hạn chót (Deadline):</span> <strong class="text-slate-800">${report.deadline ? Utils.formatDateTime(report.deadline) : 'Theo quy định'} (${deadlineInfo.label})</strong></div>
             <div class="text-xs"><span class="text-slate-500">Tiến độ cập nhật mới nhất:</span>
