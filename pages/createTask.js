@@ -207,7 +207,7 @@ const CreateTaskPage = {
                   <i class="fa-solid fa-user-tie text-blue-600 text-base"></i>
                   <div>
                     <span class="text-slate-500 font-semibold">Người giao việc:</span>
-                    <strong class="text-blue-900 font-bold ml-1">👔 ${currentUser?.displayName || 'Trưởng phòng'} (${AuthService.getRoleLabel(currentUser?.role)})</strong>
+                    <strong class="text-blue-900 font-bold ml-1">👔 ${currentUser?.displayName || 'Chưa chỉ định'}</strong>
                   </div>
                 </div>
                 <span class="text-[10px] bg-blue-200 text-blue-800 font-extrabold px-2.5 py-0.5 rounded-full uppercase">Khởi tạo</span>
@@ -330,13 +330,13 @@ const CreateTaskPage = {
 
       if (isDeputy) {
         payload.assignedManagerId = currentUser?.uid || null;
-        payload.assignedManagerName = currentUser?.displayName || 'Phó Trưởng phòng';
-        payload.deputyCoordinator = currentUser?.displayName || 'Phó Trưởng phòng';
+        payload.assignedManagerName = currentUser?.displayName || '';
+        payload.deputyCoordinator = currentUser?.displayName || '';
         payload.deputyCoordinatorId = currentUser?.uid || null;
       } else if (deputyAssignee) {
         payload.assignedManagerId = deputyAssignee.uid;
         payload.assignedManagerName = deputyAssignee.name;
-        payload.assignedByManager = currentUser?.displayName || 'Trưởng phòng';
+        payload.assignedByManager = currentUser?.displayName || '';
         payload.assignedRole = 'DEPUTY_MANAGER';
       }
 
