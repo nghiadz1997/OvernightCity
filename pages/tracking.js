@@ -195,7 +195,7 @@ const TrackingPage = {
           <!-- Cột thông tin sự cố -->
           <div class="space-y-3">
             <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1">Chi tiết phản ánh</h4>
-            <div><span class="text-slate-500">Người gửi:</span> <strong class="text-slate-800">${report.senderName || 'Ẩn danh'} (${report.senderDept || 'Khách'}${report.senderCode ? ` - ${report.senderCode}` : ''})</strong></div>
+            <div><span class="text-slate-500">Người gửi:</span> <strong class="text-slate-800">${report.senderName || 'Ẩn danh'}</strong></div>
             <div><span class="text-slate-500">Số điện thoại:</span> ${report.senderPhone ? `<a href="tel:${report.senderPhone}" class="font-bold text-blue-600 hover:underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${report.senderPhone}</a>` : '<strong class="text-slate-500 italic">Không có</strong>'}</div>
             <div><span class="text-slate-500">Địa điểm:</span> <strong class="text-slate-800">${report.location} ${report.room ? `- ${report.room}` : ''}</strong></div>
             <div><span class="text-slate-500">Danh mục:</span> <strong class="text-slate-800">${report.categoryName || 'Kỹ thuật'}</strong></div>
