@@ -253,7 +253,7 @@ const TaskModalComponent = {
     // Xác định thông tin Người quản lý (Phó phòng/Trưởng phòng) và Kỹ thuật viên
     const managerName = item.assignedManagerName || item.deputyName || (item.assignedRole === 'DEPUTY_MANAGER' ? item.assignedToName : null);
     const techName = item.assignedRole === 'DEPUTY_MANAGER' ? null : (item.assignedToName || null);
-    const reviewerName = item.reviewedByName || item.assignedReviewerName || (managerName ? managerName : (item.assignedByName || 'Trưởng phòng'));
+    const reviewerName = item.reviewedByName || item.assignedReviewerName || (managerName ? managerName : (item.assignedByName || 'Chưa nghiệm thu'));
 
     return `
       <div class="space-y-6">
@@ -792,7 +792,7 @@ const TaskModalComponent = {
               <option value="">-- Trực tiếp quản lý & phân công (Không qua điều phối) --</option>
               ${deputies.map(d => `
                 <option value="${d.uid}" data-name="${d.displayName || d.email}" ${item.assignedManagerId === d.uid || item.deputyId === d.uid ? 'selected' : ''}>
-                  ${d.displayName || d.email} (${AuthService.getRoleLabel(d.role)})
+                  ${d.displayName || d.email}
                 </option>
               `).join('')}
             </select>
@@ -1019,7 +1019,7 @@ const TaskModalComponent = {
     const isDeputy = AuthService.isDeputyManager();
 
     const managerId = isDeputy ? currentUser?.uid : (managerSelect ? managerSelect.value : (item.assignedManagerId || null));
-    const managerName = isDeputy ? (currentUser?.displayName || 'Phó Trưởng phòng') : (managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null));
+    const managerName = isDeputy ? (currentUser?.displayName || '') : (managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null));
 
     // Lấy danh sách kỹ thuật viên được tick chọn (hỗ trợ 1 người hoặc nhóm 2-3 KTV)
     const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
@@ -1048,7 +1048,7 @@ const TaskModalComponent = {
       managerName,
       managerRole: 'DEPUTY_MANAGER',
       assignedBy: currentUser?.uid || null,
-      assignedByName: currentUser?.displayName || 'Quản lý',
+      assignedByName: currentUser?.displayName || 'Chưa chỉ định',
       assignedByRole: currentUser?.role || 'MANAGER',
       technicianId: assignedTo,
       technicianName: assignedToName,

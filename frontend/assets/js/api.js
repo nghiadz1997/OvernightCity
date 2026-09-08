@@ -205,7 +205,7 @@ const ApiService = {
         type: 'TASK',
         status: (taskData.assignedTo && (Array.isArray(taskData.assignedTo) ? taskData.assignedTo.length > 0 : true)) ? 'ĐÃ PHÂN CÔNG' : 'CHỜ PHÂN CÔNG',
         assignedBy: taskData.assignedBy || currentUser?.uid || null,
-        assignedByName: taskData.assignedByName || currentUser?.displayName || 'Trưởng phòng CSVC',
+        assignedByName: taskData.assignedByName || currentUser?.displayName || 'Chưa chỉ định',
         assignedByRole: taskData.assignedByRole || currentUser?.role || 'MANAGER',
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -572,19 +572,19 @@ const ApiService = {
         updatePayload.reviewNote = reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao.';
         updatePayload.reviewedAt = nowIso;
         updatePayload.reviewedBy = currentUser?.uid || '';
-        updatePayload.reviewedByName = currentUser?.displayName || 'Trưởng phòng';
+        updatePayload.reviewedByName = currentUser?.displayName || 'Quản lý';
         updatePayload.rejectionReason = null;
       } else {
         updatePayload.rejectionReason = reviewData.rejectionReason || 'Chưa đạt yêu cầu kỹ thuật';
         updatePayload.rejectedAt = nowIso;
         updatePayload.rejectedBy = currentUser?.uid || '';
-        updatePayload.rejectedByName = currentUser?.displayName || 'Trưởng phòng';
+        updatePayload.rejectedByName = currentUser?.displayName || 'Quản lý';
       }
 
       const historyEntry = {
         timestamp: nowIso,
         actorId: currentUser?.uid || '',
-        actorName: currentUser?.displayName || 'Trưởng phòng',
+        actorName: currentUser?.displayName || 'Quản lý',
         actorRole: currentUser?.role || 'MANAGER',
         action: reviewData.approved ? 'DUYỆT NGHIỆM THU (ĐẠT)' : 'YÊU CẦU XỬ LÝ LẠI (CHƯA ĐẠT)',
         details: reviewData.approved ? (reviewData.note || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao') : `Yêu cầu làm lại: ${reviewData.rejectionReason}`,
