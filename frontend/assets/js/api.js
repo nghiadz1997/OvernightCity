@@ -232,11 +232,13 @@ const ApiService = {
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `👉 <i>Hệ thống ghi nhận đánh giá dịch vụ NSG SUPPORT</i>`;
 
-          // Gửi tới kênh tiếp nhận và quản lý
-          await this.sendTelegramNotification(teleMsg, null, null, null, 'INCIDENT');
           const cfg = this.getTelegramConfig();
-          if (cfg.bot2Token && cfg.bot2ChatId && cfg.bot2Token !== cfg.botToken) {
-            await this.sendTelegramNotification(teleMsg, cfg.bot2Token, cfg.bot2ChatId, null, 'REVIEW');
+          if (cfg.isEnabled !== false && cfg.notifyOnRating !== false) {
+            // Gửi tới kênh tiếp nhận và quản lý
+            await this.sendTelegramNotification(teleMsg, null, null, null, 'INCIDENT');
+            if (cfg.bot2Token && cfg.bot2ChatId && cfg.bot2Token !== cfg.botToken) {
+              await this.sendTelegramNotification(teleMsg, cfg.bot2Token, cfg.bot2ChatId, null, 'REVIEW');
+            }
           }
         } catch (tgErr) {
           console.warn('[ApiService] Lỗi gửi thông báo đánh giá về Telegram:', tgErr);
@@ -1092,6 +1094,18 @@ const ApiService = {
       `👉 <i>Trưởng phòng và Ban Giám Hiệu sẽ theo dõi chất lượng nghiệm thu tại đây.</i>`;
 
     return await this.sendTelegramNotification(msg, customToken, customChatId, null, 'REVIEW');
+  },
+
+  async testRatingTelegram(customToken = null, customChatId = null) {
+    const now = new Date().toLocaleString('vi-VN');
+    const msg = `🌟 <b>[NSG SUPPORT] THỬ NGHIỆM KẾT NỐI BOT ĐÁNH GIÁ CHẤT LƯỢNG</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `✅ <b>Trạng thái:</b> Kết nối thành công 100%!\n` +
+      `⭐ <b>Chức năng:</b> Tiếp nhận đánh giá sao (1-5★) & Nhận xét phản hồi từ Người gửi phản ánh\n` +
+      `⏰ <b>Thời gian test:</b> ${now}\n` +
+      `👉 <i>Hệ thống tự động thông báo kết quả đánh giá chất lượng phục vụ của KTV.</i>`;
+
+    return await this.sendTelegramNotification(msg, customToken, customChatId, null, 'INCIDENT');
   },
 
   // ========================================================
