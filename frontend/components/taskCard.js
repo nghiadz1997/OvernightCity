@@ -54,16 +54,16 @@ const TaskCardComponent = {
               <i class="fa-solid fa-location-dot text-red-500"></i>
               <span class="font-medium text-slate-800">${item.location || 'Chưa rõ'} ${item.room ? `(${item.room})` : ''}</span>
             </div>
-            <div class="flex items-center gap-1.5 truncate" title="Người giao việc (Trưởng phòng): ${item.assignedByName || 'Trưởng phòng'}">
+            <div class="flex items-center gap-1.5 truncate" title="Người giao việc: ${item.assignedByName || 'Chưa chỉ định'}">
               <i class="fa-solid fa-user-tie text-blue-600"></i>
               <span class="font-semibold text-slate-700 truncate">
-                TP: ${item.assignedByName || 'Trưởng phòng'}
+                Giao việc: ${item.assignedByName || 'Chưa chỉ định'}
               </span>
             </div>
-            <div class="flex items-center gap-1.5 truncate" title="Người điều phối (Phó phòng): ${item.assignedManagerName || item.deputyName || 'Đang điều phối'}">
+            <div class="flex items-center gap-1.5 truncate" title="Người điều phối: ${item.assignedManagerName || item.deputyName || item.deputyCoordinator || 'Không có'}">
               <i class="fa-solid fa-user-shield text-purple-600"></i>
-              <span class="font-semibold ${item.assignedManagerName || item.deputyName ? 'text-purple-700' : 'text-slate-400 italic'} truncate">
-                ${item.assignedManagerName || item.deputyName ? `PP: ${item.assignedManagerName || item.deputyName}` : 'PP: Đang điều phối'}
+              <span class="font-semibold ${item.assignedManagerName || item.deputyName || item.deputyCoordinator ? 'text-purple-700' : 'text-slate-400 italic'} truncate">
+                ${item.assignedManagerName || item.deputyName || item.deputyCoordinator ? `Điều phối: ${item.assignedManagerName || item.deputyName || item.deputyCoordinator}` : 'Điều phối: Không có'}
               </span>
             </div>
             <div class="flex items-center gap-1.5 truncate col-span-1 sm:col-span-2" title="Kỹ thuật viên thực hiện: ${item.assignedToName || 'Chưa phân công'}">

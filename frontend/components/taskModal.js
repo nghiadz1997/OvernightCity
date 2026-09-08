@@ -293,16 +293,16 @@ const TaskModalComponent = {
               </div>
 
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
-                <span class="text-slate-500">Người giao việc (Trưởng phòng):</span>
+                <span class="text-slate-500">Người giao việc:</span>
                 <span class="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                  👔 ${item.assignedByName || (item.assignedByRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Trưởng phòng CSVC')}
+                  👔 ${item.assignedByName || (item.assignedByRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Chưa chỉ định')}
                 </span>
               </div>
 
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
-                <span class="text-slate-500">Người điều phối (Phó phòng):</span>
+                <span class="text-slate-500">Người điều phối:</span>
                 <span class="font-bold ${managerName ? 'text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200' : 'text-slate-400 italic'}">
-                  ${managerName ? `🎖️ ${managerName}` : 'Đang điều phối'}
+                  ${managerName ? `🎖️ ${managerName}` : 'Không có'}
                 </span>
               </div>
 
@@ -566,7 +566,7 @@ const TaskModalComponent = {
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-700">
-                  ${isDeputy ? '🎖️ Phó phòng chỉ định Kỹ thuật viên thực hiện:' : '👔 Điều chỉnh phân công / Đổi người phụ trách:'}
+                  ${isDeputy ? '🎖️ Điều phối chỉ định Kỹ thuật viên thực hiện:' : '👔 Điều chỉnh phân công / Đổi người phụ trách:'}
                 </span>
                 ${item.assignedTo ? `
                   <button type="button" class="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer" onclick="TaskModalComponent.unassignCurrentTask()">
@@ -643,7 +643,7 @@ const TaskModalComponent = {
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-black text-slate-900 uppercase">
-              ${isDeputy ? '🎖️ Phó phòng phân công Kỹ thuật viên xử lý:' : '👔 Phân công nhiệm vụ (Giao Phó phòng hoặc Giao thẳng Kỹ thuật):'}
+              ${isDeputy ? '🎖️ Phân công Kỹ thuật viên xử lý:' : '👔 Phân công nhiệm vụ (Chỉ định điều phối hoặc Giao thẳng Kỹ thuật):'}
             </span>
           </div>
           ${this.renderAssignForm(targetType)}
@@ -781,18 +781,18 @@ const TaskModalComponent = {
 
     return `
       <form onsubmit="TaskModalComponent.handleAssignSubmit(event)" class="space-y-4">
-        <!-- 1. Chọn Người quản lý (Phó phòng điều phối) - CHỈ DÀNH CHO TRƯỞNG PHÒNG -->
+        <!-- 1. Chọn Người quản lý (Cán bộ điều phối) -->
         ${isHead ? `
           <div class="p-3 rounded-xl border border-purple-200 bg-purple-50/40 space-y-1.5">
             <label class="block text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
               <i class="fa-solid fa-user-tie text-purple-600"></i>
-              <span>Giao Phó Trưởng phòng điều phối (Tùy chọn):</span>
+              <span>Chỉ định Cán bộ điều phối (Tùy chọn):</span>
             </label>
             <select id="assign-manager-select" class="w-full text-xs p-2.5 rounded-xl border border-purple-300 focus:ring-2 focus:ring-purple-500 font-medium bg-white">
-              <option value="">-- Trưởng phòng trực tiếp quản lý & phân công --</option>
+              <option value="">-- Trực tiếp quản lý & phân công (Không qua điều phối) --</option>
               ${deputies.map(d => `
                 <option value="${d.uid}" data-name="${d.displayName || d.email}" ${item.assignedManagerId === d.uid || item.deputyId === d.uid ? 'selected' : ''}>
-                  Phó phòng: ${d.displayName || d.email}
+                  ${d.displayName || d.email} (${AuthService.getRoleLabel(d.role)})
                 </option>
               `).join('')}
             </select>
@@ -1034,12 +1034,12 @@ const TaskModalComponent = {
     const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : (assignedToIds.length > 1 ? assignedToIds : null);
 
     if (isDeputy && assignees.length === 0) {
-      Utils.showToast('Phó Trưởng phòng vui lòng tick chọn ít nhất 1 Kỹ thuật viên để giao việc!', 'warning');
+      Utils.showToast('Vui lòng tick chọn ít nhất 1 Kỹ thuật viên để giao việc!', 'warning');
       return;
     }
 
     if (!managerId && assignees.length === 0) {
-      Utils.showToast('Vui lòng chọn Phó phòng điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
+      Utils.showToast('Vui lòng chọn Cán bộ điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
       return;
     }
 
@@ -1047,6 +1047,9 @@ const TaskModalComponent = {
       managerId,
       managerName,
       managerRole: 'DEPUTY_MANAGER',
+      assignedBy: currentUser?.uid || null,
+      assignedByName: currentUser?.displayName || 'Quản lý',
+      assignedByRole: currentUser?.role || 'MANAGER',
       technicianId: assignedTo,
       technicianName: assignedToName,
       technicianIds: assignedToIds,
@@ -1061,6 +1064,9 @@ const TaskModalComponent = {
       await ApiService.assignTask(item.id || item.code, targetType, payload);
 
       // Cập nhật client item state
+      item.assignedBy = currentUser?.uid || item.assignedBy;
+      item.assignedByName = currentUser?.displayName || item.assignedByName;
+      item.assignedByRole = currentUser?.role || item.assignedByRole;
       item.assignedManagerId = managerId;
       item.assignedManagerName = managerName;
       item.assignedTo = assignedTo;

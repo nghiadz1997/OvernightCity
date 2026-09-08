@@ -313,7 +313,7 @@ const ApiService = {
         } else if (updatePayload.assignedToName) {
           logDetail = `Phân công cho KTV: ${updatePayload.assignedToName}`;
         } else if (updatePayload.assignedManagerName) {
-          logDetail = `Giao cho Phó phòng: ${updatePayload.assignedManagerName} điều phối`;
+          logDetail = `Giao cho cán bộ: ${updatePayload.assignedManagerName} điều phối`;
         } else {
           logDetail = 'Cập nhật phân công';
         }
