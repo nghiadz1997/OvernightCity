@@ -59,7 +59,7 @@ const LoginPage = {
                 <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <i class="fa-solid fa-envelope"></i>
                 </div>
-                <input type="email" id="login-email" name="username" class="w-full text-sm pl-10 pr-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ví dụ: admin@nsg.edu.vn" required autocomplete="username">
+                <input type="email" id="login-email" name="username" class="w-full text-sm pl-10 pr-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Nhập email tài khoản của bạn..." required autocomplete="username">
               </div>
             </div>
 
@@ -178,7 +178,7 @@ const LoginPage = {
           </div>
 
           <p class="text-xs text-slate-600 leading-relaxed">
-            Nhập email tài khoản của bạn (ví dụ: <strong class="text-blue-700">admin@nsg.edu.vn</strong>). Hệ thống sẽ gửi email chứa liên kết an toàn để bạn đặt lại mật khẩu mới ngay lập tức.
+            Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu mới an toàn qua thư điện tử.
           </p>
 
           <form onsubmit="LoginPage.handleForgotPasswordSubmit(event)" class="space-y-4">
