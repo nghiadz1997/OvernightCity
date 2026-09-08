@@ -75,11 +75,12 @@ const ApiService = {
           `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
           `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b>\n` +
           `📌 <b>Loại sự cố:</b> ${reportData.categoryName || 'Khác'}\n` +
-          `🏢 <b>Khoa / Phòng:</b> ${reportData.senderDept || 'Chưa rõ'}\n` +
-          `📍 <b>Vị trí:</b> ${reportData.location || ''} - ${reportData.room || ''}\n` +
+          `📍 <b>Vị trí:</b> ${reportData.location || ''} ${reportData.room ? `- ${reportData.room}` : ''}\n` +
           `📝 <b>Tiêu đề:</b> ${reportData.title || ''}\n` +
-          `👤 <b>Người gửi:</b> ${reportData.senderName || 'Ẩn danh'} (SĐT: ${reportData.senderPhone || 'Không có'})\n` +
+          `👤 <b>Người gửi:</b> <b>${reportData.senderName || 'Ẩn danh'}</b>\n` +
+          `📞 <b>SĐT liên hệ:</b> <code>${reportData.senderPhone || 'Không có'}</code>\n` +
           `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
           `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
 
         let firstImage = null;

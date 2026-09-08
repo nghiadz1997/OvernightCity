@@ -88,24 +88,7 @@ const ReportFormPage = {
     // Kiểm tra giới hạn 5 phút chống spam
     this.checkAndStartSpamTimer();
 
-    // 1. Tải danh sách phòng ban động
-    try {
-      const depts = await ApiService.loadDepartments();
-      const deptSelect = document.getElementById('rep-sender-dept');
-      if (deptSelect && depts && depts.length > 0) {
-        const user = AuthService.getCurrentUser();
-        const currentVal = deptSelect.value;
-        deptSelect.innerHTML = `
-          <option value="">-- Chọn đơn vị --</option>
-          ${depts.map(d => `<option value="${d}" ${user?.departmentName === d || currentVal === d ? 'selected' : ''}>${d}</option>`).join('')}
-          <option value="Khác">Khác / Bên ngoài</option>
-        `;
-      }
-    } catch (e) {
-      console.warn('Lỗi nạp departments:', e);
-    }
-
-    // 2. Tải danh mục thiết bị động
+    // 1. Tải danh mục thiết bị động
     try {
       const categories = await ApiService.loadCategories();
       const catSelect = document.getElementById('rep-category-id');
@@ -386,37 +369,6 @@ const ReportFormPage = {
                     <input type="tel" id="rep-sender-phone" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-500 font-bold bg-blue-50/30" placeholder="Ví dụ: 0912345678" value="${user?.phone || ''}" required>
                   </div>
                 </div>
-
-                <!-- Khoa / Phòng ban / Đơn vị -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">
-                    Khoa / Phòng / Đơn vị / Lớp
-                  </label>
-                  <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <i class="fa-solid fa-building-user"></i>
-                    </div>
-                    <select id="rep-sender-dept" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium bg-white">
-                      <option value="">-- Chọn đơn vị --</option>
-                      ${departments.map(d => `<option value="${d}" ${user?.departmentName === d ? 'selected' : ''}>${d}</option>`).join('')}
-                      <option value="Sinh viên / Lớp học">Sinh viên / Lớp học</option>
-                      <option value="Khác">Khác / Bên ngoài</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Mã Cán bộ / Mã Sinh viên (tùy chọn) -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">
-                    Mã Cán bộ / Mã Sinh viên <span class="text-slate-400 font-normal">(Nếu có)</span>
-                  </label>
-                  <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <i class="fa-solid fa-id-card"></i>
-                    </div>
-                    <input type="text" id="rep-sender-code" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ví dụ: CB1025 hoặc SV2100123" value="${user?.staffCode || ''}">
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -554,8 +506,6 @@ const ReportFormPage = {
     // Lấy và kiểm tra thông tin người gửi
     const senderName = document.getElementById('rep-sender-name')?.value?.trim();
     const senderPhone = document.getElementById('rep-sender-phone')?.value?.trim();
-    const senderDept = document.getElementById('rep-sender-dept')?.value?.trim() || 'Chung';
-    const senderCode = document.getElementById('rep-sender-code')?.value?.trim() || '';
 
     if (!senderName) {
       Utils.showToast('Vui lòng nhập Họ và tên người gửi phản ánh!', 'warning');
@@ -601,8 +551,8 @@ const ReportFormPage = {
 
       const payload = {
         senderName: senderName,
-        senderCode: senderCode,
-        senderDept: senderDept,
+        senderCode: '',
+        senderDept: '',
         senderPhone: senderPhone,
         categoryId: catSelect.value,
         categoryName: catName,
