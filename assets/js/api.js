@@ -651,49 +651,53 @@ const ApiService = {
       const ref = await db.collection('comments').add(fullComment);
       fullComment.id = ref.id;
 
-      // 2. Append vào array comments của document chính
-      try {
-        let docRef = db.collection(col).doc(targetId);
-        const testSnap = await docRef.get();
-        if (!testSnap.exists) {
-          const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
-          if (!byCode.empty) docRef = byCode.docs[0].ref;
-        }
-
-        if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
-          await docRef.set({
-            comments: window.firebase.firestore.FieldValue.arrayUnion(fullComment),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        }
-      } catch (e) {
-        console.warn('Cannot append to document comments array:', e);
-      }
-
-      // 3. Nếu là tin nhắn KHẨN CẤP từ người dùng, bắn ngay thông báo Telegram cho Kỹ thuật/Quản trị!
-      if (fullComment.isUrgent) {
-        try {
-          const urgentMsg = `🚨 <b>[NSG SUPPORT] TIN NHẮN KHẨN CẤP TỪ NGƯỜI DÙNG!</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🏷️ <b>Mã phiếu:</b> <code>${fullComment.targetCode}</code>\n` +
-            `👤 <b>Người gửi:</b> <b>${fullComment.authorName}</b> ${fullComment.authorPhone ? `(SĐT: ${fullComment.authorPhone})` : ''}\n` +
-            `💬 <b>Nội dung gấp:</b> <i>"${fullComment.content}"</i>\n` +
-            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `👉 <i>Vui lòng vào hệ thống phản hồi ngay cho người dùng!</i>`;
-
-          this.sendTelegramNotification(urgentMsg, null, null, null, 'INCIDENT');
-        } catch (teleErr) {
-          console.warn('Lỗi gửi Telegram tin nhắn khẩn cấp:', teleErr);
-        }
-      }
-
-      // 4. Phát tín hiệu realtime broadcast cho tất cả tab / component
+      // 2. Phát tín hiệu realtime broadcast cho tất cả tab / component tức thì
       try {
         if (window.RealtimeService) {
           window.RealtimeService.handleIncomingComment(fullComment, true);
         }
       } catch (rtErr) {}
+
+      // 3. Append vào array comments của document chính (chạy ngầm không chặn luồng)
+      (async () => {
+        try {
+          let docRef = db.collection(col).doc(targetId);
+          const testSnap = await docRef.get();
+          if (!testSnap.exists) {
+            const byCode = await db.collection(col).where('code', '==', targetId).limit(1).get();
+            if (!byCode.empty) docRef = byCode.docs[0].ref;
+          }
+
+          if (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) {
+            await docRef.set({
+              comments: window.firebase.firestore.FieldValue.arrayUnion(fullComment),
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+          }
+        } catch (e) {
+          console.warn('Cannot append to document comments array:', e);
+        }
+      })();
+
+      // 4. Nếu là tin nhắn KHẨN CẤP từ người dùng, bắn ngay thông báo Telegram cho Kỹ thuật/Quản trị (ngầm)
+      if (fullComment.isUrgent) {
+        (async () => {
+          try {
+            const urgentMsg = `🚨 <b>[NSG SUPPORT] TIN NHẮN KHẨN CẤP TỪ NGƯỜI DÙNG!</b>\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🏷️ <b>Mã phiếu:</b> <code>${fullComment.targetCode}</code>\n` +
+              `👤 <b>Người gửi:</b> <b>${fullComment.authorName}</b> ${fullComment.authorPhone ? `(SĐT: ${fullComment.authorPhone})` : ''}\n` +
+              `💬 <b>Nội dung gấp:</b> <i>"${fullComment.content}"</i>\n` +
+              `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `👉 <i>Vui lòng vào hệ thống phản hồi ngay cho người dùng!</i>`;
+
+            await this.sendTelegramNotification(urgentMsg, null, null, null, 'INCIDENT');
+          } catch (teleErr) {
+            console.warn('Lỗi gửi Telegram tin nhắn khẩn cấp:', teleErr);
+          }
+        })();
+      }
 
       return { success: true, data: fullComment };
     } catch (err) {

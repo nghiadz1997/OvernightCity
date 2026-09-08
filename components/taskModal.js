@@ -95,7 +95,9 @@ const TaskModalComponent = {
           if (!exists) {
             this.currentData.comments.push(newComment);
             SoundService.playNotification();
-            if (this.activeTab === 'comments') this.renderModal();
+            if (this.activeTab === 'comments') {
+              this.renderCommentsListOnly();
+            }
           }
         }
       });
@@ -110,7 +112,9 @@ const TaskModalComponent = {
         if (latest && latest.length > currentCount) {
           this.currentData.comments = latest;
           SoundService.playNotification();
-          this.renderModal();
+          if (this.activeTab === 'comments') {
+            this.renderCommentsListOnly();
+          }
         }
       } catch (e) {}
     }, 1200);
@@ -965,49 +969,7 @@ const TaskModalComponent = {
 
         <!-- Danh sách tin nhắn trao đổi realtime -->
         <div class="flex-1 overflow-y-auto space-y-3 pr-2 mb-2" id="modal-comments-list">
-          ${comments.length === 0 ? `
-            <div class="text-center text-slate-400 py-12 text-xs space-y-2">
-              <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
-                <i class="fa-regular fa-comments"></i>
-              </div>
-              <h4 class="font-black text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
-              <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi phản ánh có thể nhắn tin trao đổi trực tuyến tại đây.</p>
-            </div>
-          ` : comments.map(c => {
-            const isMe = currentUser && (currentUser.displayName === c.authorName || currentUser.email === c.authorEmail);
-            const isUrgent = !!c.isUrgent;
-            const roleBadgeHtml = Utils.renderRoleBadge(c.authorRole || (c.isStaff ? 'STAFF' : 'USER'));
-
-            return `
-              <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''} animate-fade-in">
-                <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : (c.isStaff ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
-                  ${c.isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[10px]"></i>' : (c.authorName || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div class="max-w-[80%] space-y-1">
-                  <div class="flex items-center gap-1.5 ${isMe ? 'justify-end' : ''} text-[11px]">
-                    <span class="font-extrabold text-slate-900">${c.authorName || 'Người dùng'}</span>
-                    ${roleBadgeHtml}
-                    <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
-                  </div>
-                  <div class="p-3 rounded-2xl text-xs leading-relaxed ${
-                    isUrgent
-                      ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-xs'
-                      : (isMe 
-                          ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
-                          : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200')
-                  }">
-                    ${isUrgent ? `
-                      <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>🚨 YÊU CẦU GẤP TỪ NGƯỜI GỬI:</span>
-                      </div>
-                    ` : ''}
-                    ${c.content}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
+          ${this.getCommentsListHtml(comments)}
         </div>
 
         <!-- Phản hồi nhanh (Quick Canned Replies) -->
@@ -1306,6 +1268,71 @@ const TaskModalComponent = {
     }
   },
 
+  getCommentsListHtml(comments = []) {
+    const currentUser = AuthService.getCurrentUser();
+    if (!comments || comments.length === 0) {
+      return `
+        <div class="text-center text-slate-400 py-12 text-xs space-y-2">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
+            <i class="fa-regular fa-comments"></i>
+          </div>
+          <h4 class="font-black text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
+          <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi phản ánh có thể nhắn tin trao đổi trực tuyến tại đây.</p>
+        </div>
+      `;
+    }
+
+    return comments.map(c => {
+      const isMe = currentUser && (
+        (currentUser.displayName && c.authorName === currentUser.displayName) ||
+        (currentUser.email && c.authorEmail === currentUser.email)
+      );
+      const isUrgent = !!c.isUrgent;
+      const isStaff = !!c.isStaff || (c.authorRole && c.authorRole !== 'USER');
+      // Role badge: Chỉ hiển thị với KTV/Quản trị viên, KHÔNG hiển thị nhãn "Cán bộ / Giảng viên" đối với người gửi phản ánh
+      const roleBadgeHtml = isStaff && c.authorRole && c.authorRole !== 'USER' 
+        ? Utils.renderRoleBadge(c.authorRole) 
+        : (isStaff ? Utils.renderRoleBadge('STAFF') : '');
+
+      return `
+        <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''} animate-fade-in">
+          <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : (isStaff ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
+            ${isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[10px]"></i>' : (c.authorName || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div class="max-w-[80%] space-y-1">
+            <div class="flex items-center gap-1.5 ${isMe ? 'justify-end' : ''} text-[11px]">
+              <span class="font-extrabold text-slate-900">${c.authorName || (isStaff ? 'Kỹ thuật viên' : (this.currentData?.senderName || 'Người phản ánh'))}</span>
+              ${roleBadgeHtml}
+              <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
+            </div>
+            <div class="p-3 rounded-2xl text-xs leading-relaxed ${
+              isUrgent
+                ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-xs'
+                : (isMe 
+                    ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
+                    : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200')
+            }">
+              ${isUrgent ? `
+                <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>🚨 YÊU CẦU GẤP TỪ NGƯỜI GỬI:</span>
+                </div>
+              ` : ''}
+              ${c.content}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  renderCommentsListOnly() {
+    const list = document.getElementById('modal-comments-list');
+    if (!list || !this.currentData) return;
+    list.innerHTML = this.getCommentsListHtml(this.currentData.comments || []);
+    list.scrollTop = list.scrollHeight;
+  },
+
   fillQuickReply(text) {
     const input = document.getElementById('comment-text-input');
     if (input) {
@@ -1321,22 +1348,52 @@ const TaskModalComponent = {
     if (!content) return;
 
     const item = this.currentData;
+    if (!item) return;
     const isReport = item.type === 'REPORT' || (item.code && item.code.startsWith('PYC-'));
     const targetType = isReport ? 'REPORT' : 'TASK';
+    const currentUser = AuthService.getCurrentUser();
 
+    // 1. Optimistic Update 0ms: Hiển thị ngay tin nhắn tức thì lên giao diện
+    const tempId = 'temp_' + Date.now();
+    const newComment = {
+      id: tempId,
+      targetCode: item.code || item.id,
+      content: content,
+      authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Kỹ thuật viên',
+      authorEmail: currentUser?.email || '',
+      authorRole: currentUser?.role || 'STAFF',
+      isStaff: true,
+      isUrgent: false,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!item.comments) item.comments = [];
+    item.comments.push(newComment);
+
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    SoundService.playSuccess();
+    this.renderCommentsListOnly();
+
+    // 2. Gửi API lưu ngầm vào Firestore & Realtime broadcast
     try {
       const res = await ApiService.addComment(item.id || item.code, targetType, {
         targetCode: item.code,
         content: content,
+        authorName: newComment.authorName,
+        authorEmail: newComment.authorEmail,
+        authorRole: newComment.authorRole,
         isStaff: true
       });
 
-      if (!item.comments) item.comments = [];
-      item.comments.push(res.data);
-      if (input) input.value = '';
-      
-      SoundService.playSuccess();
-      this.renderModal();
+      if (res && res.data) {
+        const idx = item.comments.findIndex(c => c.id === tempId);
+        if (idx !== -1) {
+          item.comments[idx] = res.data;
+        }
+      }
     } catch (err) {
       Utils.showToast('Lỗi gửi tin nhắn: ' + err.message, 'error');
     }
