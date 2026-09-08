@@ -33,6 +33,7 @@ const TaskCardComponent = {
               </span>
               ${Utils.renderPriorityBadge(priority)}
               ${Utils.renderStatusBadge(status, isOverdue)}
+              ${item.rating ? `<span class="inline-flex items-center gap-1 font-extrabold text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs" title="Đánh giá: ${item.rating}/5 sao"><i class="fa-solid fa-star text-amber-400 text-[10px]"></i> ${item.rating}★</span>` : ''}
             </div>
             <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap" title="${item.createdAt}">
               ${Utils.timeAgo(item.createdAt)}

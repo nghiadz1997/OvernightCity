@@ -165,6 +165,77 @@ const DashboardPage = {
             </div>
           </div>
         </div>
+
+        <!-- SECTION 9: ĐÁNH GIÁ CHẤT LƯỢNG & ĐỘ HÀI LÒNG CỦA NGƯỜI DÙNG (CSAT) -->
+        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-award text-amber-500 text-lg"></i>
+                <span>9. ĐÁNH GIÁ CHẤT LƯỢNG DỊCH VỤ & MỨC ĐỘ HÀI LÒNG (CSAT)</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Thống kê điểm số sao và nhận xét thực tế từ cán bộ, giảng viên và sinh viên sau khi sự cố hoàn thành.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="dash-rating-count-badge" class="px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                0 lượt đánh giá
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Cột 1: Điểm số trung bình & Tỷ lệ hài lòng -->
+            <div class="bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/50 p-6 rounded-2xl border border-amber-200 flex flex-col justify-between text-center">
+              <div>
+                <span class="text-xs font-extrabold text-amber-900 uppercase tracking-wider block mb-2">ĐIỂM TRUNG BÌNH HÀI LÒNG</span>
+                <div class="flex items-center justify-center gap-2 my-2">
+                  <span class="text-5xl font-black text-slate-900 tracking-tight" id="dash-avg-rating-text">0.0</span>
+                  <span class="text-xl font-bold text-amber-600">/ 5.0</span>
+                </div>
+                <div class="flex items-center justify-center gap-1 text-amber-400 text-lg mb-2" id="dash-avg-stars-container">
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                </div>
+              </div>
+
+              <div class="pt-4 border-t border-amber-200/60 grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-white/80 p-2.5 rounded-xl border border-amber-100">
+                  <span class="text-slate-500 block text-[11px]">Tỷ lệ hài lòng (4-5★)</span>
+                  <strong class="text-emerald-700 font-black text-base" id="dash-sat-rate-text">0%</strong>
+                </div>
+                <div class="bg-white/80 p-2.5 rounded-xl border border-amber-100">
+                  <span class="text-slate-500 block text-[11px]">Tổng số đánh giá</span>
+                  <strong class="text-slate-800 font-black text-base" id="dash-total-rated-text">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cột 2: Phân bố số sao (5 sao -> 1 sao) -->
+            <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-center space-y-2.5">
+              <span class="text-xs font-bold text-slate-700 mb-1 block">Phân bố mức độ đánh giá:</span>
+              ${[5, 4, 3, 2, 1].map(star => `
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="font-bold text-slate-700 w-12 flex items-center gap-1">${star} <i class="fa-solid fa-star text-amber-400 text-[10px]"></i></span>
+                  <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                    <div id="star-bar-${star}" class="h-full bg-amber-400 rounded-full transition-all" style="width: 0%"></div>
+                  </div>
+                  <span id="star-count-${star}" class="font-bold text-slate-600 w-16 text-right">0</span>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Cột 3: Nhận xét phản hồi gần nhất -->
+            <div class="space-y-2.5 flex flex-col justify-between">
+              <span class="text-xs font-bold text-slate-700 block">Nhận xét đánh giá mới nhất:</span>
+              <div id="dash-recent-feedback-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div class="text-xs text-slate-400 text-center py-8">Chưa có nhận xét đánh giá nào.</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
   },
@@ -630,6 +701,82 @@ const DashboardPage = {
     const normalBadge = document.getElementById('normal-sla-badge');
     if (normalBadge) {
       normalBadge.innerText = normalAvgHours > 0 ? `Bình thường: ${normalAvgHours}h` : 'Bình thường: 0h';
+    }
+
+    // ----------------------------------------------------
+    // 9. THỐNG KÊ ĐÁNH GIÁ CHẤT LƯỢNG DỊCH VỤ (CSAT)
+    // ----------------------------------------------------
+    const ratedItems = items.filter(i => i.rating && Number(i.rating) > 0);
+    const totalRated = ratedItems.length;
+    let avgRating = 0;
+    if (totalRated > 0) {
+      const sum = ratedItems.reduce((acc, curr) => acc + Number(curr.rating || 0), 0);
+      avgRating = (sum / totalRated).toFixed(1);
+    }
+
+    const starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    ratedItems.forEach(i => {
+      const s = Math.min(5, Math.max(1, Math.round(Number(i.rating))));
+      starCounts[s] = (starCounts[s] || 0) + 1;
+    });
+
+    const satCount = (starCounts[5] || 0) + (starCounts[4] || 0);
+    const satPercent = totalRated > 0 ? Math.round((satCount / totalRated) * 100) : 0;
+
+    const avgEl = document.getElementById('dash-avg-rating-text');
+    if (avgEl) avgEl.innerText = avgRating;
+
+    const totalEl = document.getElementById('dash-total-rated-text');
+    if (totalEl) totalEl.innerText = totalRated;
+
+    const satEl = document.getElementById('dash-sat-rate-text');
+    if (satEl) satEl.innerText = `${satPercent}%`;
+
+    const countBadge = document.getElementById('dash-rating-count-badge');
+    if (countBadge) countBadge.innerText = `${totalRated} lượt đánh giá`;
+
+    // Biểu tượng sao trung bình
+    const starsContainer = document.getElementById('dash-avg-stars-container');
+    if (starsContainer) {
+      const avgRounded = Math.round(Number(avgRating));
+      starsContainer.innerHTML = [1, 2, 3, 4, 5].map(s => 
+        `<i class="fa-solid fa-star ${s <= avgRounded ? 'text-amber-400' : 'text-slate-300'}"></i>`
+      ).join('');
+    }
+
+    // Thanh phân bố mức độ sao
+    [5, 4, 3, 2, 1].forEach(s => {
+      const count = starCounts[s] || 0;
+      const pct = totalRated > 0 ? Math.round((count / totalRated) * 100) : 0;
+      const bar = document.getElementById(`star-bar-${s}`);
+      if (bar) bar.style.width = `${pct}%`;
+      const countEl = document.getElementById(`star-count-${s}`);
+      if (countEl) countEl.innerText = `${count} (${pct}%)`;
+    });
+
+    // Danh sách nhận xét đánh giá mới nhất
+    const feedbackListEl = document.getElementById('dash-recent-feedback-list');
+    if (feedbackListEl) {
+      const feedbackItems = [...ratedItems].sort((a, b) => new Date(b.ratedAt || b.updatedAt || 0) - new Date(a.ratedAt || a.updatedAt || 0)).slice(0, 4);
+      if (feedbackItems.length === 0) {
+        feedbackListEl.innerHTML = '<div class="text-xs text-slate-400 text-center py-8">Chưa có đánh giá nào.</div>';
+      } else {
+        feedbackListEl.innerHTML = feedbackItems.map(f => `
+          <div class="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-xs space-y-1">
+            <div class="flex items-center justify-between gap-1">
+              <span class="font-mono font-bold text-blue-700 cursor-pointer hover:underline" onclick="TaskModalComponent.open('${f.id || ''}', '${f.code}', '${f.code && f.code.startsWith('TASK-') ? 'TASK' : 'REPORT'}')">${f.code}</span>
+              <div class="flex items-center gap-0.5 text-amber-400 text-[10px]">
+                ${[1, 2, 3, 4, 5].map(s => `<i class="fa-solid fa-star ${s <= Number(f.rating) ? 'text-amber-400' : 'text-slate-200'}"></i>`).join('')}
+              </div>
+            </div>
+            <p class="text-slate-700 italic line-clamp-2">"${f.feedback || 'Không có nhận xét thêm'}"</p>
+            <div class="text-[10px] text-slate-400 flex items-center justify-between">
+              <span>${f.senderName || 'Người gửi'}</span>
+              <span>${f.ratedAt ? Utils.timeAgo(f.ratedAt) : ''}</span>
+            </div>
+          </div>
+        `).join('');
+      }
     }
   }
 };

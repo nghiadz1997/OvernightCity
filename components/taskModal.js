@@ -451,10 +451,35 @@ const TaskModalComponent = {
 
           ${item.reviewNote ? `
             <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
-              <span class="font-bold text-emerald-900">📝 Đánh giá nghiệm thu:</span>
+              <span class="font-bold text-emerald-900">📝 Nhận xét nghiệm thu:</span>
               <span class="text-emerald-950 font-semibold ml-1">"${item.reviewNote}"</span>
             </div>
           ` : ''}
+
+          <!-- ĐÁNH GIÁ CHẤT LƯỢNG TỪ NGƯỜI DÙNG -->
+          ${item.rating ? `
+            <div class="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 text-xs shadow-2xs space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-award text-amber-500 text-base"></i>
+                  <span class="font-black text-amber-950 uppercase tracking-wide">Đánh giá chất lượng từ người dùng:</span>
+                </div>
+                <div class="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
+                  ${[1, 2, 3, 4, 5].map(s => `<i class="fa-solid fa-star text-xs ${s <= item.rating ? 'text-amber-400' : 'text-slate-200'}"></i>`).join('')}
+                  <span class="ml-1.5 text-slate-800 font-black text-xs">${item.rating}/5 sao</span>
+                </div>
+              </div>
+              <p class="text-slate-800 bg-white/90 p-3 rounded-xl border border-amber-100 font-medium italic leading-relaxed">
+                "${item.feedback || 'Người dùng không để lại ý kiến thêm.'}"
+              </p>
+              ${item.ratedAt ? `<div class="text-[10px] text-slate-400 text-right font-medium">Thời gian gửi đánh giá: ${Utils.formatDateTime(item.ratedAt)}</div>` : ''}
+            </div>
+          ` : (status === 'HOÀN THÀNH' ? `
+            <div class="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+              <i class="fa-regular fa-star text-slate-400"></i>
+              <span>Người gửi phản ánh chưa gửi đánh giá sao cho phiếu này.</span>
+            </div>
+          ` : '')}
         </div>
 
         <!-- KHỐI 5: 🕘 LỊCH SỬ XỬ LÝ (TIMELINE DÒNG THỜI GIAN) -->
