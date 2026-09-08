@@ -146,20 +146,103 @@ const ApiService = {
     }
   },
 
-  // 3. Đánh giá chất lượng sau khi hoàn thành
+  // 3. Đánh giá chất lượng sau khi hoàn thành & Tự động gửi về Telegram
   async submitFeedback(code, rating, feedback) {
     try {
       const db = this.getDb();
       const cleanCode = code.trim().toUpperCase();
-      const snap = await db.collection('reports').where('code', '==', cleanCode).limit(1).get();
+      let docRef = null;
+      let reportData = null;
+      let collectionName = 'reports';
 
+      const snap = await db.collection('reports').where('code', '==', cleanCode).limit(1).get();
       if (!snap.empty) {
-        await snap.docs[0].ref.update({
-          rating: Number(rating),
-          feedback: feedback || '',
-          updatedAt: new Date().toISOString()
-        });
-        return { success: true };
+        docRef = snap.docs[0].ref;
+        reportData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      } else {
+        const taskSnap = await db.collection('tasks').where('code', '==', cleanCode).limit(1).get();
+        if (!taskSnap.empty) {
+          docRef = taskSnap.docs[0].ref;
+          reportData = { id: taskSnap.docs[0].id, ...taskSnap.docs[0].data() };
+          collectionName = 'tasks';
+        }
+      }
+
+      if (docRef && reportData) {
+        const nowIso = new Date().toISOString();
+        const ratingNum = Number(rating) || 5;
+        const feedbackText = (feedback || '').trim();
+
+        const historyEntry = {
+          timestamp: nowIso,
+          actorId: reportData.senderId || 'USER',
+          actorName: reportData.senderName || 'Người gửi phản ánh',
+          actorRole: 'USER',
+          action: 'ĐÁNH GIÁ CHẤT LƯỢNG',
+          details: `Đánh giá ${ratingNum}/5 sao`,
+          note: feedbackText
+        };
+
+        const updatePayload = {
+          rating: ratingNum,
+          feedback: feedbackText,
+          ratedAt: nowIso,
+          updatedAt: nowIso
+        };
+
+        if (window.firebase && window.firebase.firestore) {
+          await docRef.update({
+            ...updatePayload,
+            history: window.firebase.firestore.FieldValue.arrayUnion(historyEntry)
+          });
+        } else {
+          await docRef.update(updatePayload);
+        }
+
+        // Cập nhật realtime client
+        const updatedItem = { ...reportData, ...updatePayload };
+        if (window.RealtimeService) {
+          if (collectionName === 'reports') {
+            RealtimeService.handleIncomingReport(updatedItem);
+          } else {
+            RealtimeService.handleTaskUpdate(updatedItem);
+          }
+        }
+
+        // GỬI THÔNG BÁO ĐÁNH GIÁ CHẤT LƯỢNG VỀ TELEGRAM BOT
+        try {
+          const starsStr = '⭐'.repeat(ratingNum) + '☆'.repeat(Math.max(0, 5 - ratingNum));
+          let satisfactionLevel = 'Rất hài lòng';
+          if (ratingNum === 4) satisfactionLevel = 'Hài lòng';
+          else if (ratingNum === 3) satisfactionLevel = 'Bình thường';
+          else if (ratingNum === 2) satisfactionLevel = 'Chưa hài lòng';
+          else if (ratingNum === 1) satisfactionLevel = 'Rất không hài lòng';
+
+          const teleMsg =
+            `🌟 <b>ĐÁNH GIÁ CHẤT LƯỢNG DỊCH VỤ MỚI</b> 🌟\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>Mã yêu cầu:</b> <code>${cleanCode}</code>\n` +
+            `🏷️ <b>Tiêu đề:</b> ${reportData.title || 'Sự cố'}\n` +
+            `📍 <b>Vị trí:</b> ${reportData.location || ''} ${reportData.room ? `(${reportData.room})` : ''}\n` +
+            `👤 <b>Người đánh giá:</b> ${reportData.senderName || 'Người dùng'} ${reportData.senderPhone ? `(${reportData.senderPhone})` : ''}\n` +
+            `🔧 <b>KTV thực hiện:</b> ${reportData.assignedToName || 'Đội ngũ kỹ thuật'}\n` +
+            `⭐ <b>Điểm đánh giá:</b> <b>${starsStr} (${ratingNum}/5 sao - ${satisfactionLevel})</b>\n` +
+            (feedbackText ? `💬 <b>Ý kiến phản hồi:</b>\n<i>"${feedbackText}"</i>\n` : `💬 <b>Ý kiến:</b> <i>(Không có ý kiến thêm)</i>\n`) +
+            `⏰ <b>Thời gian:</b> ${Utils.formatDateTime(nowIso)}\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Hệ thống ghi nhận đánh giá dịch vụ NSG SUPPORT</i>`;
+
+          // Gửi tới kênh tiếp nhận và quản lý
+          await this.sendTelegramNotification(teleMsg, null, null, null, 'INCIDENT');
+          const cfg = this.getTelegramConfig();
+          if (cfg.bot2Token && cfg.bot2ChatId && cfg.bot2Token !== cfg.botToken) {
+            await this.sendTelegramNotification(teleMsg, cfg.bot2Token, cfg.bot2ChatId, null, 'REVIEW');
+          }
+        } catch (tgErr) {
+          console.warn('[ApiService] Lỗi gửi thông báo đánh giá về Telegram:', tgErr);
+        }
+
+        return { success: true, data: updatedItem };
       }
       throw new Error('Không tìm thấy phiếu để đánh giá.');
     } catch (err) {
