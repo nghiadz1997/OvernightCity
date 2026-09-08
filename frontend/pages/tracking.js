@@ -458,9 +458,14 @@ const TrackingPage = {
     }
 
     box.innerHTML = comments.map(c => {
-      const isStaff = !!c.isStaff;
+      const isStaff = !!c.isStaff || (c.authorRole && c.authorRole !== 'USER');
       const isUrgent = !!c.isUrgent;
-      const roleBadgeHtml = Utils.renderRoleBadge(c.authorRole || (isStaff ? 'STAFF' : 'USER'));
+      // Chỉ hiển thị badge đối với nhân viên kỹ thuật / quản trị, KHÔNG hiển thị nhãn "Cán bộ / Giảng viên" đối với người gửi phản ánh
+      const roleBadgeHtml = isStaff && c.authorRole && c.authorRole !== 'USER'
+        ? Utils.renderRoleBadge(c.authorRole)
+        : (isStaff ? Utils.renderRoleBadge('STAFF') : '');
+
+      const authorDisplayName = c.authorName || (isStaff ? 'Kỹ thuật viên' : (report?.senderName || 'Bạn'));
 
       return `
         <div class="flex gap-2.5 ${!isStaff ? 'flex-row-reverse' : ''} animate-fade-in">
@@ -469,7 +474,7 @@ const TrackingPage = {
           </div>
           <div class="max-w-[82%] space-y-1">
             <div class="flex items-center gap-1.5 ${!isStaff ? 'justify-end' : ''} text-[11px]">
-              <span class="font-extrabold text-slate-900">${c.authorName || (isStaff ? 'Kỹ thuật viên' : 'Bạn')}</span>
+              <span class="font-extrabold text-slate-900">${authorDisplayName}</span>
               ${roleBadgeHtml}
               <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
             </div>
@@ -503,7 +508,6 @@ const TrackingPage = {
 
     const input = document.getElementById('tracking-chat-input');
     const urgentCheck = document.getElementById('tracking-chat-urgent');
-    const btn = document.getElementById('btn-tracking-send');
 
     const content = (input ? input.value : '').trim();
     const isUrgent = urgentCheck ? urgentCheck.checked : false;
@@ -511,31 +515,32 @@ const TrackingPage = {
     if (!content) return;
 
     // 1. Optimistic Update: Thêm ngay tin nhắn vào giao diện tức thì (0ms)
+    const tempId = 'temp_' + Date.now();
     const optimisticMsg = {
-      id: 'temp_' + Date.now(),
+      id: tempId,
       targetCode: this.currentReport.code,
       content: content,
       authorName: this.currentReport.senderName || 'Bạn',
+      authorPhone: this.currentReport.senderPhone || '',
       authorRole: 'USER',
       isUrgent: isUrgent,
       isStaff: false,
       createdAt: new Date().toISOString()
     };
+    if (!this.currentComments) this.currentComments = [];
     this.currentComments.push(optimisticMsg);
     this.lastCommentsCount = this.currentComments.length;
     this.renderChatMessages(this.currentComments, this.currentReport);
 
-    if (input) input.value = '';
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
     if (urgentCheck) urgentCheck.checked = false;
     SoundService.playSuccess();
 
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-    }
-
     try {
-      await ApiService.addComment(this.currentReport.id || this.currentReport.code, 'REPORT', {
+      const res = await ApiService.addComment(this.currentReport.id || this.currentReport.code, 'REPORT', {
         targetCode: this.currentReport.code,
         content: content,
         authorName: this.currentReport.senderName || 'Người gửi phản ánh',
@@ -545,20 +550,18 @@ const TrackingPage = {
         isStaff: false
       });
 
-      Utils.showToast(isUrgent ? '🚨 Đã gửi tin nhắn GẤP tới bộ phận kỹ thuật!' : 'Đã gửi tin nhắn thành công!', 'success');
-      
-      // Đồng bộ lại từ server
-      setTimeout(() => this.pollLatestComments(this.currentReport.code, this.currentReport), 500);
+      if (res && res.data) {
+        const idx = this.currentComments.findIndex(c => c.id === tempId);
+        if (idx !== -1) {
+          this.currentComments[idx] = res.data;
+        }
+      }
 
-      // Focus lại ô nhập
-      if (input) input.focus();
+      if (isUrgent) {
+        Utils.showToast('🚨 Đã gửi tin nhắn GẤP tới bộ phận kỹ thuật!', 'success');
+      }
     } catch (err) {
       Utils.showToast('Lỗi gửi tin nhắn: ' + err.message, 'error');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>GỬI TIN</span>';
-      }
     }
   },
 
