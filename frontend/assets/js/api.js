@@ -94,6 +94,25 @@ const ApiService = {
         console.warn('Lỗi gửi Telegram tự động:', teleErr);
       }
 
+      // Tạo thông báo lưu vào collection notifications và broadcast Realtime chuông thông báo
+      try {
+        const notiDoc = {
+          title: `🔔 Phản ánh mới: [${code}] ${reportData.title || 'Báo hỏng sự cố'}`,
+          body: `👤 Người gửi: ${reportData.senderName || 'Người dùng'} ${reportData.senderPhone ? `(${reportData.senderPhone})` : ''} • 📍 Vị trí: ${reportData.location || ''} ${reportData.room ? `- ${reportData.room}` : ''} • ⚠️ Mức độ: ${reportData.priority || 'BÌNH THƯỜNG'}`,
+          targetId: docRef.id,
+          targetCode: code,
+          targetType: 'REPORT',
+          isRead: false,
+          createdAt: nowIso
+        };
+        await db.collection('notifications').add(notiDoc);
+        if (window.RealtimeService) {
+          window.RealtimeService.handleIncomingNotification(notiDoc, true);
+        }
+      } catch (notifErr) {
+        console.warn('Lỗi ghi notification vào Firestore:', notifErr);
+      }
+
       return { success: true, code, data: fullData };
     } catch (err) {
       console.error('[ApiService] submitReport error:', err);

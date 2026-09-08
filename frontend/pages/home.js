@@ -176,7 +176,7 @@ const HomePage = {
         <!-- Footer -->
         <footer class="bg-slate-950 text-slate-400 py-8 px-4 border-t border-slate-800 text-center text-xs">
           <p class="font-semibold text-slate-300">NSG SUPPORT © 2026 - HỆ THỐNG PHẢN ÁNH & HỖ TRỢ KỸ THUẬT</p>
-          <p class="mt-1 text-slate-500 font-medium">PHÁT TRIỂN BỞI PHÒNG QUẢN TRỊ THIẾT BỊ & CƠ SỞ VẬT CHẤT</p>
+          <p class="mt-1 text-slate-400 font-medium">Phát Triển Bởi: Kenny</p>
         </footer>
       </div>
     `;
