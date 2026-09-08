@@ -103,11 +103,16 @@ const RealtimeService = {
         console.error('[RealtimeService] Tasks onSnapshot error:', error);
       });
 
-    // 3. Lắng nghe collection notifications realtime
+    // 3. Lắng nghe collection notifications realtime (Chỉ cập nhật cho người có tài khoản)
     try {
       this.notificationsUnsub = this.db.collection('notifications')
         .limit(30)
         .onSnapshot((snapshot) => {
+          if (!window.AuthService || !AuthService.isAuthenticated()) {
+            this.notifications = [];
+            this.notifyNotificationListeners();
+            return;
+          }
           const list = [];
           snapshot.forEach((doc) => {
             list.push({ id: doc.id, ...doc.data() });
@@ -126,11 +131,20 @@ const RealtimeService = {
 
   /**
    * Phát chuông và hiển thị thông báo nổi khi có phản ánh mới
+   * CHỈ THÔNG BÁO CHO NGƯỜI CÓ TÀI KHOẢN ĐÃ ĐĂNG NHẬP (KHÔNG HIỂN THỊ LÊN TRANG CHỦ / KHÁCH VÃNG LAI)
    */
   triggerNewReportAlert(report) {
+    if (!window.AuthService || !AuthService.isAuthenticated()) return;
+
+    const currentUser = AuthService.getCurrentUser();
+    // Nếu chính người dùng hiện tại vừa gửi phản ánh thì không hiển thị thông báo trùng lặp
+    if (currentUser && (currentUser.uid === report.senderId || (report.senderEmail && currentUser.email === report.senderEmail))) {
+      return;
+    }
+
     if (report.priority === 'KHẨN CẤP') {
       SoundService.playUrgentAlert();
-      Utils.showToast(`🚨 PHẢN ÁNH KHẨN CẤP MỚI: [${report.code}] ${report.title} tại ${report.location}`, 'error', 8000);
+      Utils.showToast(`🚨 PHẢN ÁNH KHẨN CẤP MỚI: [${report.code}] ${report.title} tại ${report.location || report.room || ''}`, 'error', 8000);
     } else {
       SoundService.playChime();
       Utils.showToast(`🔔 Có phản ánh mới: [${report.code}] ${report.title}`, 'info', 5000);
@@ -143,25 +157,29 @@ const RealtimeService = {
       this.reports[existingIdx] = { ...this.reports[existingIdx], ...report };
     } else {
       this.reports.unshift(report);
-      this.triggerNewReportAlert(report);
 
-      // Tự động đẩy thông báo vào danh sách chuông Notification Drawer
-      const notiId = 'notif_' + (report.id || report.code);
-      const alreadyNotif = this.notifications.some(n => n.targetCode === report.code || n.id === notiId);
-      if (!alreadyNotif) {
-        const noti = {
-          id: notiId,
-          title: `🔔 Phản ánh mới: [${report.code}] ${report.title || 'Báo hỏng sự cố'}`,
-          body: `👤 Người gửi: ${report.senderName || 'Người dùng'} ${report.senderPhone ? `(${report.senderPhone})` : ''} • 📍 Vị trí: ${report.location || ''} ${report.room ? `- ${report.room}` : ''} • ⚠️ Mức độ: ${report.priority || 'BÌNH THƯỜNG'}`,
-          targetId: report.id || report.code,
-          targetCode: report.code,
-          targetType: 'REPORT',
-          isRead: false,
-          createdAt: report.createdAt || new Date().toISOString()
-        };
-        this.notifications.unshift(noti);
-        this.saveLocalData();
-        this.notifyNotificationListeners();
+      // Chỉ phát chuông & đẩy vào khay thông báo khi người dùng đã đăng nhập tài khoản
+      if (window.AuthService && AuthService.isAuthenticated()) {
+        this.triggerNewReportAlert(report);
+
+        // Tự động đẩy thông báo vào danh sách chuông Notification Drawer
+        const notiId = 'notif_' + (report.id || report.code);
+        const alreadyNotif = this.notifications.some(n => n.targetCode === report.code || n.id === notiId);
+        if (!alreadyNotif) {
+          const noti = {
+            id: notiId,
+            title: `🔔 Phản ánh mới: [${report.code}] ${report.title || 'Báo hỏng sự cố'}`,
+            body: `👤 Người gửi: ${report.senderName || 'Người dùng'} ${report.senderPhone ? `(${report.senderPhone})` : ''} • 📍 Vị trí: ${report.location || ''} ${report.room ? `- ${report.room}` : ''} • ⚠️ Mức độ: ${report.priority || 'BÌNH THƯỜNG'}`,
+            targetId: report.id || report.code,
+            targetCode: report.code,
+            targetType: 'REPORT',
+            isRead: false,
+            createdAt: report.createdAt || new Date().toISOString()
+          };
+          this.notifications.unshift(noti);
+          this.saveLocalData();
+          this.notifyNotificationListeners();
+        }
       }
     }
 
@@ -190,6 +208,9 @@ const RealtimeService = {
   },
 
   handleIncomingNotification(noti, broadcast = true) {
+    // Chỉ nhận thông báo & phát chuông cho người có tài khoản đã đăng nhập
+    if (!window.AuthService || !AuthService.isAuthenticated()) return;
+
     this.notifications.unshift(noti);
     this.saveLocalData();
     this.notifyNotificationListeners();
