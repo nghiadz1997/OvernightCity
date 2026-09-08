@@ -679,26 +679,6 @@ const ApiService = {
         }
       })();
 
-      // 4. Nếu là tin nhắn KHẨN CẤP từ người dùng, bắn ngay thông báo Telegram cho Kỹ thuật/Quản trị (ngầm)
-      if (fullComment.isUrgent) {
-        (async () => {
-          try {
-            const urgentMsg = `🚨 <b>[NSG SUPPORT] TIN NHẮN KHẨN CẤP TỪ NGƯỜI DÙNG!</b>\n` +
-              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-              `🏷️ <b>Mã phiếu:</b> <code>${fullComment.targetCode}</code>\n` +
-              `👤 <b>Người gửi:</b> <b>${fullComment.authorName}</b> ${fullComment.authorPhone ? `(SĐT: ${fullComment.authorPhone})` : ''}\n` +
-              `💬 <b>Nội dung gấp:</b> <i>"${fullComment.content}"</i>\n` +
-              `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
-              `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-              `👉 <i>Vui lòng vào hệ thống phản hồi ngay cho người dùng!</i>`;
-
-            await this.sendTelegramNotification(urgentMsg, null, null, null, 'INCIDENT');
-          } catch (teleErr) {
-            console.warn('Lỗi gửi Telegram tin nhắn khẩn cấp:', teleErr);
-          }
-        })();
-      }
-
       return { success: true, data: fullComment };
     } catch (err) {
       console.error('[ApiService] addComment error:', err);
