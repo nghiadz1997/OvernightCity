@@ -36,7 +36,11 @@ const App = {
       }
     }
 
-    // 4. Khởi động các dịch vụ ngầm (Firebase Auth & Realtime) trong try/catch an toàn
+    // 4. Khởi động các dịch vụ ngầm (Firebase Auth, Realtime & Telegram) trong try/catch an toàn
+    try {
+      ApiService.loadTelegramConfig().catch(() => {});
+    } catch (e) {}
+
     try {
       AuthService.init();
       AuthService.onAuthStateChanged((user) => {
@@ -45,7 +49,31 @@ const App = {
           if (document.getElementById('app-sidebar')) {
             SidebarComponent.render('app-sidebar');
           }
-        } catch (e) {}
+
+          // Khi Firebase Auth khôi phục phiên đăng nhập thành công
+          const currentHash = window.location.hash || '#/';
+          const path = currentHash.split('?')[0];
+
+          if (user) {
+            if (path === '#/login') {
+              if (AuthService.isManager()) {
+                window.location.hash = '#/admin';
+              } else if (AuthService.isStaff()) {
+                window.location.hash = '#/staff';
+              } else {
+                window.location.hash = '#/';
+              }
+            } else if (path.startsWith('#/admin') || path.startsWith('#/staff')) {
+              App.handleRouting();
+            }
+          } else {
+            if (path.startsWith('#/admin') || path.startsWith('#/staff')) {
+              window.location.hash = '#/login';
+            }
+          }
+        } catch (e) {
+          console.error('[App] onAuthStateChanged handler error:', e);
+        }
       });
     } catch (e) {
       console.warn('[App] AuthService init error:', e);
@@ -101,16 +129,40 @@ const App = {
     const isStaffRoute = path.startsWith('#/staff');
 
     // Phân quyền thực tế (RBAC Auth Guard)
-    if (isAdminRoute) {
-      if (!AuthService.isAuthenticated() || !AuthService.isManager()) {
-        Utils.showToast('Vui lòng đăng nhập với tài khoản Quản trị (SUPER_ADMIN hoặc MANAGER).', 'warning', 4000);
-        window.location.hash = '#/login';
+    if (isAdminRoute || isStaffRoute) {
+      // Nếu Firebase Auth đang khởi tạo phiên, hiển thị loader thay vì văng ra login
+      if (!AuthService.isInitialized) {
+        appMain.innerHTML = `
+          <div class="min-h-[60vh] flex flex-col items-center justify-center text-slate-500 gap-3">
+            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600"></i>
+            <span class="text-sm font-bold">Đang kiểm tra phiên làm việc...</span>
+          </div>
+        `;
         return;
       }
-    } else if (isStaffRoute) {
-      if (!AuthService.isAuthenticated()) {
-        Utils.showToast('Vui lòng đăng nhập để truy cập cổng Kỹ thuật viên.', 'warning', 4000);
-        window.location.hash = '#/login';
+
+      if (isAdminRoute) {
+        if (!AuthService.isAuthenticated() || !AuthService.isManager()) {
+          Utils.showToast('Vui lòng đăng nhập với tài khoản Quản trị để tiếp tục.', 'warning', 4000);
+          window.location.hash = '#/login';
+          return;
+        }
+      } else if (isStaffRoute) {
+        if (!AuthService.isAuthenticated()) {
+          Utils.showToast('Vui lòng đăng nhập để truy cập cổng Kỹ thuật viên.', 'warning', 4000);
+          window.location.hash = '#/login';
+          return;
+        }
+      }
+    }
+
+    // Nếu vào #/login mà đã đăng nhập rồi, tự động chuyển hướng về trang tương ứng
+    if (path === '#/login' && AuthService.isAuthenticated()) {
+      if (AuthService.isManager()) {
+        window.location.hash = '#/admin';
+        return;
+      } else if (AuthService.isStaff()) {
+        window.location.hash = '#/staff';
         return;
       }
     }

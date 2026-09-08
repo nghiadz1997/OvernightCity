@@ -29,6 +29,41 @@ const LoginPage = {
       if (remCheckbox) remCheckbox.checked = isRemembered;
     }, 50);
 
+    const currentUser = AuthService.getCurrentUser();
+    if (currentUser) {
+      return `
+        <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-100/80 animate-fade-in">
+          <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/80 p-8 sm:p-10 text-center space-y-6">
+            <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mx-auto text-3xl shadow-sm">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-black text-slate-900 tracking-tight">BẠN ĐANG ĐĂNG NHẬP</h2>
+              <p class="text-sm font-bold text-blue-700 mt-1">${currentUser.displayName}</p>
+              <span class="inline-block mt-1 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold rounded-lg">${currentUser.role} - ${currentUser.departmentName || 'Hệ thống'}</span>
+            </div>
+            <div class="pt-2 flex flex-col gap-3">
+              ${AuthService.isManager() ? `
+                <a href="#/admin" class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-chart-pie"></i>
+                  <span>VÀO TRANG QUẢN TRỊ</span>
+                </a>
+              ` : `
+                <a href="#/staff" class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-toolbox"></i>
+                  <span>VÀO CỔNG KỸ THUẬT VIÊN</span>
+                </a>
+              `}
+              <button type="button" class="w-full py-3 px-4 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer" onclick="NavbarComponent.handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>ĐĂNG XUẤT KHỎI TÀI KHOẢN NÀY</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-100/80">
         <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/80 p-8 sm:p-10 space-y-6 animate-fade-in">
