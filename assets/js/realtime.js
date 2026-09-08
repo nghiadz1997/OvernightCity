@@ -104,19 +104,23 @@ const RealtimeService = {
       });
 
     // 3. Lắng nghe collection notifications realtime
-    const currentUser = AuthService.getCurrentUser();
-    if (currentUser) {
+    try {
       this.notificationsUnsub = this.db.collection('notifications')
-        .orderBy('createdAt', 'desc')
         .limit(30)
         .onSnapshot((snapshot) => {
           const list = [];
           snapshot.forEach((doc) => {
             list.push({ id: doc.id, ...doc.data() });
           });
+          list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
           this.notifications = list;
+          this.saveLocalData();
           this.notifyNotificationListeners();
+        }, (err) => {
+          console.warn('[RealtimeService] Notifications listener fallback:', err);
         });
+    } catch (e) {
+      console.warn('[RealtimeService] Notifications listener init error:', e);
     }
   },
 
@@ -140,6 +144,25 @@ const RealtimeService = {
     } else {
       this.reports.unshift(report);
       this.triggerNewReportAlert(report);
+
+      // Tự động đẩy thông báo vào danh sách chuông Notification Drawer
+      const notiId = 'notif_' + (report.id || report.code);
+      const alreadyNotif = this.notifications.some(n => n.targetCode === report.code || n.id === notiId);
+      if (!alreadyNotif) {
+        const noti = {
+          id: notiId,
+          title: `🔔 Phản ánh mới: [${report.code}] ${report.title || 'Báo hỏng sự cố'}`,
+          body: `👤 Người gửi: ${report.senderName || 'Người dùng'} ${report.senderPhone ? `(${report.senderPhone})` : ''} • 📍 Vị trí: ${report.location || ''} ${report.room ? `- ${report.room}` : ''} • ⚠️ Mức độ: ${report.priority || 'BÌNH THƯỜNG'}`,
+          targetId: report.id || report.code,
+          targetCode: report.code,
+          targetType: 'REPORT',
+          isRead: false,
+          createdAt: report.createdAt || new Date().toISOString()
+        };
+        this.notifications.unshift(noti);
+        this.saveLocalData();
+        this.notifyNotificationListeners();
+      }
     }
 
     this.saveLocalData();
