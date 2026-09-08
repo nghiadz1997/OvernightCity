@@ -351,9 +351,19 @@ const TaskModalComponent = {
                 <strong class="text-slate-800">${item.senderName || 'Lãnh đạo / Hệ thống'}</strong>
               </div>
 
+              <div class="flex items-center justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500">Số điện thoại liên hệ:</span>
+                ${item.senderPhone ? `
+                  <a href="tel:${item.senderPhone}" class="font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 text-xs">
+                    <i class="fa-solid fa-phone-volume text-blue-600"></i>
+                    <span>${item.senderPhone}</span>
+                  </a>
+                ` : '<span class="text-slate-400 italic">Chưa cung cấp</span>'}
+              </div>
+
               <div class="flex items-center justify-between py-1">
-                <span class="text-slate-500">Khoa / SĐT:</span>
-                <span class="font-semibold text-slate-700">${item.senderDept || 'Khách'} ${item.senderPhone ? `(${item.senderPhone})` : ''}</span>
+                <span class="text-slate-500">Khoa / Đơn vị:</span>
+                <span class="font-semibold text-slate-700">${item.senderDept || 'Khách'}${item.senderCode ? ` (${item.senderCode})` : ''}</span>
               </div>
             </div>
           </div>

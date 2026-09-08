@@ -251,12 +251,6 @@ const ReportFormPage = {
             <!-- Honeypot Field chống spam (mục 45) -->
             <input type="text" name="_hp_website" id="_hp_website" style="display:none !important;" tabindex="-1" autocomplete="off">
 
-            <!-- Thông tin người gửi (Ẩn tự động lấy từ phiên đăng nhập) -->
-            <input type="hidden" id="rep-sender-name" value="${user?.displayName || 'Cán bộ / Sinh viên'}">
-            <input type="hidden" id="rep-sender-phone" value="${user?.phone || ''}">
-            <input type="hidden" id="rep-sender-dept" value="${user?.departmentName || 'Chung'}">
-            <input type="hidden" id="rep-sender-code" value="${user?.staffCode || ''}">
-
             <!-- Phần 1: Địa điểm xảy ra sự cố & Loại thiết bị (ĐẨY LÊN ĐẦU TIÊN) -->
             <div class="space-y-4">
               <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
@@ -353,6 +347,75 @@ const ReportFormPage = {
 
                   <!-- Previews -->
                   <div id="file-previews-container" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phần 3: Thông tin người gửi phản ánh (Họ và tên, Số điện thoại) -->
+            <div class="border-t border-slate-200 pt-6">
+              <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-address-card text-blue-600"></i> 3. Thông tin người gửi phản ánh
+              </h3>
+              <p class="text-xs text-slate-500 mb-4 font-normal">
+                Vui lòng cung cấp chính xác <strong>Họ tên</strong> và <strong>Số điện thoại</strong> để Kỹ thuật viên liên hệ trực tiếp khi đến hỗ trợ xử lý sự cố.
+              </p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Họ và tên -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Họ và tên người gửi <span class="text-red-500">*</span>
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-user"></i>
+                    </div>
+                    <input type="text" id="rep-sender-name" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ví dụ: Nguyễn Văn An" value="${user?.displayName || ''}" required>
+                  </div>
+                </div>
+
+                <!-- Số điện thoại -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Số điện thoại liên hệ <span class="text-red-500">*</span>
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-blue-500">
+                      <i class="fa-solid fa-phone"></i>
+                    </div>
+                    <input type="tel" id="rep-sender-phone" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-500 font-bold bg-blue-50/30" placeholder="Ví dụ: 0912345678" value="${user?.phone || ''}" required>
+                  </div>
+                </div>
+
+                <!-- Khoa / Phòng ban / Đơn vị -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Khoa / Phòng / Đơn vị / Lớp
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-building-user"></i>
+                    </div>
+                    <select id="rep-sender-dept" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium bg-white">
+                      <option value="">-- Chọn đơn vị --</option>
+                      ${departments.map(d => `<option value="${d}" ${user?.departmentName === d ? 'selected' : ''}>${d}</option>`).join('')}
+                      <option value="Sinh viên / Lớp học">Sinh viên / Lớp học</option>
+                      <option value="Khác">Khác / Bên ngoài</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Mã Cán bộ / Mã Sinh viên (tùy chọn) -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Mã Cán bộ / Mã Sinh viên <span class="text-slate-400 font-normal">(Nếu có)</span>
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-id-card"></i>
+                    </div>
+                    <input type="text" id="rep-sender-code" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ví dụ: CB1025 hoặc SV2100123" value="${user?.staffCode || ''}">
+                  </div>
                 </div>
               </div>
             </div>
@@ -474,6 +537,45 @@ const ReportFormPage = {
 
     const fullLocation = `${campusName} - ${zoneName}`;
 
+    // Lấy thông tin tiêu đề và mô tả
+    const title = document.getElementById('rep-title')?.value?.trim();
+    const description = document.getElementById('rep-description')?.value?.trim();
+    if (!title) {
+      Utils.showToast('Vui lòng nhập Tiêu đề phản ánh sự cố!', 'warning');
+      document.getElementById('rep-title')?.focus();
+      return;
+    }
+    if (!description) {
+      Utils.showToast('Vui lòng nhập Mô tả chi tiết sự cố!', 'warning');
+      document.getElementById('rep-description')?.focus();
+      return;
+    }
+
+    // Lấy và kiểm tra thông tin người gửi
+    const senderName = document.getElementById('rep-sender-name')?.value?.trim();
+    const senderPhone = document.getElementById('rep-sender-phone')?.value?.trim();
+    const senderDept = document.getElementById('rep-sender-dept')?.value?.trim() || 'Chung';
+    const senderCode = document.getElementById('rep-sender-code')?.value?.trim() || '';
+
+    if (!senderName) {
+      Utils.showToast('Vui lòng nhập Họ và tên người gửi phản ánh!', 'warning');
+      document.getElementById('rep-sender-name')?.focus();
+      return;
+    }
+
+    if (!senderPhone) {
+      Utils.showToast('Vui lòng nhập Số điện thoại liên hệ để Kỹ thuật viên liên lạc!', 'warning');
+      document.getElementById('rep-sender-phone')?.focus();
+      return;
+    }
+
+    const cleanPhone = senderPhone.replace(/[\s\.\-]/g, '');
+    if (cleanPhone.length < 9 || cleanPhone.length > 15) {
+      Utils.showToast('Số điện thoại liên hệ không hợp lệ (Vui lòng nhập từ 9-11 chữ số)!', 'warning');
+      document.getElementById('rep-sender-phone')?.focus();
+      return;
+    }
+
     const submitBtn = document.getElementById('btn-submit-report');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-lg"></i><span>Đang xử lý & tạo mã yêu cầu...</span>';
@@ -498,17 +600,17 @@ const ReportFormPage = {
       const catName = catSelect.options[catSelect.selectedIndex]?.getAttribute('data-name') || 'Khác';
 
       const payload = {
-        senderName: document.getElementById('rep-sender-name').value,
-        senderCode: document.getElementById('rep-sender-code').value,
-        senderDept: document.getElementById('rep-sender-dept').value,
-        senderPhone: document.getElementById('rep-sender-phone').value,
+        senderName: senderName,
+        senderCode: senderCode,
+        senderDept: senderDept,
+        senderPhone: senderPhone,
         categoryId: catSelect.value,
         categoryName: catName,
         priority: document.getElementById('rep-priority').value,
         location: fullLocation,
         room: roomName,
-        title: document.getElementById('rep-title').value,
-        description: document.getElementById('rep-description').value,
+        title: title,
+        description: description,
         attachments: uploadedAttachments
       };
 
