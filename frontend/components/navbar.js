@@ -75,13 +75,15 @@ const NavbarComponent = {
 
             <!-- Right: Notifications & User Profile -->
             <div class="flex items-center gap-3">
-              <!-- Notifications Bell -->
-              <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors" title="Thông báo hệ thống">
-                <i class="fa-solid fa-bell text-lg"></i>
-                <span id="nav-notif-badge" class="${unreadCount > 0 ? '' : 'hidden'} absolute top-1 right-1 w-5 h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-                  ${unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              </button>
+              <!-- Notifications Bell (Chỉ hiển thị cho người dùng đã đăng nhập tài khoản) -->
+              ${isAuth ? `
+                <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" title="Thông báo hệ thống">
+                  <i class="fa-solid fa-bell text-lg"></i>
+                  <span id="nav-notif-badge" class="${unreadCount > 0 ? '' : 'hidden'} absolute top-1 right-1 w-5 h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+                    ${unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                </button>
+              ` : ''}
 
               <!-- User Profile or Login -->
               ${isAuth ? `
