@@ -13,6 +13,12 @@ const NotificationDrawerComponent = {
       document.body.appendChild(container);
     }
 
+    if (!window.AuthService || !AuthService.isAuthenticated()) {
+      this.isOpen = false;
+      container.innerHTML = '';
+      return;
+    }
+
     const notifications = RealtimeService.notifications || [];
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -84,11 +90,19 @@ const NotificationDrawerComponent = {
   },
 
   toggle() {
+    if (!window.AuthService || !AuthService.isAuthenticated()) {
+      this.isOpen = false;
+      return;
+    }
     this.isOpen = !this.isOpen;
     this.render();
   },
 
   open() {
+    if (!window.AuthService || !AuthService.isAuthenticated()) {
+      this.isOpen = false;
+      return;
+    }
     this.isOpen = true;
     this.render();
   },

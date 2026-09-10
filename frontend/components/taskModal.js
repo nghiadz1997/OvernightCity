@@ -95,7 +95,9 @@ const TaskModalComponent = {
           if (!exists) {
             this.currentData.comments.push(newComment);
             SoundService.playNotification();
-            if (this.activeTab === 'comments') this.renderModal();
+            if (this.activeTab === 'comments') {
+              this.renderCommentsListOnly();
+            }
           }
         }
       });
@@ -110,7 +112,9 @@ const TaskModalComponent = {
         if (latest && latest.length > currentCount) {
           this.currentData.comments = latest;
           SoundService.playNotification();
-          this.renderModal();
+          if (this.activeTab === 'comments') {
+            this.renderCommentsListOnly();
+          }
         }
       } catch (e) {}
     }, 1200);
@@ -249,7 +253,7 @@ const TaskModalComponent = {
     // Xác định thông tin Người quản lý (Phó phòng/Trưởng phòng) và Kỹ thuật viên
     const managerName = item.assignedManagerName || item.deputyName || (item.assignedRole === 'DEPUTY_MANAGER' ? item.assignedToName : null);
     const techName = item.assignedRole === 'DEPUTY_MANAGER' ? null : (item.assignedToName || null);
-    const reviewerName = item.reviewedByName || item.assignedReviewerName || (managerName ? managerName : (item.assignedByName || 'Trưởng phòng'));
+    const reviewerName = item.reviewedByName || item.assignedReviewerName || (managerName ? managerName : (item.assignedByName || 'Chưa nghiệm thu'));
 
     return `
       <div class="space-y-6">
@@ -289,16 +293,16 @@ const TaskModalComponent = {
               </div>
 
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
-                <span class="text-slate-500">Người giao việc (Trưởng phòng):</span>
+                <span class="text-slate-500">Người giao việc:</span>
                 <span class="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                  👔 ${item.assignedByName || (item.assignedByRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Trưởng phòng CSVC')}
+                  👔 ${item.assignedByName || (item.assignedByRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Chưa chỉ định')}
                 </span>
               </div>
 
               <div class="flex items-center justify-between py-1 border-b border-slate-50">
-                <span class="text-slate-500">Người điều phối (Phó phòng):</span>
+                <span class="text-slate-500">Người điều phối:</span>
                 <span class="font-bold ${managerName ? 'text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200' : 'text-slate-400 italic'}">
-                  ${managerName ? `🎖️ ${managerName}` : 'Đang điều phối'}
+                  ${managerName ? `🎖️ ${managerName}` : 'Không có'}
                 </span>
               </div>
 
@@ -447,10 +451,35 @@ const TaskModalComponent = {
 
           ${item.reviewNote ? `
             <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
-              <span class="font-bold text-emerald-900">📝 Đánh giá nghiệm thu:</span>
+              <span class="font-bold text-emerald-900">📝 Nhận xét nghiệm thu:</span>
               <span class="text-emerald-950 font-semibold ml-1">"${item.reviewNote}"</span>
             </div>
           ` : ''}
+
+          <!-- ĐÁNH GIÁ CHẤT LƯỢNG TỪ NGƯỜI DÙNG -->
+          ${item.rating ? `
+            <div class="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 text-xs shadow-2xs space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-award text-amber-500 text-base"></i>
+                  <span class="font-black text-amber-950 uppercase tracking-wide">Đánh giá chất lượng từ người dùng:</span>
+                </div>
+                <div class="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
+                  ${[1, 2, 3, 4, 5].map(s => `<i class="fa-solid fa-star text-xs ${s <= item.rating ? 'text-amber-400' : 'text-slate-200'}"></i>`).join('')}
+                  <span class="ml-1.5 text-slate-800 font-black text-xs">${item.rating}/5 sao</span>
+                </div>
+              </div>
+              <p class="text-slate-800 bg-white/90 p-3 rounded-xl border border-amber-100 font-medium italic leading-relaxed">
+                "${item.feedback || 'Người dùng không để lại ý kiến thêm.'}"
+              </p>
+              ${item.ratedAt ? `<div class="text-[10px] text-slate-400 text-right font-medium">Thời gian gửi đánh giá: ${Utils.formatDateTime(item.ratedAt)}</div>` : ''}
+            </div>
+          ` : (status === 'HOÀN THÀNH' ? `
+            <div class="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+              <i class="fa-regular fa-star text-slate-400"></i>
+              <span>Người gửi phản ánh chưa gửi đánh giá sao cho phiếu này.</span>
+            </div>
+          ` : '')}
         </div>
 
         <!-- KHỐI 5: 🕘 LỊCH SỬ XỬ LÝ (TIMELINE DÒNG THỜI GIAN) -->
@@ -562,7 +591,7 @@ const TaskModalComponent = {
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-700">
-                  ${isDeputy ? '🎖️ Phó phòng chỉ định Kỹ thuật viên thực hiện:' : '👔 Điều chỉnh phân công / Đổi người phụ trách:'}
+                  ${isDeputy ? '🎖️ Điều phối chỉ định Kỹ thuật viên thực hiện:' : '👔 Điều chỉnh phân công / Đổi người phụ trách:'}
                 </span>
                 ${item.assignedTo ? `
                   <button type="button" class="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer" onclick="TaskModalComponent.unassignCurrentTask()">
@@ -639,7 +668,7 @@ const TaskModalComponent = {
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-black text-slate-900 uppercase">
-              ${isDeputy ? '🎖️ Phó phòng phân công Kỹ thuật viên xử lý:' : '👔 Phân công nhiệm vụ (Giao Phó phòng hoặc Giao thẳng Kỹ thuật):'}
+              ${isDeputy ? '🎖️ Phân công Kỹ thuật viên xử lý:' : '👔 Phân công nhiệm vụ (Chỉ định điều phối hoặc Giao thẳng Kỹ thuật):'}
             </span>
           </div>
           ${this.renderAssignForm(targetType)}
@@ -777,18 +806,18 @@ const TaskModalComponent = {
 
     return `
       <form onsubmit="TaskModalComponent.handleAssignSubmit(event)" class="space-y-4">
-        <!-- 1. Chọn Người quản lý (Phó phòng điều phối) - CHỈ DÀNH CHO TRƯỞNG PHÒNG -->
+        <!-- 1. Chọn Người quản lý (Cán bộ điều phối) -->
         ${isHead ? `
           <div class="p-3 rounded-xl border border-purple-200 bg-purple-50/40 space-y-1.5">
             <label class="block text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
               <i class="fa-solid fa-user-tie text-purple-600"></i>
-              <span>Giao Phó Trưởng phòng điều phối (Tùy chọn):</span>
+              <span>Chỉ định Cán bộ điều phối (Tùy chọn):</span>
             </label>
             <select id="assign-manager-select" class="w-full text-xs p-2.5 rounded-xl border border-purple-300 focus:ring-2 focus:ring-purple-500 font-medium bg-white">
-              <option value="">-- Trưởng phòng trực tiếp quản lý & phân công --</option>
+              <option value="">-- Trực tiếp quản lý & phân công (Không qua điều phối) --</option>
               ${deputies.map(d => `
                 <option value="${d.uid}" data-name="${d.displayName || d.email}" ${item.assignedManagerId === d.uid || item.deputyId === d.uid ? 'selected' : ''}>
-                  Phó phòng: ${d.displayName || d.email}
+                  ${d.displayName || d.email}
                 </option>
               `).join('')}
             </select>
@@ -965,49 +994,7 @@ const TaskModalComponent = {
 
         <!-- Danh sách tin nhắn trao đổi realtime -->
         <div class="flex-1 overflow-y-auto space-y-3 pr-2 mb-2" id="modal-comments-list">
-          ${comments.length === 0 ? `
-            <div class="text-center text-slate-400 py-12 text-xs space-y-2">
-              <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
-                <i class="fa-regular fa-comments"></i>
-              </div>
-              <h4 class="font-black text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
-              <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi phản ánh có thể nhắn tin trao đổi trực tuyến tại đây.</p>
-            </div>
-          ` : comments.map(c => {
-            const isMe = currentUser && (currentUser.displayName === c.authorName || currentUser.email === c.authorEmail);
-            const isUrgent = !!c.isUrgent;
-            const roleBadgeHtml = Utils.renderRoleBadge(c.authorRole || (c.isStaff ? 'STAFF' : 'USER'));
-
-            return `
-              <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''} animate-fade-in">
-                <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : (c.isStaff ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
-                  ${c.isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[10px]"></i>' : (c.authorName || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div class="max-w-[80%] space-y-1">
-                  <div class="flex items-center gap-1.5 ${isMe ? 'justify-end' : ''} text-[11px]">
-                    <span class="font-extrabold text-slate-900">${c.authorName || 'Người dùng'}</span>
-                    ${roleBadgeHtml}
-                    <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
-                  </div>
-                  <div class="p-3 rounded-2xl text-xs leading-relaxed ${
-                    isUrgent
-                      ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-xs'
-                      : (isMe 
-                          ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
-                          : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200')
-                  }">
-                    ${isUrgent ? `
-                      <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>🚨 YÊU CẦU GẤP TỪ NGƯỜI GỬI:</span>
-                      </div>
-                    ` : ''}
-                    ${c.content}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
+          ${this.getCommentsListHtml(comments)}
         </div>
 
         <!-- Phản hồi nhanh (Quick Canned Replies) -->
@@ -1057,7 +1044,7 @@ const TaskModalComponent = {
     const isDeputy = AuthService.isDeputyManager();
 
     const managerId = isDeputy ? currentUser?.uid : (managerSelect ? managerSelect.value : (item.assignedManagerId || null));
-    const managerName = isDeputy ? (currentUser?.displayName || 'Phó Trưởng phòng') : (managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null));
+    const managerName = isDeputy ? (currentUser?.displayName || '') : (managerSelect && managerSelect.selectedIndex > 0 ? managerSelect.options[managerSelect.selectedIndex].getAttribute('data-name') : (item.assignedManagerName || null));
 
     // Lấy danh sách kỹ thuật viên được tick chọn (hỗ trợ 1 người hoặc nhóm 2-3 KTV)
     const checkboxes = document.querySelectorAll('input[name="assign_tech_checkbox"]:checked');
@@ -1072,12 +1059,12 @@ const TaskModalComponent = {
     const assignedTo = assignedToIds.length === 1 ? assignedToIds[0] : (assignedToIds.length > 1 ? assignedToIds : null);
 
     if (isDeputy && assignees.length === 0) {
-      Utils.showToast('Phó Trưởng phòng vui lòng tick chọn ít nhất 1 Kỹ thuật viên để giao việc!', 'warning');
+      Utils.showToast('Vui lòng tick chọn ít nhất 1 Kỹ thuật viên để giao việc!', 'warning');
       return;
     }
 
     if (!managerId && assignees.length === 0) {
-      Utils.showToast('Vui lòng chọn Phó phòng điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
+      Utils.showToast('Vui lòng chọn Cán bộ điều phối hoặc ít nhất 1 Kỹ thuật viên thực hiện!', 'warning');
       return;
     }
 
@@ -1085,6 +1072,9 @@ const TaskModalComponent = {
       managerId,
       managerName,
       managerRole: 'DEPUTY_MANAGER',
+      assignedBy: currentUser?.uid || null,
+      assignedByName: currentUser?.displayName || 'Chưa chỉ định',
+      assignedByRole: currentUser?.role || 'MANAGER',
       technicianId: assignedTo,
       technicianName: assignedToName,
       technicianIds: assignedToIds,
@@ -1099,6 +1089,9 @@ const TaskModalComponent = {
       await ApiService.assignTask(item.id || item.code, targetType, payload);
 
       // Cập nhật client item state
+      item.assignedBy = currentUser?.uid || item.assignedBy;
+      item.assignedByName = currentUser?.displayName || item.assignedByName;
+      item.assignedByRole = currentUser?.role || item.assignedByRole;
       item.assignedManagerId = managerId;
       item.assignedManagerName = managerName;
       item.assignedTo = assignedTo;
@@ -1306,6 +1299,71 @@ const TaskModalComponent = {
     }
   },
 
+  getCommentsListHtml(comments = []) {
+    const currentUser = AuthService.getCurrentUser();
+    if (!comments || comments.length === 0) {
+      return `
+        <div class="text-center text-slate-400 py-12 text-xs space-y-2">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mx-auto">
+            <i class="fa-regular fa-comments"></i>
+          </div>
+          <h4 class="font-black text-slate-700 text-sm">Kênh trao đổi & phối hợp xử lý trực tiếp</h4>
+          <p class="text-slate-500 max-w-sm mx-auto">Kỹ thuật viên, Trưởng phòng và Người gửi phản ánh có thể nhắn tin trao đổi trực tuyến tại đây.</p>
+        </div>
+      `;
+    }
+
+    return comments.map(c => {
+      const isMe = currentUser && (
+        (currentUser.displayName && c.authorName === currentUser.displayName) ||
+        (currentUser.email && c.authorEmail === currentUser.email)
+      );
+      const isUrgent = !!c.isUrgent;
+      const isStaff = !!c.isStaff || (c.authorRole && c.authorRole !== 'USER');
+      // Role badge: Chỉ hiển thị với KTV/Quản trị viên, KHÔNG hiển thị nhãn "Cán bộ / Giảng viên" đối với người gửi phản ánh
+      const roleBadgeHtml = isStaff && c.authorRole && c.authorRole !== 'USER' 
+        ? Utils.renderRoleBadge(c.authorRole) 
+        : (isStaff ? Utils.renderRoleBadge('STAFF') : '');
+
+      return `
+        <div class="flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''} animate-fade-in">
+          <div class="w-8 h-8 rounded-full ${isMe ? 'bg-blue-600 text-white' : (isStaff ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')} flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs">
+            ${isStaff ? '<i class="fa-solid fa-screwdriver-wrench text-[10px]"></i>' : (c.authorName || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div class="max-w-[80%] space-y-1">
+            <div class="flex items-center gap-1.5 ${isMe ? 'justify-end' : ''} text-[11px]">
+              <span class="font-extrabold text-slate-900">${c.authorName || (isStaff ? 'Kỹ thuật viên' : (this.currentData?.senderName || 'Người phản ánh'))}</span>
+              ${roleBadgeHtml}
+              <span class="text-slate-400 text-[10px]">${Utils.timeAgo(c.createdAt)}</span>
+            </div>
+            <div class="p-3 rounded-2xl text-xs leading-relaxed ${
+              isUrgent
+                ? 'bg-red-50 text-red-950 border-2 border-red-400 shadow-xs'
+                : (isMe 
+                    ? 'bg-blue-600 text-white rounded-tr-none shadow-xs' 
+                    : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200')
+            }">
+              ${isUrgent ? `
+                <div class="flex items-center gap-1 text-[11px] font-black text-red-700 mb-1">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>🚨 YÊU CẦU GẤP TỪ NGƯỜI GỬI:</span>
+                </div>
+              ` : ''}
+              ${c.content}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  renderCommentsListOnly() {
+    const list = document.getElementById('modal-comments-list');
+    if (!list || !this.currentData) return;
+    list.innerHTML = this.getCommentsListHtml(this.currentData.comments || []);
+    list.scrollTop = list.scrollHeight;
+  },
+
   fillQuickReply(text) {
     const input = document.getElementById('comment-text-input');
     if (input) {
@@ -1321,22 +1379,52 @@ const TaskModalComponent = {
     if (!content) return;
 
     const item = this.currentData;
+    if (!item) return;
     const isReport = item.type === 'REPORT' || (item.code && item.code.startsWith('PYC-'));
     const targetType = isReport ? 'REPORT' : 'TASK';
+    const currentUser = AuthService.getCurrentUser();
 
+    // 1. Optimistic Update 0ms: Hiển thị ngay tin nhắn tức thì lên giao diện
+    const tempId = 'temp_' + Date.now();
+    const newComment = {
+      id: tempId,
+      targetCode: item.code || item.id,
+      content: content,
+      authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Kỹ thuật viên',
+      authorEmail: currentUser?.email || '',
+      authorRole: currentUser?.role || 'STAFF',
+      isStaff: true,
+      isUrgent: false,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!item.comments) item.comments = [];
+    item.comments.push(newComment);
+
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    SoundService.playSuccess();
+    this.renderCommentsListOnly();
+
+    // 2. Gửi API lưu ngầm vào Firestore & Realtime broadcast
     try {
       const res = await ApiService.addComment(item.id || item.code, targetType, {
         targetCode: item.code,
         content: content,
+        authorName: newComment.authorName,
+        authorEmail: newComment.authorEmail,
+        authorRole: newComment.authorRole,
         isStaff: true
       });
 
-      if (!item.comments) item.comments = [];
-      item.comments.push(res.data);
-      if (input) input.value = '';
-      
-      SoundService.playSuccess();
-      this.renderModal();
+      if (res && res.data) {
+        const idx = item.comments.findIndex(c => c.id === tempId);
+        if (idx !== -1) {
+          item.comments[idx] = res.data;
+        }
+      }
     } catch (err) {
       Utils.showToast('Lỗi gửi tin nhắn: ' + err.message, 'error');
     }

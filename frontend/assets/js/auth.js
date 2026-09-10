@@ -447,13 +447,23 @@ const AuthService = {
     }
   },
 
-  /**
-   * ĐĂNG XUẤT THỰC TẾ
-   */
   async logout() {
     this.currentUser = null;
     if (window.firebase && window.firebase.auth) {
       await window.firebase.auth().signOut().catch(() => {});
+    }
+    if (window.RealtimeService) {
+      RealtimeService.notifications = [];
+      RealtimeService.saveLocalData();
+      RealtimeService.notifyNotificationListeners();
+    }
+    if (window.NotificationDrawerComponent) {
+      NotificationDrawerComponent.close();
+      NotificationDrawerComponent.render();
+    }
+    if (window.NavbarComponent) {
+      NavbarComponent.updateBadge(0);
+      NavbarComponent.render('app-navbar');
     }
     this.notifyListeners();
     Utils.showToast('Đã đăng xuất thành công.', 'info');

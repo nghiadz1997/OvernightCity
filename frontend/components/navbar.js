@@ -81,13 +81,15 @@ const NavbarComponent = {
                 <span class="hidden sm:inline">Cài WebApp</span>
               </button>
 
-              <!-- Notifications Bell -->
-              <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" title="Thông báo hệ thống">
-                <i class="fa-solid fa-bell text-lg"></i>
-                <span id="nav-notif-badge" class="${unreadCount > 0 ? '' : 'hidden'} absolute top-1 right-1 w-5 h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-                  ${unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              </button>
+              <!-- Notifications Bell (Chỉ hiển thị cho người dùng đã đăng nhập tài khoản) -->
+              ${isAuth ? `
+                <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" title="Thông báo hệ thống">
+                  <i class="fa-solid fa-bell text-lg"></i>
+                  <span id="nav-notif-badge" class="${unreadCount > 0 ? '' : 'hidden'} absolute top-1 right-1 w-5 h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+                    ${unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                </button>
+              ` : ''}
 
               <!-- User Profile or Login -->
               ${isAuth ? `
@@ -127,7 +129,7 @@ const NavbarComponent = {
                     </div>
 
                     <div class="border-t border-slate-100 mt-1"></div>
-                    <button class="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2" onclick="AuthService.logout(); window.location.hash='#/login'">
+                    <button class="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer font-bold" onclick="NavbarComponent.handleLogout()">
                       <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
                     </button>
                   </div>
@@ -154,6 +156,19 @@ const NavbarComponent = {
     const mobileBtn = document.getElementById('mobile-menu-toggle');
     if (mobileBtn) {
       mobileBtn.onclick = () => SidebarComponent.toggleMobile();
+    }
+  },
+
+  async handleLogout() {
+    try {
+      await AuthService.logout();
+    } catch (e) {
+      console.error('[NavbarComponent] Logout error:', e);
+    }
+    NavbarComponent.render('app-navbar');
+    window.location.hash = '#/login';
+    if (typeof App !== 'undefined' && typeof App.handleRouting === 'function') {
+      App.handleRouting();
     }
   },
 
