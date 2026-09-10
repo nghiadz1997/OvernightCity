@@ -513,6 +513,25 @@ const Utils = {
     } else {
       this.copyShareLink();
     }
+  },
+
+  _cachedIp: null,
+  /**
+   * Lấy địa chỉ IP thật của máy client (dùng khi chạy static / serverless không có backend reverse proxy)
+   */
+  async getClientIp() {
+    if (this._cachedIp) return this._cachedIp;
+    try {
+      const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ip) {
+          this._cachedIp = data.ip;
+          return data.ip;
+        }
+      }
+    } catch (e) {}
+    return '127.0.0.1';
   }
 };
 

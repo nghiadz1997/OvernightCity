@@ -24,6 +24,7 @@ const AuditLogsPage = {
     this.isLoading = true;
     this.updateLoadingUI(true);
 
+    // 1. Thử gọi API máy chủ Node.js nếu đang chạy Backend cục bộ
     try {
       const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
       const params = new URLSearchParams();
@@ -31,18 +32,134 @@ const AuditLogsPage = {
       if (this.searchQuery) params.append('search', this.searchQuery);
 
       const res = await fetch(`${apiBase}/audit/logs?${params.toString()}`);
-      if (!res.ok) throw new Error('Không thể tải nhật ký từ máy chủ.');
-
-      const json = await res.json();
-      if (json.success) {
-        this.logs = json.data || [];
-        this.stats = json.stats || this.stats;
-        this.renderTable();
-        this.renderStats();
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          this.logs = json.data;
+          this.stats = json.stats || this.stats;
+          this.renderTable();
+          this.renderStats();
+          this.isLoading = false;
+          this.updateLoadingUI(false);
+          return;
+        }
       }
+    } catch (apiErr) {
+      console.warn('[AuditLogsPage] Server API unavailable, loading directly from Cloud Firestore...', apiErr);
+    }
+
+    // 2. Chế độ Serverless / GitHub Pages: Đọc trực tiếp từ Cloud Firestore
+    try {
+      const db = (window.ApiService && typeof ApiService.getDb === 'function')
+        ? ApiService.getDb()
+        : (window.firebase && window.firebase.firestore ? window.firebase.firestore() : null);
+
+      if (!db) {
+        throw new Error('Chưa kết nối được với Firebase Firestore.');
+      }
+
+      let combinedLogs = [];
+
+      // A. Đọc từ collection 'audit_logs'
+      try {
+        const auditSnap = await db.collection('audit_logs').limit(150).get();
+        auditSnap.forEach(doc => {
+          const d = doc.data();
+          combinedLogs.push({
+            id: doc.id,
+            action: d.action || 'LOGIN',
+            email: d.email || 'Ẩn danh',
+            displayName: d.displayName || 'Người dùng',
+            phone: d.phone || '',
+            deviceId: d.deviceId || '',
+            clientIp: d.clientIp || d.ip || '127.0.0.1',
+            userAgent: d.userAgent || navigator.userAgent,
+            timestamp: d.createdAt || d.timestamp || new Date().toISOString(),
+            details: d.details || (d.provider ? `Đăng nhập qua ${d.provider}` : 'Đăng nhập hệ thống')
+          });
+        });
+      } catch (e) {
+        console.warn('Lỗi đọc audit_logs:', e);
+      }
+
+      // B. Đọc thông tin audit từ collection 'reports'
+      try {
+        const reportsSnap = await db.collection('reports').limit(150).get();
+        reportsSnap.forEach(doc => {
+          const r = doc.data();
+          const meta = r.auditMeta || {};
+          combinedLogs.push({
+            id: 'rep_' + doc.id,
+            action: 'SUBMIT_REPORT',
+            email: meta.verifiedEmail || r.senderEmail || '',
+            displayName: meta.verifiedName || r.senderName || 'Người gửi ẩn danh',
+            phone: r.senderPhone || '',
+            deviceId: meta.deviceId || r.deviceId || '',
+            clientIp: meta.clientIp || r.clientIp || '127.0.0.1',
+            userAgent: meta.userAgent || r.userAgent || 'Trình duyệt Web',
+            timestamp: r.createdAt || meta.submittedAt || new Date().toISOString(),
+            reportCode: r.code || '',
+            details: `Gửi phản ánh #${r.code || ''}: ${r.title || r.categoryName || ''} tại ${r.location || ''}`
+          });
+        });
+      } catch (e) {
+        console.warn('Lỗi đọc reports:', e);
+      }
+
+      // Sắp xếp thời gian mới nhất lên đầu
+      combinedLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // Áp dụng bộ lọc loại hành động
+      let filtered = combinedLogs;
+      if (this.filterType === 'LOGIN') {
+        filtered = filtered.filter(l => l.action === 'LOGIN');
+      } else if (this.filterType === 'SUBMIT_REPORT') {
+        filtered = filtered.filter(l => l.action === 'SUBMIT_REPORT');
+      }
+
+      // Áp dụng tìm kiếm
+      if (this.searchQuery) {
+        const q = this.searchQuery.toLowerCase();
+        filtered = filtered.filter(l =>
+          (l.clientIp && l.clientIp.toLowerCase().includes(q)) ||
+          (l.email && l.email.toLowerCase().includes(q)) ||
+          (l.displayName && l.displayName.toLowerCase().includes(q)) ||
+          (l.deviceId && l.deviceId.toLowerCase().includes(q)) ||
+          (l.reportCode && l.reportCode.toLowerCase().includes(q)) ||
+          (l.phone && l.phone.includes(q))
+        );
+      }
+
+      // Tính toán KPIs thống kê
+      const uniqueIps = new Set(combinedLogs.map(l => l.clientIp).filter(Boolean)).size;
+      const uniqueDevices = new Set(combinedLogs.map(l => l.deviceId).filter(Boolean)).size;
+      const uniqueUsers = new Set(combinedLogs.map(l => l.email).filter(Boolean)).size;
+
+      const ipCounts = {};
+      combinedLogs.forEach(l => {
+        if (l.clientIp) ipCounts[l.clientIp] = (ipCounts[l.clientIp] || 0) + 1;
+      });
+      const topIps = Object.entries(ipCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([ip, count]) => ({ ip, count }));
+
+      this.logs = filtered;
+      this.stats = {
+        totalLogs: combinedLogs.length,
+        uniqueIps,
+        uniqueDevices,
+        uniqueUsers,
+        topIps
+      };
+
+      this.renderTable();
+      this.renderStats();
     } catch (err) {
-      console.error('[AuditLogsPage] Fetch error:', err);
-      Utils.showToast(err.message || 'Lỗi khi tải danh sách nhật ký IP.', 'error');
+      console.error('[AuditLogsPage] Fetch fallback error:', err);
+      Utils.showToast('Đang kết nối Firestore để tải dữ liệu nhật ký...', 'info');
+      this.renderTable();
+      this.renderStats();
     } finally {
       this.isLoading = false;
       this.updateLoadingUI(false);

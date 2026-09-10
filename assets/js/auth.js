@@ -344,10 +344,31 @@ const AuthService = {
 
       this.notifyListeners();
 
-      // Ghi nhận nhật ký đăng nhập và IP lên Server (Audit Trail)
+      // Ghi nhận nhật ký đăng nhập và IP lên Server / Firestore (Audit Trail)
       try {
-        const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
         const deviceId = window.Utils ? Utils.getOrCreateDeviceId() : '';
+        const clientIp = (window.Utils && typeof Utils.getClientIp === 'function')
+          ? await Utils.getClientIp()
+          : '127.0.0.1';
+
+        // 1. Ghi trực tiếp vào Firestore để hoạt động cả trên GitHub Pages
+        if (window.firebase && window.firebase.firestore) {
+          window.firebase.firestore().collection('audit_logs').add({
+            action: 'LOGIN',
+            email: fbUser.email,
+            displayName: displayName,
+            photoURL: fbUser.photoURL || '',
+            deviceId: deviceId,
+            clientIp: clientIp,
+            userAgent: navigator.userAgent,
+            provider: 'Google',
+            details: 'Đăng nhập Google thành công',
+            createdAt: new Date().toISOString()
+          }).catch(e => console.warn('[AuthService] Firestore audit log failed:', e));
+        }
+
+        // 2. Ghi lên Backend Node API nếu có
+        const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
         fetch(`${apiBase}/audit/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
@@ -356,9 +377,10 @@ const AuthService = {
             displayName: displayName,
             photoURL: fbUser.photoURL || '',
             deviceId,
+            clientIp,
             provider: 'Google'
           })
-        }).catch(e => console.warn('[AuthService] Login audit log failed:', e));
+        }).catch(() => {});
       } catch (logErr) {}
 
       return this.currentUser;
