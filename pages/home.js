@@ -107,8 +107,35 @@ const HomePage = {
           </div>
         </div>
 
+        <!-- PWA / WebApp Install & Share Banner for iPhone & Mobile -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 w-full">
+          <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-blue-800/50">
+            <div class="flex items-center gap-4 text-left">
+              <div class="w-12 h-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-2xl shrink-0 border border-blue-400/30">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-extrabold uppercase tracking-wide border border-blue-400/30">
+                    <i class="fa-brands fa-apple"></i> iOS & Android PWA
+                  </span>
+                  <span class="text-xs text-slate-400 hidden sm:inline">• Trải nghiệm như ứng dụng gốc</span>
+                </div>
+                <h4 class="text-base sm:text-lg font-black text-white mt-1">Cài đặt WebApp & Chia sẻ về iPhone</h4>
+                <p class="text-xs text-slate-300 mt-0.5">Thêm vào màn hình chính để mở ngay không cần trình duyệt, thao tác mượt mà.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <button onclick="Utils.shareOrInstallApp()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                <span>Thêm vào iPhone / Chia sẻ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Emergency Hotline & Information -->
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
           <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div class="flex items-center gap-4">
               <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl shrink-0">
@@ -176,7 +203,7 @@ const HomePage = {
         <!-- Footer -->
         <footer class="bg-slate-950 text-slate-400 py-8 px-4 border-t border-slate-800 text-center text-xs">
           <p class="font-semibold text-slate-300">NSG SUPPORT © 2026 - HỆ THỐNG PHẢN ÁNH & HỖ TRỢ KỸ THUẬT</p>
-          <p class="mt-1 text-slate-500">Được xây dựng phục vụ công tác quản lý và hỗ trợ đào tạo tại cơ sở giáo dục đại học / cao đẳng.</p>
+          <p class="mt-1 text-slate-400 font-medium">Phát Triển Bởi: <span class="text-blue-400 font-bold">HobberDz52</span></p>
         </footer>
       </div>
     `;

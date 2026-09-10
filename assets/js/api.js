@@ -18,8 +18,32 @@ const ApiService = {
     throw new Error('Firebase Firestore chưa sẵn sàng. Vui lòng tải lại trang.');
   },
 
-  // 1. Gửi phản ánh từ người dùng (Lưu trực tiếp vào Cloud Firestore collection 'reports')
+  // 1. Gửi phản ánh từ người dùng (Ưu tiên gọi Backend API để thu thập IP, Device ID & gửi Email tự động)
   async submitReport(reportData) {
+    const deviceId = reportData.deviceId || (window.Utils ? Utils.getOrCreateDeviceId() : '');
+
+    // Thử gửi qua Server Backend API trước để thu thập IP, User-Agent, Device ID và gửi Email
+    try {
+      const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
+      const res = await fetch(`${apiBase}/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId
+        },
+        body: JSON.stringify({ ...reportData, deviceId })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          return { success: true, code: json.code, data: json.data };
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[ApiService] Server API submit error, falling back to direct Firestore:', apiErr);
+    }
+
     try {
       const db = this.getDb();
       const code = `PYC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -31,6 +55,7 @@ const ApiService = {
         senderDept: reportData.senderDept || '',
         senderPhone: reportData.senderPhone || '',
         senderEmail: reportData.senderEmail || '',
+        deviceId: deviceId,
         categoryId: reportData.categoryId || 'OTHER',
         categoryName: reportData.categoryName || 'Khác',
         priority: reportData.priority || 'BÌNH THƯỜNG',

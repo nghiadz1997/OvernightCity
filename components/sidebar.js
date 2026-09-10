@@ -213,8 +213,13 @@ const SidebarComponent = {
               ${!collapsed ? `<span>Báo cáo & Xuất Excel</span>` : ''}
             </a>
 
-            <!-- ⚙️ Cài đặt -->
+            <!-- ⚙️ Cài đặt & Quản trị Tối cao (Super Admin) -->
             ${AuthService.isSuperAdmin() ? `
+              <a href="#/admin/audit-logs" title="Nhật ký IP & Đăng nhập" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/audit-logs' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-indigo-300'}">
+                <i class="fa-solid fa-fingerprint w-5 text-center text-indigo-400"></i>
+                ${!collapsed ? `<span>Nhật ký IP & Đăng nhập</span>` : ''}
+              </a>
+
               <a href="#/admin/settings" title="Cài đặt hệ thống" class="sidebar-item flex items-center ${collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2'} rounded-xl text-sm font-medium transition-all ${currentHash === '#/admin/settings' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}">
                 <i class="fa-solid fa-sliders w-5 text-center text-slate-400"></i>
                 ${!collapsed ? `<span>Cài đặt hệ thống</span>` : ''}

@@ -367,6 +367,152 @@ const Utils = {
     if (item.assignedReviewerId === userId) return true;
 
     return false;
+  },
+
+  /**
+   * Lấy hoặc sinh mới Device ID (UUID v4) duy nhất cho thiết bị/trình duyệt này
+   * Lưu vào localStorage để định danh máy gửi chống chối bỏ
+   */
+  getOrCreateDeviceId() {
+    const STORAGE_KEY = 'nsg_device_id';
+    try {
+      let deviceId = localStorage.getItem(STORAGE_KEY);
+      if (!deviceId) {
+        deviceId = 'dev_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        localStorage.setItem(STORAGE_KEY, deviceId);
+      }
+      return deviceId;
+    } catch (e) {
+      return 'dev_fallback_' + Date.now();
+    }
+  },
+
+  /**
+   * Chia sẻ hoặc Hướng dẫn thêm vào màn hình chính iPhone / Android
+   */
+  async shareOrInstallApp() {
+    const shareData = {
+      title: 'NSG SUPPORT - Phản Ánh Kỹ Thuật',
+      text: 'Cổng phản ánh và hỗ trợ kỹ thuật CSVC nội bộ NSG',
+      url: window.location.origin + window.location.pathname
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('Native share error:', err);
+        }
+      }
+    }
+    this.showShareModal();
+  },
+
+  /**
+   * Hiển thị Modal hướng dẫn chia sẻ & Cài đặt WebApp trên iPhone / Safari
+   */
+  showShareModal() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const currentUrl = window.location.origin + window.location.pathname;
+
+    let existingModal = document.getElementById('pwa-share-modal');
+    if (existingModal) existingModal.remove();
+
+    const modalHtml = `
+      <div id="pwa-share-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative overflow-hidden border border-slate-100">
+          <button onclick="document.getElementById('pwa-share-modal').remove()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 cursor-pointer">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+
+          <div class="text-center mb-5">
+            <div class="w-16 h-16 bg-blue-600 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-3">
+              <i class="fa-solid fa-mobile-screen-button text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-900">CÀI ĐẶT & CHIA SẺ WEBAPP</h3>
+            <p class="text-xs text-slate-500 mt-1">Dùng mượt như ứng dụng App Store không cần cài đặt qua Store</p>
+          </div>
+
+          ${isIOS ? `
+            <div class="bg-blue-50 rounded-xl p-4 border border-blue-200 mb-4 text-left">
+              <div class="flex items-center gap-2 text-blue-900 font-bold text-xs mb-2">
+                <i class="fa-brands fa-apple text-base"></i> Hướng dẫn thêm vào iPhone (iOS Safari):
+              </div>
+              <ol class="text-xs text-slate-700 space-y-2 pl-4 list-decimal leading-relaxed">
+                <li>Bấm nút <span class="font-bold text-blue-600"><i class="fa-solid fa-arrow-up-from-bracket"></i> Chia sẻ (Share)</span> ở thanh công cụ phía dưới trình duyệt Safari.</li>
+                <li>Cuộn xuống và chọn <span class="font-bold text-blue-700"><i class="fa-solid fa-square-plus"></i> "Thêm vào MH chính" (Add to Home Screen)</span>.</li>
+                <li>Nhấn <span class="font-bold text-blue-700">"Thêm" (Add)</span> ở góc trên bên phải. Ứng dụng sẽ xuất hiện trên màn hình chính iPhone!</li>
+              </ol>
+            </div>
+          ` : `
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-4 text-left">
+              <div class="flex items-center gap-2 text-slate-800 font-bold text-xs mb-2">
+                <i class="fa-solid fa-circle-info text-blue-600"></i> Hướng dẫn cài đặt WebApp:
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed mb-2">Mở menu trình duyệt (dấu 3 chấm ở góc trên/dưới) → Chọn <strong>"Cài đặt ứng dụng"</strong> hoặc <strong>"Thêm vào Màn hình chính"</strong> để dùng toàn màn hình.</p>
+            </div>
+          `}
+
+          <!-- Quick Copy Link -->
+          <div class="flex items-center gap-2 bg-slate-100 p-2 rounded-xl border border-slate-200 mb-4">
+            <input id="share-link-input" type="text" readonly value="${currentUrl}" class="bg-transparent text-xs text-slate-700 flex-1 px-2 py-1 outline-none font-mono select-all">
+            <button onclick="Utils.copyShareLink()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-copy"></i> Sao chép link
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="Utils.nativeShareDirect()" class="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer">
+              <i class="fa-solid fa-share-nodes"></i> Chia sẻ ngay
+            </button>
+            <button onclick="document.getElementById('pwa-share-modal').remove()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  copyShareLink() {
+    const input = document.getElementById('share-link-input');
+    const url = input ? input.value : window.location.origin;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.showToast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
+      }).catch(() => {
+        if (input) { input.select(); document.execCommand('copy'); }
+        this.showToast('Đã sao chép liên kết!', 'success');
+      });
+    } else if (input) {
+      input.select();
+      document.execCommand('copy');
+      this.showToast('Đã sao chép liên kết!', 'success');
+    }
+  },
+
+  async nativeShareDirect() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'NSG SUPPORT - Phản Ánh Kỹ Thuật',
+          text: 'Cổng tiếp nhận phản ánh & hỗ trợ CSVC nội bộ NSG',
+          url: window.location.origin + window.location.pathname
+        });
+      } catch (e) {
+        if (e.name !== 'AbortError') this.copyShareLink();
+      }
+    } else {
+      this.copyShareLink();
+    }
   }
 };
 
