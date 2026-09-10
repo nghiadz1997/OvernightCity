@@ -49,6 +49,22 @@ const ApiService = {
       const code = `PYC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
       const nowIso = new Date().toISOString();
 
+      let clientIp = '127.0.0.1';
+      try {
+        if (window.Utils && typeof Utils.getClientIp === 'function') {
+          clientIp = await Utils.getClientIp();
+        }
+      } catch (ipErr) {}
+
+      const auditMeta = {
+        clientIp: clientIp,
+        userAgent: navigator.userAgent,
+        deviceId: deviceId,
+        verifiedEmail: reportData.senderEmail || '',
+        verifiedName: reportData.senderName || '',
+        submittedAt: nowIso
+      };
+
       const fullData = {
         senderName: reportData.senderName || '',
         senderCode: reportData.senderCode || '',
@@ -56,6 +72,8 @@ const ApiService = {
         senderPhone: reportData.senderPhone || '',
         senderEmail: reportData.senderEmail || '',
         deviceId: deviceId,
+        clientIp: clientIp,
+        auditMeta: auditMeta,
         categoryId: reportData.categoryId || 'OTHER',
         categoryName: reportData.categoryName || 'Khác',
         priority: reportData.priority || 'BÌNH THƯỜNG',
@@ -77,7 +95,22 @@ const ApiService = {
       const docRef = await db.collection('reports').add(fullData);
       fullData.id = docRef.id;
 
-      // Ghi nhật ký vào collection 'activity_logs'
+      // Ghi nhật ký vào collection 'audit_logs' & 'activity_logs'
+      try {
+        await db.collection('audit_logs').add({
+          action: 'SUBMIT_REPORT',
+          reportCode: code,
+          email: reportData.senderEmail || '',
+          displayName: reportData.senderName || '',
+          phone: reportData.senderPhone || '',
+          deviceId: deviceId,
+          clientIp: clientIp,
+          userAgent: navigator.userAgent,
+          details: `Gửi phản ánh #${code}: ${reportData.title || reportData.categoryName || ''}`,
+          createdAt: nowIso
+        });
+      } catch (e) {}
+
       try {
         await db.collection('activity_logs').add({
           targetId: docRef.id,
