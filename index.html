@@ -1,12 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NSG SUPPORT - Đang chuyển hướng...</title>
-  <meta http-equiv="refresh" content="0; url=frontend/">
+  <meta http-equiv="refresh" content="0; url=./frontend/">
   <script>
-    window.location.replace("frontend/" + window.location.search + window.location.hash);
+    var base = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+    window.location.replace(base + "frontend/" + window.location.search + window.location.hash);
   </script>
   <style>
     body {

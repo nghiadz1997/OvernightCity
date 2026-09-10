@@ -1,4 +1,4 @@
-﻿name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -25,14 +25,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 1. Deploy trực tiếp vào nhánh gh-pages (Hoạt động 100% không phụ thuộc chế độ Pages)
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend
+
+      # 2. Deploy qua GitHub Actions Pages (Dành cho Repo chọn Source: GitHub Actions)
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        continue-on-error: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        continue-on-error: true
         with:
           path: './frontend'
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
