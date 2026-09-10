@@ -14,6 +14,7 @@ const SettingsPage = {
     notifyOnUrgent: true,
     notifyOnAssign: true,
     notifyOnReview: true,
+    notifyOnRating: true,
     notifyOnComplete: true
   },
 
@@ -37,6 +38,7 @@ const SettingsPage = {
     const optUrgent = document.getElementById('tele-opt-urgent');
     const optAssign = document.getElementById('tele-opt-assign');
     const optReview = document.getElementById('tele-opt-review');
+    const optRating = document.getElementById('tele-opt-rating');
 
     if (tokenInput) tokenInput.value = this.config.botToken || '';
     if (chatIdInput) chatIdInput.value = this.config.chatId || '';
@@ -47,6 +49,7 @@ const SettingsPage = {
     if (optUrgent) optUrgent.checked = this.config.notifyOnUrgent !== false;
     if (optAssign) optAssign.checked = this.config.notifyOnAssign !== false;
     if (optReview) optReview.checked = this.config.notifyOnReview !== false;
+    if (optRating) optRating.checked = this.config.notifyOnRating !== false;
   },
 
   render() {
@@ -169,7 +172,13 @@ const SettingsPage = {
 
         <!-- Tùy chọn sự kiện -->
         <div class="bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
-          <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Cấu hình nhận thông báo tự động:</h4>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Cấu hình nhận thông báo tự động:</h4>
+            <button type="button" id="btn-test-tele-rating" class="px-3.5 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl border border-amber-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs" onclick="SettingsPage.testRatingTelegram()">
+              <i class="fa-solid fa-star text-amber-500"></i>
+              <span>Test Bot Đánh giá</span>
+            </button>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <label class="flex items-center gap-2.5 font-bold text-slate-700 cursor-pointer">
               <input type="checkbox" id="tele-enable-toggle" checked class="w-4 h-4 text-sky-600 rounded">
@@ -186,6 +195,10 @@ const SettingsPage = {
             <label class="flex items-center gap-2.5 font-semibold text-slate-700 cursor-pointer">
               <input type="checkbox" id="tele-opt-assign" checked class="w-4 h-4 text-sky-600 rounded">
               <span>Bắn tin khi Trưởng phòng/Phó phòng phân công KTV</span>
+            </label>
+            <label class="flex items-center gap-2.5 font-semibold text-slate-700 cursor-pointer sm:col-span-2">
+              <input type="checkbox" id="tele-opt-rating" checked class="w-4 h-4 text-amber-500 rounded">
+              <span>Bắn tin khi Người dùng gửi Đánh giá chất lượng dịch vụ (1 - 5 sao & nhận xét)</span>
             </label>
           </div>
         </div>
@@ -317,6 +330,42 @@ const SettingsPage = {
     }
   },
 
+  async testRatingTelegram() {
+    const fallbackToken = document.getElementById('tele-bot-token')?.value.trim() || '';
+    const fallbackChatId = document.getElementById('tele-chat-id')?.value.trim() || '';
+    const btn = document.getElementById('btn-test-tele-rating');
+
+    if (!fallbackToken || !fallbackChatId) {
+      Utils.showToast('Vui lòng nhập Bot 1 Token và Chat ID trước khi kiểm tra!', 'warning', 4000);
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang test...';
+    }
+
+    Utils.showToast('Đang gửi tin nhắn thử nghiệm Đánh giá chất lượng dịch vụ tới Telegram...', 'info', 3000);
+
+    try {
+      const res = await ApiService.testRatingTelegram(fallbackToken, fallbackChatId);
+      if (res.success) {
+        SoundService.playSuccess();
+        Utils.showToast('✅ GỬI THÀNH CÔNG THÔNG BÁO ĐÁNH GIÁ TỚI TELEGRAM! Hãy kiểm tra nhóm chat.', 'success', 5000);
+        this.saveSettings(false);
+      } else {
+        throw new Error(res.error || 'Kiểm tra lại Token hoặc Chat ID.');
+      }
+    } catch (e) {
+      Utils.showToast('❌ Lỗi kết nối: ' + e.message, 'error', 6000);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-star text-amber-500"></i><span>Test Bot Đánh giá</span>';
+      }
+    }
+  },
+
   async saveSettings(showSuccessToast = true) {
     const tokenInput = document.getElementById('tele-bot-token');
     const chatIdInput = document.getElementById('tele-chat-id');
@@ -327,6 +376,7 @@ const SettingsPage = {
     const optUrgent = document.getElementById('tele-opt-urgent');
     const optAssign = document.getElementById('tele-opt-assign');
     const optReview = document.getElementById('tele-opt-review');
+    const optRating = document.getElementById('tele-opt-rating');
 
     const newConfig = {
       botToken: tokenInput ? tokenInput.value.trim() : '',
@@ -338,6 +388,7 @@ const SettingsPage = {
       notifyOnUrgent: optUrgent ? optUrgent.checked : true,
       notifyOnAssign: optAssign ? optAssign.checked : true,
       notifyOnReview: optReview ? optReview.checked : true,
+      notifyOnRating: optRating ? optRating.checked : true,
       updatedAt: new Date().toISOString()
     };
 
