@@ -166,6 +166,15 @@ const App = {
       this.currentPage = ReportsExportPage;
       appMain.innerHTML = ReportsExportPage.render();
       ReportsExportPage.init();
+    } else if (path === '#/admin/audit-logs') {
+      if (!AuthService.isSuperAdmin()) {
+        Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền xem Nhật ký IP & Đăng nhập!', 'warning', 4000);
+        window.location.hash = '#/admin';
+        return;
+      }
+      this.currentPage = AuditLogsPage;
+      appMain.innerHTML = AuditLogsPage.render();
+      AuditLogsPage.init();
     } else if (path === '#/admin/settings') {
       if (!AuthService.isSuperAdmin()) {
         Utils.showToast('Từ chối quyền: Chỉ Quản trị viên Super Admin mới có quyền truy cập Cài đặt hệ thống!', 'warning', 4000);

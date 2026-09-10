@@ -199,8 +199,55 @@ const ReportFormPage = {
 
     this.isSubmitting = false;
 
+    // 1. NẾU CHƯA ĐĂNG NHẬP GOOGLE: BẮT BUỘC ĐĂNG NHẬP MỚI MỞ FORM PHẢN ÁNH
+    if (!user) {
+      return `
+        <div class="max-w-lg mx-auto px-4 py-12 sm:py-16 animate-fade-in">
+          <!-- Breadcrumb -->
+          <div class="flex items-center justify-between mb-6">
+            <nav class="flex items-center gap-2 text-xs text-slate-500">
+              <a href="#/" class="hover:text-blue-600">Trang chủ</a>
+              <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              <span class="text-slate-900 font-semibold">Gửi phản ánh sự cố</span>
+            </nav>
+          </div>
+
+          <!-- Auth Gate Card -->
+          <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden text-center p-8 sm:p-10 relative">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-3xl mx-auto mb-6 shadow-xl shadow-blue-500/25">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+
+            <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 mb-3">
+              Xác thực danh tính trước khi gửi
+            </span>
+
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 mb-3 tracking-tight">
+              Đăng nhập để gửi phản ánh
+            </h1>
+
+            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-8">
+              Để đảm bảo phản ánh được chuyển đúng bộ phận kỹ thuật, ngăn chặn spam và <strong>tự động nhận email cập nhật tiến độ xử lý</strong>, vui lòng đăng nhập tài khoản Google để tiếp tục.
+            </p>
+
+            <!-- Google Login Button -->
+            <button type="button" id="btn-google-login-gate" onclick="ReportFormPage.handleGoogleLogin()" class="w-full py-4 px-6 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-sm border-2 border-slate-200 hover:border-blue-500 shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-3 transform active:scale-98 cursor-pointer group">
+              <svg class="w-6 h-6 transition-transform group-hover:scale-110" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+              <span>ĐĂNG NHẬP BẰNG GOOGLE</span>
+            </button>
+
+            <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <i class="fa-solid fa-lock text-emerald-500"></i>
+              <span>Họ tên & Email của bạn sẽ tự động điền và bảo mật</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     setTimeout(() => this.init(), 50);
 
+    // 2. ĐÃ ĐĂNG NHẬP: HIỂN THỊ TOÀN BỘ FORM PHẢN ÁNH
     return `
       <div class="max-w-3xl mx-auto px-4 py-8 sm:px-6 animate-fade-in">
         <!-- Breadcrumb -->
@@ -233,6 +280,27 @@ const ReportFormPage = {
           <form id="report-submission-form" class="p-6 sm:p-8 space-y-6" onsubmit="ReportFormPage.handleSubmit(event)">
             <!-- Honeypot Field chống spam (mục 45) -->
             <input type="text" name="_hp_website" id="_hp_website" style="display:none !important;" tabindex="-1" autocomplete="off">
+
+            <!-- Thẻ định danh người dùng đã xác thực Google -->
+            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden ring-2 ring-emerald-300">
+                  ${user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user-check"></i>`}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-bold text-slate-900">${user.displayName || 'Người dùng'}</span>
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
+                      <i class="fa-solid fa-circle-check text-emerald-600"></i> Đã xác thực Google
+                    </span>
+                  </div>
+                  <div class="text-xs text-slate-500 font-medium">${user.email}</div>
+                </div>
+              </div>
+              <button type="button" onclick="ReportFormPage.handleSwitchAccount()" class="text-xs text-slate-600 hover:text-red-600 font-semibold px-3 py-1.5 rounded-xl bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 transition shrink-0">
+                <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Đổi tài khoản
+              </button>
+            </div>
 
             <!-- Phần 1: Địa điểm xảy ra sự cố & Loại thiết bị (ĐẨY LÊN ĐẦU TIÊN) -->
             <div class="space-y-4">
@@ -334,16 +402,25 @@ const ReportFormPage = {
               </div>
             </div>
 
-            <!-- Phần 3: Thông tin người gửi phản ánh (Họ và tên, Số điện thoại) -->
+            <!-- Phần 3: Thông tin người gửi phản ánh -->
             <div class="border-t border-slate-200 pt-6">
-              <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <i class="fa-solid fa-address-card text-blue-600"></i> 3. Thông tin người gửi phản ánh
-              </h3>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-address-card text-blue-600"></i> 3. Thông tin người gửi phản ánh
+                </h3>
+                ${user ? `
+                  <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                    <i class="fa-solid fa-lock text-[10px]"></i> Đã định danh Google
+                  </span>
+                ` : ''}
+              </div>
               <p class="text-xs text-slate-500 mb-4 font-normal">
-                Vui lòng cung cấp chính xác <strong>Họ tên</strong> và <strong>Số điện thoại</strong> để Kỹ thuật viên liên hệ trực tiếp khi đến hỗ trợ xử lý sự cố.
+                ${user 
+                  ? 'Họ tên và Email được trích xuất tự động từ tài khoản Google đã xác thực. Bạn chỉ cần nhập thêm Số điện thoại liên hệ.' 
+                  : 'Vui lòng cung cấp chính xác Họ tên, Email và Số điện thoại để nhận email xác nhận & thông báo kết quả xử lý sự cố.'}
               </p>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <!-- Họ và tên -->
                 <div>
                   <label class="block text-xs font-bold text-slate-700 mb-1">
@@ -353,7 +430,20 @@ const ReportFormPage = {
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <i class="fa-solid fa-user"></i>
                     </div>
-                    <input type="text" id="rep-sender-name" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Ví dụ: Nguyễn Văn An" value="${user?.displayName || ''}" required>
+                    <input type="text" id="rep-sender-name" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium ${user ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''}" placeholder="Ví dụ: Nguyễn Văn An" value="${user?.displayName || ''}" ${user ? 'readonly' : ''} required>
+                  </div>
+                </div>
+
+                <!-- Email nhận phản hồi -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Email nhận thông báo kết quả <span class="text-red-500">*</span>
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <input type="email" id="rep-sender-email" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium ${user ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''}" placeholder="example@gmail.com" value="${user?.email || ''}" ${user ? 'readonly' : ''} required>
                   </div>
                 </div>
 
@@ -505,11 +595,18 @@ const ReportFormPage = {
 
     // Lấy và kiểm tra thông tin người gửi
     const senderName = document.getElementById('rep-sender-name')?.value?.trim();
+    const senderEmail = document.getElementById('rep-sender-email')?.value?.trim();
     const senderPhone = document.getElementById('rep-sender-phone')?.value?.trim();
 
     if (!senderName) {
       Utils.showToast('Vui lòng nhập Họ và tên người gửi phản ánh!', 'warning');
       document.getElementById('rep-sender-name')?.focus();
+      return;
+    }
+
+    if (!senderEmail || !senderEmail.includes('@')) {
+      Utils.showToast('Vui lòng nhập địa chỉ Email hợp lệ để nhận thông báo tiến độ!', 'warning');
+      document.getElementById('rep-sender-email')?.focus();
       return;
     }
 
@@ -545,15 +642,18 @@ const ReportFormPage = {
         }
       }
 
-      // 2. Lấy dữ liệu form
+      // 2. Lấy dữ liệu form & Device ID định danh thiết bị
       const catSelect = document.getElementById('rep-category-id');
       const catName = catSelect.options[catSelect.selectedIndex]?.getAttribute('data-name') || 'Khác';
+      const deviceId = Utils.getOrCreateDeviceId();
 
       const payload = {
         senderName: senderName,
         senderCode: '',
         senderDept: '',
         senderPhone: senderPhone,
+        senderEmail: senderEmail,
+        deviceId: deviceId,
         categoryId: catSelect.value,
         categoryName: catName,
         priority: document.getElementById('rep-priority').value,
@@ -586,7 +686,7 @@ const ReportFormPage = {
           SoundService.playSuccess();
         } catch (sErr) {}
 
-        this.renderSuccessModal(result.code);
+        this.renderSuccessModal(result.code, senderEmail);
       } else {
         throw new Error(result.message || 'Lỗi gửi phản ánh.');
       }
@@ -601,9 +701,53 @@ const ReportFormPage = {
   },
 
   /**
+   * Đăng nhập nhanh bằng Google ngay tại Form
+   */
+  async handleGoogleLogin() {
+    try {
+      const btn = document.getElementById('btn-google-login-gate') || document.getElementById('btn-google-login');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-sm mr-2"></i><span>Đang kết nối Google...</span>';
+      }
+      const user = await AuthService.loginWithGoogle();
+      Utils.showToast(`✅ Đã xác thực: ${user.displayName} (${user.email})`, 'success');
+
+      // Re-render lại trang để hiển thị form phản ánh đầy đủ
+      const appMain = document.getElementById('app-main');
+      if (appMain) {
+        appMain.innerHTML = this.render();
+      }
+    } catch (err) {
+      Utils.showToast(err.message || 'Đăng nhập Google thất bại.', 'error');
+      const btn = document.getElementById('btn-google-login-gate') || document.getElementById('btn-google-login');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg><span>ĐĂNG NHẬP BẰNG GOOGLE</span>';
+      }
+    }
+  },
+
+  /**
+   * Đổi tài khoản hoặc Đăng xuất tại Form
+   */
+  async handleSwitchAccount() {
+    try {
+      await AuthService.logout();
+      Utils.showToast('Đã đăng xuất. Bạn có thể đăng nhập tài khoản khác.', 'info');
+      const appMain = document.getElementById('app-main');
+      if (appMain) {
+        appMain.innerHTML = this.render();
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  },
+
+  /**
    * Hiển thị thông báo thành công theo đúng yêu cầu mục 6
    */
-  renderSuccessModal(code) {
+  renderSuccessModal(code, senderEmail = '') {
     // Xóa modal cũ nếu có
     const old = document.getElementById('report-success-modal');
     if (old) old.remove();
@@ -622,13 +766,22 @@ const ReportFormPage = {
         </div>
 
         <h2 class="text-2xl font-black text-slate-900 mb-1">Gửi phản ánh thành công!</h2>
-        <p class="text-xs text-slate-500 mb-5">Hệ thống đã lưu vào Cloud Firestore và chuyển thông tin tới Trưởng bộ phận Kỹ thuật.</p>
+        <p class="text-xs text-slate-500 mb-4">Hệ thống đã lưu vào cơ sở dữ liệu và chuyển thông tin tới Trưởng bộ phận Kỹ thuật.</p>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
           <span class="text-xs font-bold text-blue-600 uppercase tracking-wider block mb-1">Mã yêu cầu của bạn:</span>
           <span class="font-mono text-2xl font-black text-blue-900 tracking-wider select-all">${code}</span>
           <p class="text-[11px] text-blue-700/80 mt-1">Vui lòng lưu lại mã này để tra cứu tình trạng xử lý.</p>
         </div>
+
+        ${senderEmail ? `
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl mb-6 text-xs text-emerald-900 flex items-center gap-2 text-left">
+            <i class="fa-solid fa-envelope-circle-check text-emerald-600 text-lg shrink-0"></i>
+            <div>
+              Email xác nhận đã được gửi tự động tới: <strong>${senderEmail}</strong>. Bạn có thể kiểm tra hộp thư đến (hoặc hòm thư Spam).
+            </div>
+          </div>
+        ` : ''}
 
         <div class="space-y-3">
           <a href="#/tracking?code=${code}" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5" onclick="document.getElementById('report-success-modal')?.remove()">

@@ -4,6 +4,7 @@ const router = express.Router();
 const reportController = require('../controllers/reportController');
 const taskController = require('../controllers/taskController');
 const statsController = require('../controllers/statsController');
+const auditController = require('../controllers/auditController');
 
 const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 const { reportSubmitLimiter, checkHoneypot } = require('../middleware/rateLimiter');
@@ -125,5 +126,18 @@ router.post('/tasks/:targetId/review', requireAuth, requireRole(['SUPER_ADMIN', 
 
 // Thêm bình luận trao đổi xử lý
 router.post('/tasks/:targetId/comments', requireAuth, taskController.addComment);
+
+// ==========================================
+// 3. AUDIT & IP TRACKING ROUTES (Super Admin)
+// ==========================================
+
+// Ghi nhận nhật ký đăng nhập (Client gọi sau khi Google Sign-In)
+router.post('/audit/login', auditController.recordLoginLog);
+
+// Lấy danh sách thống kê nhật ký IP & Đăng nhập (Dành cho Super Admin)
+router.get('/audit/logs', auditController.getAuditLogs);
+
+// Xuất file Excel nhật ký truy cập & IP
+router.get('/audit/export', auditController.exportAuditLogs);
 
 module.exports = router;

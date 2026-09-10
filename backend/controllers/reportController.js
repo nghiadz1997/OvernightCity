@@ -1,5 +1,6 @@
 const { db, admin } = require('../config/firebaseAdmin');
 const notificationService = require('../services/notificationService');
+const emailService = require('../services/emailService');
 
 /**
  * Sinh mã tự tăng atomic cho Báo cáo phản ánh: PYC-YYYY-000001
@@ -66,7 +67,8 @@ const createReport = async (req, res) => {
       title,
       description,
       priority = 'BÌNH THƯỜNG',
-      attachments = []
+      attachments = [],
+      deviceId: clientDeviceId
     } = req.body;
 
     // Validation cơ bản
@@ -76,6 +78,13 @@ const createReport = async (req, res) => {
         message: 'Vui lòng điền đầy đủ các trường bắt buộc: Họ tên, Số điện thoại, Tiêu đề, Nội dung, Địa điểm.'
       });
     }
+
+    // Thu thập chứng cứ định danh: IP, User-Agent, Device ID chống chối bỏ
+    const clientIp = req.headers['x-forwarded-for']
+      ? req.headers['x-forwarded-for'].split(',')[0].trim()
+      : (req.socket?.remoteAddress || req.ip || 'Unknown');
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const deviceId = req.headers['x-device-id'] || clientDeviceId || 'Unknown';
 
     const code = await generateReportCode();
     const nowIso = new Date().toISOString();
@@ -98,6 +107,18 @@ const createReport = async (req, res) => {
       senderPhone: senderPhone.trim(),
       senderEmail: (senderEmail || '').trim(),
       userId: req.user ? req.user.uid : null,
+      // Metadata xác thực & thiết bị (Audit Trail)
+      clientIp,
+      userAgent,
+      deviceId,
+      auditMeta: {
+        clientIp,
+        userAgent,
+        deviceId,
+        verifiedEmail: (senderEmail || '').trim(),
+        verifiedName: senderName.trim(),
+        submittedAt: nowIso
+      },
       assignedTo: null,
       assignedToName: null,
       assignedBy: null,
@@ -133,9 +154,16 @@ const createReport = async (req, res) => {
       console.error('[createReport] Notification dispatch error:', err.message);
     });
 
+    // Tự động gửi Email xác nhận cho người gửi nếu có email
+    if (reportData.senderEmail) {
+      emailService.sendReportConfirmation(reportData).catch(err => {
+        console.error('[createReport] Email confirmation error:', err.message);
+      });
+    }
+
     return res.status(201).json({
       success: true,
-      message: 'Gửi phản ánh thành công!',
+      message: 'Gửi phản ánh thành công! Đã gửi email xác nhận kèm mã phản ánh.',
       code: code,
       data: reportData
     });

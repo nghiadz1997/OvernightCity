@@ -74,9 +74,15 @@ const NavbarComponent = {
             </nav>
 
             <!-- Right: Notifications & User Profile -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 sm:gap-3">
+              <!-- PWA / Share to iPhone button -->
+              <button onclick="Utils.shareOrInstallApp()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer" title="Cài đặt ra iPhone / Chia sẻ WebApp">
+                <i class="fa-solid fa-arrow-up-from-bracket text-blue-600"></i>
+                <span class="hidden sm:inline">Cài WebApp</span>
+              </button>
+
               <!-- Notifications Bell -->
-              <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors" title="Thông báo hệ thống">
+              <button id="btn-toggle-notifications" class="relative p-2 text-slate-600 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" title="Thông báo hệ thống">
                 <i class="fa-solid fa-bell text-lg"></i>
                 <span id="nav-notif-badge" class="${unreadCount > 0 ? '' : 'hidden'} absolute top-1 right-1 w-5 h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
                   ${unreadCount > 9 ? '9+' : unreadCount}

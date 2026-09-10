@@ -284,6 +284,98 @@ const AuthService = {
   },
 
   /**
+   * ĐĂNG NHẬP 1-CHẠM BẰNG GOOGLE (Firebase GoogleAuthProvider)
+   * Tự động lấy: displayName, email, photoURL, uid
+   */
+  async loginWithGoogle() {
+    if (!window.firebase || !window.firebase.auth) {
+      throw new Error('Firebase SDK chưa sẵn sàng. Vui lòng kiểm tra kết nối mạng.');
+    }
+
+    try {
+      const provider = new window.firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const userCredential = await window.firebase.auth().signInWithPopup(provider);
+      const fbUser = userCredential.user;
+
+      let role = 'USER';
+      let departmentName = 'Cán bộ / Giảng viên / Sinh viên';
+      let displayName = fbUser.displayName || fbUser.email.split('@')[0];
+      let phone = '';
+
+      if (window.firebase.firestore) {
+        try {
+          const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
+          if (userDoc.exists) {
+            const data = userDoc.data();
+            role = data.role || 'USER';
+            departmentName = data.departmentName || departmentName;
+            displayName = data.displayName || displayName;
+            phone = data.phone || phone;
+          } else {
+            await window.firebase.firestore().collection('users').doc(fbUser.uid).set({
+              uid: fbUser.uid,
+              email: fbUser.email,
+              displayName: displayName,
+              photoURL: fbUser.photoURL || '',
+              role: 'USER',
+              departmentName: departmentName,
+              isActive: true,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+          }
+        } catch (fErr) {
+          console.warn('[AuthService] Firestore sync error on Google Login:', fErr);
+        }
+      }
+
+      const token = await fbUser.getIdToken().catch(() => 'token_' + Date.now());
+      this.currentUser = {
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: displayName,
+        photoURL: fbUser.photoURL || '',
+        phone: phone,
+        role: role,
+        departmentName: departmentName,
+        token: token
+      };
+
+      this.notifyListeners();
+
+      // Ghi nhận nhật ký đăng nhập và IP lên Server (Audit Trail)
+      try {
+        const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
+        const deviceId = window.Utils ? Utils.getOrCreateDeviceId() : '';
+        fetch(`${apiBase}/audit/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
+          body: JSON.stringify({
+            email: fbUser.email,
+            displayName: displayName,
+            photoURL: fbUser.photoURL || '',
+            deviceId,
+            provider: 'Google'
+          })
+        }).catch(e => console.warn('[AuthService] Login audit log failed:', e));
+      } catch (logErr) {}
+
+      return this.currentUser;
+    } catch (err) {
+      console.error('[AuthService] Google Sign-In error:', err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        throw new Error('Bạn đã đóng cửa sổ đăng nhập Google.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        throw new Error('Yêu cầu đăng nhập trước đó đã bị hủy.');
+      } else if (err.code === 'auth/popup-blocked') {
+        throw new Error('Trình duyệt đã chặn cửa sổ popup Google. Vui lòng cho phép popup.');
+      }
+      throw new Error(err.message || 'Đăng nhập Google thất bại.');
+    }
+  },
+
+  /**
    * ĐĂNG KÝ TÀI KHOẢN MỚI TRỰC TIẾP TRÊN FIREBASE AUTH & FIRESTORE
    */
   async register({ email, password, displayName, phone, role = 'USER', departmentName = 'Khoa / Phòng ban' }) {

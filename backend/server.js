@@ -8,6 +8,7 @@ const apiRoutes = require('./routes/api');
 const deadlineScheduler = require('./services/deadlineScheduler');
 const telegramService = require('./services/telegramService');
 const zaloProvider = require('./services/zaloProvider');
+const emailService = require('./services/emailService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,6 +47,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     telegramEnabled: telegramService.isEnabled(),
     zaloEnabled: zaloProvider.isEnabled(),
+    emailEnabled: emailService.isEnabled(),
     uploadsPath: uploadsDir
   });
 });
@@ -77,6 +79,7 @@ app.listen(PORT, () => {
   console.log(`🌐 Local URL: http://localhost:${PORT}`);
   console.log(`🤖 Telegram Bot: ${telegramService.isEnabled() ? '✅ ACTIVATED' : '⚠️ NOT CONFIGURED (.env)'}`);
   console.log(`📱 Zalo OA: ${zaloProvider.isEnabled() ? '✅ ACTIVATED' : '⚪ READY / DISABLED'}`);
+  console.log(`📧 Email Service (SMTP): ${emailService.isEnabled() ? '✅ ACTIVATED' : '⚪ SIMULATION MODE'}`);
   console.log(`📁 Uploads Directory: ${uploadsDir}`);
   console.log('====================================================');
 

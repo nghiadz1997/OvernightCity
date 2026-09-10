@@ -1,5 +1,6 @@
 const { db, admin } = require('../config/firebaseAdmin');
 const notificationService = require('../services/notificationService');
+const emailService = require('../services/emailService');
 
 /**
  * Sinh mã tự tăng atomic cho Công việc nội bộ: TASK-YYYY-000001
@@ -187,6 +188,16 @@ const assignTask = async (req, res) => {
       req.user
     ).catch(e => console.error(e));
 
+    // Gửi email cập nhật tiến độ cho người phản ánh
+    if (updatedTask.senderEmail) {
+      emailService.sendStatusUpdate(
+        updatedTask,
+        'ĐÃ PHÂN CÔNG',
+        assignmentNote ? `Đã giao cho KTV: ${assignedToName}. Ghi chú: ${assignmentNote}` : `Đã giao cho KTV: ${assignedToName}`,
+        assignedToName
+      ).catch(e => console.error('[assignTask] Email update error:', e));
+    }
+
     return res.status(200).json({
       success: true,
       message: `Đã phân công thành công cho ${assignedToName}!`,
@@ -251,6 +262,13 @@ const updateTaskStatus = async (req, res) => {
       notificationService.dispatchTaskCompleted({ ...task, ...updatePayload }, req.user).catch(e => console.error(e));
     }
 
+    // Gửi email cập nhật tiến độ cho người gửi phản ánh
+    const updatedTask = { ...task, ...updatePayload };
+    if (updatedTask.senderEmail) {
+      const staffName = req.user ? req.user.displayName : 'Kỹ thuật viên';
+      emailService.sendStatusUpdate(updatedTask, status, note, staffName).catch(e => console.error('[updateTaskStatus] Email update error:', e));
+    }
+
     return res.status(200).json({
       success: true,
       message: `Đã cập nhật trạng thái: ${status}`,
@@ -303,6 +321,15 @@ const reviewTask = async (req, res) => {
         details: note || 'Đã nghiệm thu công việc thành công.'
       });
 
+      if (task.senderEmail) {
+        emailService.sendStatusUpdate(
+          task,
+          'HOÀN THÀNH',
+          note || 'Đã nghiệm thu và hoàn tất xử lý.',
+          req.user?.displayName || 'Trưởng phòng'
+        ).catch(e => console.error('[reviewTask] Email update error:', e));
+      }
+
       return res.status(200).json({
         success: true,
         message: `Đã duyệt hoàn thành công việc ${task.code}!`
@@ -323,6 +350,15 @@ const reviewTask = async (req, res) => {
       });
 
       notificationService.dispatchTaskReopened(task, req.user, rejectionReason).catch(e => console.error(e));
+
+      if (task.senderEmail) {
+        emailService.sendStatusUpdate(
+          task,
+          'ĐANG XỬ LÝ',
+          `Yêu cầu kiểm tra & xử lý lại: ${rejectionReason}`,
+          req.user?.displayName || 'Trưởng phòng'
+        ).catch(e => console.error('[reviewTask] Email update error:', e));
+      }
 
       return res.status(200).json({
         success: true,

@@ -3,11 +3,19 @@
   "short_name": "NSG Support",
   "description": "Cổng tiếp nhận phản ánh, hỗ trợ kỹ thuật và quản lý công việc nội bộ",
   "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#1e40af",
   "orientation": "portrait-primary",
   "icons": [
+    {
+      "src": "/assets/icons/Logo.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/assets/icons/icon-192.png",
       "sizes": "192x192",
