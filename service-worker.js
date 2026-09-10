@@ -53,9 +53,10 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
+      .catch(async () => {
         // Chỉ khi mất mạng hoàn toàn mới dùng bản trong cache
-        return caches.match(event.request);
+        const cached = await caches.match(event.request);
+        return cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });
