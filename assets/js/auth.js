@@ -343,11 +343,79 @@ const AuthService = {
         msg = 'Tài khoản này đã bị vô hiệu hóa trên hệ thống.';
       } else if (err.code === 'auth/too-many-requests') {
         msg = 'Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi trong giây lát hoặc sử dụng Quên mật khẩu.';
-      } else if (err.code === 'auth/network-request-failed') {
-        msg = 'Lỗi kết nối mạng đến máy chủ xác thực. Vui lòng kiểm tra lại kết nối internet.';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname || 'domain của bạn';
+        msg = `Tên miền "${host}" chưa được cấp phép (Authorized domain) trên Firebase Console. Vui lòng thêm "${host}" vào Firebase Console > Authentication > Settings > Authorized domains.`;
+        setTimeout(() => AuthService.showUnauthorizedDomainAlert(host), 100);
       }
       throw new Error(msg);
     }
+  },
+
+  /**
+   * Hiển thị bảng hướng dẫn cấp quyền tên miền Firebase Console trực quan
+   */
+  showUnauthorizedDomainAlert(domain) {
+    const existing = document.getElementById('firebase-unauth-domain-modal');
+    if (existing) existing.remove();
+
+    const host = domain || window.location.hostname || 'domain của bạn';
+    const projectId = window.APP_CONFIG?.firebaseConfig?.projectId || 'qttbcsvcsc';
+    const consoleUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
+
+    const div = document.createElement('div');
+    div.id = 'firebase-unauth-domain-modal';
+    div.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-fade-in';
+    div.innerHTML = `
+      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 border border-amber-200 relative space-y-4">
+        <button type="button" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer text-xl" onclick="document.getElementById('firebase-unauth-domain-modal').remove()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="flex items-center gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shrink-0">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 leading-tight">CHƯA ỦY QUYỀN TÊN MIỀN TRÊN FIREBASE</h3>
+            <p class="text-xs text-amber-700 font-semibold mt-0.5">Lỗi: auth/unauthorized-domain</p>
+          </div>
+        </div>
+
+        <div class="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-slate-700 space-y-2 leading-relaxed">
+          <p>Tên miền bạn đang truy cập hiện tại là:</p>
+          <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-amber-300 font-mono font-bold text-blue-700 select-all">
+            <span class="flex-1 truncate" id="unauth-domain-text">${host}</span>
+            <button type="button" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 transition-colors cursor-pointer" onclick="navigator.clipboard.writeText('${host}'); if(window.Utils) Utils.showToast('Đã sao chép tên miền!', 'success');">
+              <i class="fa-solid fa-copy mr-1"></i> Sao chép
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 pt-1">
+            Firebase Authentication chặn các tên miền chưa đăng ký để bảo vệ hệ thống.
+          </p>
+        </div>
+
+        <div class="space-y-2 text-xs text-slate-700">
+          <p class="font-bold text-slate-900">Cách khắc phục ngay (30 giây):</p>
+          <ol class="list-decimal pl-4 space-y-1.5 text-slate-600">
+            <li>Mở Firebase Console dự án <strong>${projectId}</strong>.</li>
+            <li>Vào mục <strong>Authentication</strong> &gt; <strong>Settings</strong> &gt; <strong>Authorized domains</strong>.</li>
+            <li>Bấm <strong>Add domain</strong>, dán <code>${host}</code> và bấm <strong>Save</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+          <a href="${consoleUrl}" target="_blank" rel="noopener noreferrer" class="w-full sm:flex-1 py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-center">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>Mở Firebase Console cài đặt ngay</span>
+          </a>
+          <button type="button" class="w-full sm:w-auto py-3.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer" onclick="document.getElementById('firebase-unauth-domain-modal').remove()">
+            Đóng
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(div);
   },
 
   /**
@@ -459,6 +527,10 @@ const AuthService = {
         throw new Error('Yêu cầu đăng nhập trước đó đã bị hủy.');
       } else if (err.code === 'auth/popup-blocked') {
         throw new Error('Trình duyệt đã chặn cửa sổ popup Google. Vui lòng cho phép popup.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname || 'domain của bạn';
+        setTimeout(() => AuthService.showUnauthorizedDomainAlert(host), 100);
+        throw new Error(`Tên miền "${host}" chưa được cấp phép (Authorized domain) trên Firebase Console.`);
       }
       throw new Error(err.message || 'Đăng nhập Google thất bại.');
     }
@@ -508,6 +580,10 @@ const AuthService = {
         msg = 'Email này đã được đăng ký trước đó. Vui lòng đăng nhập.';
       } else if (err.code === 'auth/weak-password') {
         msg = 'Mật khẩu quá ngắn. Vui lòng nhập tối thiểu 6 ký tự.';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname || 'domain của bạn';
+        setTimeout(() => AuthService.showUnauthorizedDomainAlert(host), 100);
+        msg = `Tên miền "${host}" chưa được cấp phép (Authorized domain) trên Firebase Console.`;
       }
       throw new Error(msg);
     }
@@ -531,6 +607,10 @@ const AuthService = {
         msg = 'Không tìm thấy tài khoản với email này trên hệ thống.';
       } else if (err.code === 'auth/invalid-email') {
         msg = 'Định dạng email không hợp lệ.';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname || 'domain của bạn';
+        msg = `Tên miền "${host}" chưa được cấp phép trong Firebase Console.`;
+        setTimeout(() => AuthService.showUnauthorizedDomainAlert(host), 100);
       }
       throw new Error(msg);
     }
