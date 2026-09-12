@@ -647,12 +647,13 @@ const ReportFormPage = {
       const catName = catSelect.options[catSelect.selectedIndex]?.getAttribute('data-name') || 'Khác';
       const deviceId = Utils.getOrCreateDeviceId();
 
+      const currentUser = AuthService.getCurrentUser();
       const payload = {
         senderName: senderName,
-        senderCode: '',
-        senderDept: '',
+        senderCode: currentUser?.uid || '',
+        senderDept: currentUser?.departmentName || '',
         senderPhone: senderPhone,
-        senderEmail: senderEmail,
+        senderEmail: senderEmail || currentUser?.email || '',
         deviceId: deviceId,
         categoryId: catSelect.value,
         categoryName: catName,
