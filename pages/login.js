@@ -31,6 +31,9 @@ const LoginPage = {
 
     const currentUser = AuthService.getCurrentUser();
     if (currentUser) {
+      const isMgr = AuthService.isManager();
+      const isStf = AuthService.isStaff();
+
       return `
         <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-100/80 animate-fade-in">
           <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/80 p-8 sm:p-10 text-center space-y-6">
@@ -39,22 +42,31 @@ const LoginPage = {
             </div>
             <div>
               <h2 class="text-xl font-black text-slate-900 tracking-tight">BẠN ĐANG ĐĂNG NHẬP</h2>
-              <p class="text-sm font-bold text-blue-700 mt-1">${currentUser.displayName}</p>
-              <span class="inline-block mt-1 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold rounded-lg">${currentUser.role} - ${currentUser.departmentName || 'Hệ thống'}</span>
+              <p class="text-base font-bold text-blue-700 mt-1">${currentUser.displayName}</p>
+              <span class="inline-block mt-1 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold rounded-lg">${AuthService.getRoleLabel(currentUser.role)} - ${currentUser.departmentName || 'Hệ thống'}</span>
             </div>
             <div class="pt-2 flex flex-col gap-3">
-              ${AuthService.isManager() ? `
+              ${isMgr ? `
                 <a href="#/admin" class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-chart-pie"></i>
                   <span>VÀO TRANG QUẢN TRỊ</span>
                 </a>
-              ` : `
+              ` : ''}
+              ${isStf ? `
                 <a href="#/staff" class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-toolbox"></i>
                   <span>VÀO CỔNG KỸ THUẬT VIÊN</span>
                 </a>
-              `}
-              <button type="button" class="w-full py-3 px-4 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer" onclick="NavbarComponent.handleLogout()">
+              ` : ''}
+              <a href="#/report" class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>GỬI PHẢN ÁNH SỰ CỐ</span>
+              </a>
+              <a href="#/tracking" class="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>TRA CỨU TIẾN ĐỘ PHẢN ÁNH</span>
+              </a>
+              <button type="button" class="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-all flex items-center justify-center gap-2 cursor-pointer" onclick="NavbarComponent.handleLogout()">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>ĐĂNG XUẤT KHỎI TÀI KHOẢN NÀY</span>
               </button>
@@ -89,12 +101,12 @@ const LoginPage = {
           <!-- Form Đăng nhập -->
           <form id="system-login-form" name="loginForm" method="POST" action="javascript:void(0);" class="space-y-4" onsubmit="LoginPage.handleLoginSubmit(event)">
             <div>
-              <label for="login-email" class="block text-xs font-bold text-slate-700 mb-1.5">Email tài khoản <span class="text-red-500">*</span></label>
+              <label for="login-email" class="block text-xs font-bold text-slate-700 mb-1.5">Email hoặc Tên tài khoản <span class="text-red-500">*</span></label>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <i class="fa-solid fa-envelope"></i>
+                  <i class="fa-solid fa-user"></i>
                 </div>
-                <input type="email" id="login-email" name="username" class="w-full text-sm pl-10 pr-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Nhập email tài khoản của bạn..." required autocomplete="username">
+                <input type="text" id="login-email" name="username" class="w-full text-sm pl-10 pr-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Nhập email hoặc tên tài khoản (ví dụ: admin, trongnghia...)" required autocomplete="username" autocapitalize="none" spellcheck="false">
               </div>
             </div>
 
@@ -156,32 +168,37 @@ const LoginPage = {
 
   async handleLoginSubmit(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value.trim().toLowerCase();
-    const pass = document.getElementById('login-password').value;
+    const rawInput = document.getElementById('login-email')?.value?.trim() || '';
+    const pass = document.getElementById('login-password')?.value || '';
     const rememberMe = document.getElementById('remember-me-checkbox')?.checked;
     const btn = document.getElementById('btn-login-submit');
+
+    if (!rawInput || !pass) {
+      Utils.showToast('Vui lòng nhập đầy đủ tài khoản và mật khẩu.', 'warning');
+      return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang xác thực...';
 
     try {
-      const user = await AuthService.login(email, pass);
+      const user = await AuthService.login(rawInput, pass);
       
       // Lưu hoặc xóa ghi nhớ mật khẩu
       if (rememberMe) {
-        localStorage.setItem('nsg_remember_login', JSON.stringify({ email, password: pass }));
+        localStorage.setItem('nsg_remember_login', JSON.stringify({ email: rawInput, password: pass }));
       } else {
         localStorage.removeItem('nsg_remember_login');
       }
 
       Utils.showToast(`Đăng nhập thành công! Chào mừng ${user.displayName}`, 'success');
 
-      if (user.role === 'STAFF_IT' || user.role === 'MANAGER' || user.role === 'DEPUTY_MANAGER' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      if (AuthService.isManager()) {
         window.location.hash = '#/admin';
-      } else if (user.role === 'STAFF' || user.role === 'STAFF_KTX' || user.role === 'STAFF_MAINTENANCE' || user.role === 'STAFF_GREEN' || user.role === 'STAFF_CLEANING') {
+      } else if (AuthService.isStaff()) {
         window.location.hash = '#/staff';
       } else {
-        window.location.hash = '#/';
+        window.location.hash = '#/report';
       }
     } catch (err) {
       Utils.showToast(err.message, 'error', 6000);
@@ -191,7 +208,7 @@ const LoginPage = {
   },
 
   openForgotPasswordModal() {
-    const currentEmail = document.getElementById('login-email')?.value.trim() || '';
+    const currentInput = document.getElementById('login-email')?.value.trim() || '';
     const container = document.getElementById('forgot-password-modal-container');
     if (!container) return;
 
@@ -218,8 +235,8 @@ const LoginPage = {
 
           <form onsubmit="LoginPage.handleForgotPasswordSubmit(event)" class="space-y-4">
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Email tài khoản <span class="text-red-500">*</span></label>
-              <input type="email" id="forgot-email-input" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Nhập email tài khoản..." value="${currentEmail}" required>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Email hoặc Tên tài khoản <span class="text-red-500">*</span></label>
+              <input type="text" id="forgot-email-input" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Nhập email hoặc tên tài khoản..." value="${currentInput}" required autocapitalize="none">
             </div>
 
             <div class="flex items-center gap-3 pt-2">
@@ -239,9 +256,10 @@ const LoginPage = {
 
   async handleForgotPasswordSubmit(e) {
     e.preventDefault();
-    const email = document.getElementById('forgot-email-input')?.value.trim().toLowerCase();
-    if (!email) return;
+    const rawInput = document.getElementById('forgot-email-input')?.value?.trim() || '';
+    if (!rawInput) return;
 
+    const email = rawInput.includes('@') ? rawInput.toLowerCase() : `${rawInput.toLowerCase()}@nsg.edu.vn`;
     const btn = document.getElementById('btn-forgot-submit');
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang gửi...';
@@ -260,3 +278,4 @@ const LoginPage = {
 };
 
 window.LoginPage = LoginPage;
+

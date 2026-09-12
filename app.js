@@ -61,7 +61,7 @@ const App = {
               } else if (AuthService.isStaff()) {
                 window.location.hash = '#/staff';
               } else {
-                window.location.hash = '#/';
+                window.location.hash = '#/report';
               }
             } else if (path.startsWith('#/admin') || path.startsWith('#/staff')) {
               App.handleRouting();

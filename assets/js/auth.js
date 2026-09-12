@@ -20,6 +20,13 @@ const AuthService = {
         }
 
         if (typeof window.firebase.auth === 'function') {
+          // Đảm bảo duy trì phiên đăng nhập cục bộ qua LOCAL persistence
+          try {
+            if (window.firebase.auth.Auth && window.firebase.auth.Auth.Persistence) {
+              window.firebase.auth().setPersistence(window.firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+            }
+          } catch (pErr) {}
+
           window.firebase.auth().onAuthStateChanged(async (fbUser) => {
             if (fbUser) {
               console.log('[AuthService] Firebase User detected:', fbUser.email);
@@ -34,15 +41,26 @@ const AuthService = {
                   const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
                   if (userDoc.exists) {
                     const data = userDoc.data();
+                    if (data.isActive === false) {
+                      console.warn('[AuthService] Tài khoản bị khóa, tự động đăng xuất...');
+                      await window.firebase.auth().signOut().catch(() => {});
+                      this.currentUser = null;
+                      this.isInitialized = true;
+                      this.notifyListeners();
+                      if (window.Utils) {
+                        Utils.showToast('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ Quản trị viên.', 'error', 6000);
+                      }
+                      return;
+                    }
                     role = data.role || 'USER';
                     departmentName = data.departmentName || departmentName;
                     displayName = data.displayName || displayName;
                     phone = data.phone || phone;
                   } else {
-                    // Nếu là tài khoản đầu tiên hoặc chưa có record trong Firestore, khởi tạo ngay
-                    if (fbUser.email.includes('admin')) role = 'SUPER_ADMIN';
-                    else if (fbUser.email.includes('truongphong')) role = 'MANAGER';
-                    else if (fbUser.email.includes('ktv')) role = 'STAFF';
+                    // Nếu chưa có record trong Firestore, khởi tạo ngay
+                    if (fbUser.email && fbUser.email.includes('admin')) role = 'SUPER_ADMIN';
+                    else if (fbUser.email && fbUser.email.includes('truongphong')) role = 'MANAGER';
+                    else if (fbUser.email && fbUser.email.includes('ktv')) role = 'STAFF';
 
                     await window.firebase.firestore().collection('users').doc(fbUser.uid).set({
                       uid: fbUser.uid,
@@ -50,9 +68,10 @@ const AuthService = {
                       displayName: displayName,
                       role: role,
                       departmentName: departmentName,
+                      phone: phone,
                       isActive: true,
                       createdAt: new Date().toISOString()
-                    }, { merge: true });
+                    }, { merge: true }).catch(() => {});
                   }
                 } catch (err) {
                   console.error('[AuthService] Error reading Firestore user profile:', err);
@@ -232,39 +251,83 @@ const AuthService = {
   },
 
   /**
-   * ĐĂNG NHẬP THỰC TẾ QUA FIREBASE AUTHENTICATION
+   * ĐĂNG NHẬP THỰC TẾ QUA FIREBASE AUTHENTICATION (Hỗ trợ cả Email & Tên đăng nhập)
    */
-  async login(email, password) {
+  async login(emailOrUsername, password) {
     if (!window.firebase || !window.firebase.auth) {
       throw new Error('Firebase SDK chưa sẵn sàng. Vui lòng tải lại trang.');
     }
 
+    if (!emailOrUsername || !password) {
+      throw new Error('Vui lòng nhập đầy đủ tên đăng nhập/email và mật khẩu.');
+    }
+
+    const rawInput = emailOrUsername.trim();
+    // Tự động nhận diện nếu người dùng chỉ nhập username (ví dụ: admin, trongnghia, quangtrung...)
+    const normalizedEmail = rawInput.includes('@') ? rawInput.toLowerCase() : `${rawInput.toLowerCase()}@nsg.edu.vn`;
+
     try {
-      const userCredential = await window.firebase.auth().signInWithEmailAndPassword(email, password);
+      if (window.firebase.auth.Auth && window.firebase.auth.Auth.Persistence) {
+        await window.firebase.auth().setPersistence(window.firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+      }
+
+      const userCredential = await window.firebase.auth().signInWithEmailAndPassword(normalizedEmail, password);
       const fbUser = userCredential.user;
 
-      // Lấy thông tin role từ Firestore
+      // Lấy thông tin hồ sơ và phân quyền (RBAC Role) từ Cloud Firestore
       let role = 'USER';
       let departmentName = 'Cán bộ / Giảng viên';
-      let displayName = fbUser.displayName || email.split('@')[0];
+      let displayName = fbUser.displayName || normalizedEmail.split('@')[0];
+      let phone = '';
 
       if (window.firebase.firestore) {
-        const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
-        if (userDoc.exists) {
-          const data = userDoc.data();
-          role = data.role || 'USER';
-          departmentName = data.departmentName || departmentName;
-          displayName = data.displayName || displayName;
+        try {
+          const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
+          if (userDoc.exists) {
+            const data = userDoc.data();
+            if (data.isActive === false) {
+              await window.firebase.auth().signOut().catch(() => {});
+              throw new Error('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ Quản trị viên để được mở lại.');
+            }
+            role = data.role || 'USER';
+            departmentName = data.departmentName || departmentName;
+            displayName = data.displayName || displayName;
+            phone = data.phone || '';
+          } else {
+            // Tự động đồng bộ document người dùng nếu chưa có trong Firestore
+            if (normalizedEmail.includes('admin')) role = 'SUPER_ADMIN';
+            else if (normalizedEmail.includes('truongphong')) role = 'MANAGER';
+            else if (normalizedEmail.includes('ktv')) role = 'STAFF';
+
+            await window.firebase.firestore().collection('users').doc(fbUser.uid).set({
+              uid: fbUser.uid,
+              email: fbUser.email || normalizedEmail,
+              displayName: displayName,
+              role: role,
+              departmentName: departmentName,
+              phone: phone,
+              isActive: true,
+              createdAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+          }
+        } catch (dbErr) {
+          if (dbErr.message && dbErr.message.includes('tạm khóa')) {
+            throw dbErr;
+          }
+          console.warn('[AuthService] Firestore profile fetch warning:', dbErr);
         }
       }
 
+      const token = await fbUser.getIdToken().catch(() => 'token_' + Date.now());
+
       this.currentUser = {
         uid: fbUser.uid,
-        email: fbUser.email,
+        email: fbUser.email || normalizedEmail,
         displayName: displayName,
+        phone: phone,
         role: role,
         departmentName: departmentName,
-        token: await fbUser.getIdToken()
+        token: token
       };
 
       this.notifyListeners();
@@ -273,11 +336,15 @@ const AuthService = {
       console.error('[AuthService] Firebase Sign-in error:', err);
       let msg = err.message;
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        msg = 'Email hoặc mật khẩu không chính xác.';
+        msg = 'Email/Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.';
       } else if (err.code === 'auth/invalid-email') {
-        msg = 'Định dạng email không hợp lệ.';
+        msg = 'Định dạng email không hợp lệ. Vui lòng nhập đúng định dạng email (ví dụ: admin@nsg.edu.vn hoặc admin).';
+      } else if (err.code === 'auth/user-disabled') {
+        msg = 'Tài khoản này đã bị vô hiệu hóa trên hệ thống.';
       } else if (err.code === 'auth/too-many-requests') {
-        msg = 'Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi trong giây lát.';
+        msg = 'Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi trong giây lát hoặc sử dụng Quên mật khẩu.';
+      } else if (err.code === 'auth/network-request-failed') {
+        msg = 'Lỗi kết nối mạng đến máy chủ xác thực. Vui lòng kiểm tra lại kết nối internet.';
       }
       throw new Error(msg);
     }
