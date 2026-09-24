@@ -128,16 +128,28 @@ const ApiService = {
       // Gửi thông báo Telegram tự động tới Ban Quản lý / Nhóm kỹ thuật (KÈM ẢNH NẾU CÓ)
       try {
         const priorityIcon = reportData.priority === 'KHẨN CẤP' ? '🚨 KHẨN CẤP' : reportData.priority === 'CAO' ? '🟠 CAO' : '🔵 ' + (reportData.priority || 'BÌNH THƯỜNG');
+        const escape = (txt) => (Utils.escapeHtml ? Utils.escapeHtml(txt) : String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        
+        const cleanTitle = escape(reportData.title || 'Không có tiêu đề');
+        const cleanDesc = escape(reportData.description || 'Chưa có nội dung mô tả chi tiết');
+        const rawTech = (reportData.techRequirement || reportData.technicalRequirement || '').trim();
+        const cleanTech = rawTech ? escape(rawTech) : 'Tiếp nhận, kiểm tra hiện trường và xử lý theo quy trình kỹ thuật tiêu chuẩn.';
+
         const teleMsg = `📢 <b>[NSG SUPPORT] CÓ PHẢN ÁNH SỰ CỐ MỚI!</b>\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
           `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
           `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b>\n` +
-          `📌 <b>Loại sự cố:</b> ${reportData.categoryName || 'Khác'}\n` +
-          `📍 <b>Vị trí:</b> ${reportData.location || ''} ${reportData.room ? `- ${reportData.room}` : ''}\n` +
-          `📝 <b>Tiêu đề:</b> ${reportData.title || ''}\n` +
-          `👤 <b>Người gửi:</b> <b>${reportData.senderName || 'Ẩn danh'}</b>\n` +
-          `📞 <b>SĐT liên hệ:</b> <code>${reportData.senderPhone || 'Không có'}</code>\n` +
+          `📌 <b>Loại sự cố:</b> ${escape(reportData.categoryName || 'Khác')}\n` +
+          `📍 <b>Vị trí:</b> ${escape(reportData.location || '')} ${reportData.room ? `- ${escape(reportData.room)}` : ''}\n` +
+          `🏷️ <b>Tiêu đề:</b> ${cleanTitle}\n` +
+          `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b>\n` +
+          `📞 <b>SĐT liên hệ:</b> <code>${escape(reportData.senderPhone || 'Không có')}</code>\n` +
           `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📝 <b>Nội dung chi tiết:</b>\n` +
+          `<i>${cleanDesc}</i>\n\n` +
+          `🛠️ <b>Yêu cầu kỹ thuật:</b>\n` +
+          `<i>${cleanTech}</i>\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
           `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
 
@@ -372,6 +384,36 @@ const ApiService = {
         }
       } catch (rtErr) {}
 
+      // Tự động bắn thông báo Telegram khi Giao việc mới (Đầy đủ Nội dung chi tiết & Yêu cầu kỹ thuật)
+      try {
+        const escape = (txt) => (Utils.escapeHtml ? Utils.escapeHtml(txt) : String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        const cleanTitle = escape(fullData.title || 'Nhiệm vụ mới');
+        const cleanDesc = escape(fullData.description || 'Chi tiết theo phân công công việc');
+        const rawTech = (fullData.techRequirement || fullData.technicalRequirement || '').trim();
+        const cleanTech = rawTech ? escape(rawTech) : (cleanDesc || 'Thực hiện kiểm tra, bảo trì và khắc phục theo yêu cầu kỹ thuật.');
+
+        const teleMsg = `📋 <b>[NSG SUPPORT] GIAO VIỆC MỚI CHO BỘ PHẬN KỸ THUẬT!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🏷️ <b>Mã nhiệm vụ:</b> <code>${code}</code>\n` +
+          `📌 <b>Tiêu đề:</b> ${cleanTitle}\n` +
+          `📍 <b>Địa điểm:</b> ${escape(fullData.location || '')} ${fullData.room ? `(${escape(fullData.room)})` : ''}\n` +
+          `⚠️ <b>Mức độ:</b> ${fullData.priority || 'TRUNG BÌNH'}\n` +
+          `👔 <b>Người giao:</b> <b>${escape(fullData.assignedByName || 'Lãnh đạo')}</b>\n` +
+          `👨‍🔧 <b>Người phụ trách:</b> <b>${escape(fullData.assignedToName || 'Chờ phân công')}</b>\n` +
+          (fullData.deadline ? `⏰ <b>Hạn chót:</b> ${Utils.formatDateTime(fullData.deadline)}\n` : '') +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📝 <b>Nội dung chi tiết:</b>\n` +
+          `<i>${cleanDesc}</i>\n\n` +
+          `🛠️ <b>Yêu cầu kỹ thuật:</b>\n` +
+          `<i>${cleanTech}</i>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👉 <i>Đề nghị Kỹ thuật viên tiếp nhận và triển khai đúng tiến độ.</i>`;
+
+        this.sendTelegramNotification(teleMsg, null, null, null, 'INCIDENT');
+      } catch (tgErr) {
+        console.warn('Lỗi gửi Telegram khi tạo task:', tgErr);
+      }
+
       return { success: true, code, data: fullData };
     } catch (err) {
       console.error('[ApiService] createTask error:', err);
@@ -491,6 +533,37 @@ const ApiService = {
           timestamp: nowIso
         });
       } catch (e) {}
+
+      // 7. Tự động bắn thông báo Telegram khi Phân công công việc (Đầy đủ Nội dung chi tiết & Yêu cầu kỹ thuật)
+      try {
+        const escape = (txt) => (Utils.escapeHtml ? Utils.escapeHtml(txt) : String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        const code = assignData.code || targetDocData?.code || targetId;
+        const cleanTitle = escape(targetDocData?.title || 'Sự cố thiết bị');
+        const cleanDesc = escape(targetDocData?.description || 'Chi tiết theo phản ánh');
+        const rawTech = (targetDocData?.techRequirement || targetDocData?.technicalRequirement || assignData.assignmentNote || '').trim();
+        const cleanTech = rawTech ? escape(rawTech) : 'Kiểm tra hiện trường, thiết bị và xử lý theo quy định kỹ thuật.';
+
+        const teleMsg = `👨‍🔧 <b>[NSG SUPPORT] PHÂN CÔNG XỬ LÝ CÔNG VIỆC!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
+          `📌 <b>Tiêu đề:</b> ${cleanTitle}\n` +
+          `📍 <b>Vị trí:</b> ${escape(targetDocData?.location || '')} ${targetDocData?.room ? `(${escape(targetDocData.room)})` : ''}\n` +
+          `👔 <b>Người giao:</b> ${escape(currentUser?.displayName || 'Trưởng phòng')}\n` +
+          `🔧 <b>KTV tiếp nhận:</b> <b>${escape(updatePayload.assignedToName || 'Đội kỹ thuật')}</b>\n` +
+          (updatePayload.deadline ? `⏰ <b>Hạn chót:</b> ${Utils.formatDateTime(updatePayload.deadline)}\n` : '') +
+          (assignData.assignmentNote ? `💬 <b>Chỉ đạo:</b> <i>"${escape(assignData.assignmentNote)}"</i>\n` : '') +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📝 <b>Nội dung chi tiết:</b>\n` +
+          `<i>${cleanDesc}</i>\n\n` +
+          `🛠️ <b>Yêu cầu kỹ thuật:</b>\n` +
+          `<i>${cleanTech}</i>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👉 <i>Kỹ thuật viên vui lòng nhận việc và cập nhật trạng thái xử lý.</i>`;
+
+        this.sendTelegramNotification(teleMsg, null, null, null, 'INCIDENT');
+      } catch (teleErr) {
+        console.warn('Lỗi gửi Telegram khi phân công:', teleErr);
+      }
 
       return { success: true, data: updatePayload };
     } catch (err) {

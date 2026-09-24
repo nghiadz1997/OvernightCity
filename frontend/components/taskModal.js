@@ -268,9 +268,24 @@ const TaskModalComponent = {
           <h2 class="text-lg sm:text-xl font-black text-slate-900 leading-snug">
             ${item.title}
           </h2>
-          <p class="text-xs text-slate-600 mt-2 leading-relaxed whitespace-pre-line bg-white p-3 rounded-xl border border-slate-200">
-            ${item.description || 'Không có mô tả chi tiết.'}
-          </p>
+          <div class="mt-2 space-y-2">
+            <div>
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Mô tả sự cố chi tiết:</span>
+              <p class="text-xs text-slate-700 mt-1 leading-relaxed whitespace-pre-line bg-white p-3 rounded-xl border border-slate-200">
+                ${item.description || 'Không có mô tả chi tiết.'}
+              </p>
+            </div>
+            ${(item.techRequirement || item.technicalRequirement) ? `
+              <div>
+                <span class="text-[11px] font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <i class="fa-solid fa-screwdriver-wrench text-indigo-600"></i> Yêu cầu kỹ thuật / Đề xuất hỗ trợ:
+                </span>
+                <p class="text-xs text-indigo-950 font-medium mt-1 leading-relaxed whitespace-pre-line bg-indigo-50/70 p-3 rounded-xl border border-indigo-200">
+                  ${item.techRequirement || item.technicalRequirement}
+                </p>
+              </div>
+            ` : ''}
+          </div>
         </div>
 
         <!-- GRID 2 CỘT: 👤 PHÂN CÔNG & 📍 ĐỊA ĐIỂM -->

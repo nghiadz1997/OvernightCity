@@ -47,25 +47,35 @@ class TelegramService {
     }[report.priority] || '🔵';
 
     const createdAt = report.createdAtFormatted || new Date().toLocaleString('vi-VN');
+    const escape = (str) => String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const description = (report.description || 'Chưa có nội dung mô tả chi tiết').trim();
+    const rawTech = (report.techRequirement || report.technicalRequirement || '').trim();
+    const techReq = rawTech || 'Tiếp nhận, kiểm tra hiện trường và xử lý theo quy trình kỹ thuật tiêu chuẩn.';
 
     const message = `
-${priorityIcon} <b>PHẢN ÁNH MỚI</b>
+📢 <b>[NSG SUPPORT] CÓ PHẢN ÁNH SỰ CỐ MỚI!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+📋 <b>Mã phiếu:</b> <code>${report.code || 'PYC-XXXXXX'}</code>
+⚠️ <b>Mức độ:</b> <b>${priorityIcon} ${report.priority || 'BÌNH THƯỜNG'}</b>
+📌 <b>Loại sự cố:</b> ${escape(report.categoryName || 'Kỹ thuật')}
+📍 <b>Địa điểm:</b> ${escape(report.location || 'Chưa xác định')} ${report.room ? `- ${escape(report.room)}` : ''}
+🏷️ <b>Tiêu đề:</b> ${escape(report.title || 'Không có tiêu đề')}
+👤 <b>Người gửi:</b> <b>${escape(report.senderName || 'Ẩn danh')}</b>
+📞 <b>SĐT liên hệ:</b> <code>${escape(report.senderPhone || 'Không có')}</code>
+🏢 <b>Khoa/Phòng:</b> ${escape(report.senderDept || 'Khác')}
+⏰ <b>Thời gian:</b> ${createdAt}
+━━━━━━━━━━━━━━━━━━━━━━━━
+📝 <b>Nội dung chi tiết:</b>
+<i>${escape(description.substring(0, 800))}</i>
 
-<b>Mã yêu cầu:</b> <code>${report.code || 'PYC-XXXXXX'}</code>
-<b>Tiêu đề:</b> ${report.title || 'Không có tiêu đề'}
-<b>Danh mục:</b> ${report.categoryName || 'Kỹ thuật'}
-
-📍 <b>Địa điểm:</b> ${report.location || 'Chưa xác định'} ${report.room ? `- Phòng: ${report.room}` : ''}
-👤 <b>Người gửi:</b> ${report.senderName || 'Ẩn danh'} (${report.senderPhone || 'N/A'})
-🏢 <b>Khoa/Phòng:</b> ${report.senderDept || 'Khác'}
-⚠️ <b>Mức độ:</b> <b>${report.priority || 'BÌNH THƯỜNG'}</b>
-
-📝 <b>Nội dung:</b>
-<i>${(report.description || '').substring(0, 300)}</i>
-
-⏰ ${createdAt}
-
-👉 <i>Vui lòng truy cập hệ thống NSG SUPPORT để phân công xử lý kịp thời.</i>
+🛠️ <b>Yêu cầu kỹ thuật:</b>
+<i>${escape(techReq.substring(0, 600))}</i>
+━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <i>Vui lòng truy cập hệ thống NSG SUPPORT để tiếp nhận & phân công xử lý.</i>
     `.trim();
 
     return this.sendTelegramMessage(message);
@@ -76,20 +86,32 @@ ${priorityIcon} <b>PHẢN ÁNH MỚI</b>
    */
   async notifyTaskAssigned(task, staffChatId = null) {
     const deadline = task.deadlineFormatted || (task.deadline ? new Date(task.deadline).toLocaleString('vi-VN') : 'Không có');
+    const escape = (str) => String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const description = (task.description || 'Chi tiết theo phân công công việc').trim();
+    const rawTech = (task.techRequirement || task.technicalRequirement || task.assignmentNote || '').trim();
+    const techReq = rawTech || 'Tiến hành kiểm tra hiện trường và xử lý theo quy định kỹ thuật.';
     
     const message = `
-📋 <b>CÔNG VIỆC MỚI ĐƯỢC PHÂN CÔNG</b>
-
-<b>Mã:</b> <code>${task.code || 'TASK-XXXXXX'}</code>
-<b>Bạn được phân công xử lý:</b>
-<b>${task.title || 'Nhiệm vụ'}</b>
-
-📍 <b>Địa điểm:</b> ${task.location || 'Trường'} ${task.room ? `- Phòng: ${task.room}` : ''}
+📋 <b>[NSG SUPPORT] CÔNG VIỆC MỚI ĐƯỢC PHÂN CÔNG!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>Mã:</b> <code>${task.code || 'TASK-XXXXXX'}</code>
+📌 <b>Nhiệm vụ:</b> <b>${escape(task.title || 'Nhiệm vụ')}</b>
+📍 <b>Địa điểm:</b> ${escape(task.location || 'Trường')} ${task.room ? `- ${escape(task.room)}` : ''}
 ⚠️ <b>Mức độ:</b> ${task.priority || 'BÌNH THƯỜNG'}
-⏰ <b>Deadline:</b> <b>${deadline}</b>
-👤 <b>Người giao:</b> ${task.assignedByName || 'Trưởng phòng Kỹ thuật'}
-📝 <b>Ghi chú:</b> <i>${task.assignmentNote || 'Tiến hành kiểm tra và khắc phục.'}</i>
+⏰ <b>Hạn chót:</b> <b>${deadline}</b>
+👤 <b>Người giao:</b> ${escape(task.assignedByName || 'Trưởng phòng Kỹ thuật')}
+👨‍🔧 <b>Người phụ trách:</b> <b>${escape(task.assignedToName || 'Kỹ thuật viên')}</b>
+${task.assignmentNote ? `💬 <b>Chỉ đạo:</b> <i>"${escape(task.assignmentNote)}"</i>\n` : ''}━━━━━━━━━━━━━━━━━━━━━━━━
+📝 <b>Nội dung chi tiết:</b>
+<i>${escape(description.substring(0, 800))}</i>
 
+🛠️ <b>Yêu cầu kỹ thuật:</b>
+<i>${escape(techReq.substring(0, 600))}</i>
+━━━━━━━━━━━━━━━━━━━━━━━━
 👉 <i>Vui lòng truy cập trang Kỹ thuật viên để nhận việc và cập nhật tiến độ.</i>
     `.trim();
 
