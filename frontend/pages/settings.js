@@ -17,6 +17,14 @@ const SettingsPage = {
     notifyOnRating: true,
     notifyOnComplete: true
   },
+  emailConfig: {
+    isEnabled: true,
+    webhookUrl: '',
+    emailjsServiceId: '',
+    emailjsTemplateId: '',
+    emailjsPublicKey: '',
+    notifyOnComplete: true
+  },
 
   async init() {
     console.log('[SettingsPage] Initializing settings...');
@@ -25,6 +33,13 @@ const SettingsPage = {
     } catch (e) {
       this.config = ApiService.getTelegramConfig();
     }
+
+    try {
+      this.emailConfig = await ApiService.loadEmailConfig();
+    } catch (e) {
+      this.emailConfig = ApiService.getEmailConfig();
+    }
+
     this.populateFields();
   },
 
@@ -50,6 +65,19 @@ const SettingsPage = {
     if (optAssign) optAssign.checked = this.config.notifyOnAssign !== false;
     if (optReview) optReview.checked = this.config.notifyOnReview !== false;
     if (optRating) optRating.checked = this.config.notifyOnRating !== false;
+
+    // Email Config
+    const emailToggle = document.getElementById('email-enable-toggle');
+    const emailWebhook = document.getElementById('email-webhook-url');
+    const emailJsService = document.getElementById('email-js-service-id');
+    const emailJsTemplate = document.getElementById('email-js-template-id');
+    const emailJsKey = document.getElementById('email-js-public-key');
+
+    if (emailToggle) emailToggle.checked = this.emailConfig.isEnabled !== false;
+    if (emailWebhook) emailWebhook.value = this.emailConfig.webhookUrl || '';
+    if (emailJsService) emailJsService.value = this.emailConfig.emailjsServiceId || '';
+    if (emailJsTemplate) emailJsTemplate.value = this.emailConfig.emailjsTemplateId || '';
+    if (emailJsKey) emailJsKey.value = this.emailConfig.emailjsPublicKey || '';
   },
 
   render() {
@@ -203,7 +231,109 @@ const SettingsPage = {
           </div>
         </div>
 
-        <!-- Section 3: SLA Response Time Standards -->
+        <!-- Section 3: Cấu hình Gửi Email Tự Động (Hoàn tất & Đánh giá dịch vụ) -->
+        <div class="bg-white rounded-3xl border border-emerald-200 shadow-xs p-6 sm:p-8 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 pb-5 gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-md shadow-emerald-600/20 shrink-0">
+                <i class="fa-solid fa-envelope-circle-check"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                  <span>Gửi Email thông báo hoàn thành & Đánh giá (1-5★)</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">Email Tự Động</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Tự động gửi email thông báo kèm liên kết đánh giá chất lượng phục vụ khi sự cố được duyệt hoàn thành.</p>
+              </div>
+            </div>
+
+            <button type="button" id="btn-test-email" class="px-4 py-2.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs" onclick="SettingsPage.testEmail()">
+              <i class="fa-solid fa-paper-plane text-emerald-600"></i>
+              <span>Test Gửi Email</span>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <label class="flex items-center gap-2.5 font-extrabold text-slate-800 text-xs cursor-pointer">
+              <input type="checkbox" id="email-enable-toggle" checked class="w-4 h-4 text-emerald-600 rounded">
+              <span>Bật chức năng tự động gửi Email khi Kỹ thuật hoàn thành & nghiệm thu phiếu</span>
+            </label>
+
+            <!-- Option 1: Google Apps Script Web App / Webhook URL (Khuyên dùng) -->
+            <div class="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="block font-black text-emerald-950 text-xs">
+                  🌐 Webhook URL / Google Apps Script Web App (Khuyên dùng - Miễn phí 100% qua Gmail):
+                </label>
+                <button type="button" class="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1" onclick="SettingsPage.toggleGoogleScriptGuide()">
+                  <i class="fa-solid fa-code"></i>
+                  <span id="label-toggle-script-guide">Xem code mẫu Google Script (1 phút)</span>
+                </button>
+              </div>
+              <input type="url" id="email-webhook-url" class="w-full p-3 rounded-xl border border-emerald-300 focus:ring-2 focus:ring-emerald-500 font-mono text-xs bg-white" placeholder="https://script.google.com/macros/s/AKfycbx.../exec">
+              <p class="text-[11px] text-slate-500">Dán link Web App từ Google Apps Script (sử dụng tài khoản Gmail/Google Workspace của trường để gửi thư hoàn toàn miễn phí).</p>
+            </div>
+
+            <!-- Hướng dẫn tạo Google Script Popup / Collapse -->
+            <div id="google-script-guide-box" class="hidden p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs space-y-3 font-mono">
+              <div class="flex items-center justify-between text-white font-bold border-b border-slate-700 pb-2">
+                <span>📋 Mã nguồn Google Apps Script (Tạo tại script.google.com):</span>
+                <button type="button" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-sans font-bold cursor-pointer" onclick="SettingsPage.copyGoogleScript()">
+                  <i class="fa-regular fa-copy mr-1"></i> Copy Code
+                </button>
+              </div>
+              <pre id="google-script-code-text" class="text-[11px] leading-relaxed text-emerald-400 bg-slate-950 p-3 rounded-xl overflow-x-auto">function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var to = data.to || data.recipient;
+    var subject = data.subject || "[NSG SUPPORT] Thông báo hoàn thành";
+    var htmlBody = data.html || "&lt;p&gt;Công việc đã hoàn thành.&lt;/p&gt;";
+    var textBody = data.text || "Công việc đã hoàn thành.";
+    
+    MailApp.sendEmail({
+      to: to,
+      subject: subject,
+      body: textBody,
+      htmlBody: htmlBody,
+      name: "NSG SUPPORT - CSVC"
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", to: to }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+              <div class="text-slate-400 text-[11px] font-sans space-y-1">
+                <p>👉 <strong>Cách triển khai:</strong> Vào <a href="https://script.google.com" target="_blank" class="text-sky-400 underline">script.google.com</a> ➔ Tạo dự án mới ➔ Dán mã trên ➔ Nhấn <strong>Deploy (Triển khai) ➔ New deployment ➔ Web App (Ai cũng có thể truy cập / Anyone)</strong> ➔ Copy URL dán vào ô Webhook URL ở trên.</p>
+              </div>
+            </div>
+
+            <!-- Option 2: EmailJS API -->
+            <details class="border border-slate-200 rounded-2xl p-4 text-xs space-y-3 bg-slate-50/70">
+              <summary class="font-bold text-slate-700 cursor-pointer hover:text-blue-600">
+                ⚙️ Hoặc sử dụng dịch vụ EmailJS (Tùy chọn nâng cao)
+              </summary>
+              <div class="mt-3 pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">EmailJS Service ID:</label>
+                  <input type="text" id="email-js-service-id" class="w-full p-2.5 rounded-xl border border-slate-300 font-mono text-xs bg-white" placeholder="service_xxxxxx">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">EmailJS Template ID:</label>
+                  <input type="text" id="email-js-template-id" class="w-full p-2.5 rounded-xl border border-slate-300 font-mono text-xs bg-white" placeholder="template_xxxxxx">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">EmailJS Public Key:</label>
+                  <input type="text" id="email-js-public-key" class="w-full p-2.5 rounded-xl border border-slate-300 font-mono text-xs bg-white" placeholder="public_key_xxxxxx">
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Section 4: SLA Response Time Standards -->
         <div class="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-4">
           <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
             <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
@@ -248,6 +378,47 @@ const SettingsPage = {
       input.type = 'password';
       if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
     }
+  },
+
+  toggleGoogleScriptGuide() {
+    const box = document.getElementById('google-script-guide-box');
+    const label = document.getElementById('label-toggle-script-guide');
+    if (!box) return;
+    if (box.classList.contains('hidden')) {
+      box.classList.remove('hidden');
+      if (label) label.innerText = 'Thu gọn hướng dẫn Google Script';
+    } else {
+      box.classList.add('hidden');
+      if (label) label.innerText = 'Xem code mẫu Google Script (1 phút)';
+    }
+  },
+
+  copyGoogleScript() {
+    const code = `function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var to = data.to || data.recipient;
+    var subject = data.subject || "[NSG SUPPORT] Thông báo hoàn thành";
+    var htmlBody = data.html || "<p>Công việc đã hoàn thành.</p>";
+    var textBody = data.text || "Công việc đã hoàn thành.";
+    
+    MailApp.sendEmail({
+      to: to,
+      subject: subject,
+      body: textBody,
+      htmlBody: htmlBody,
+      name: "NSG SUPPORT - CSVC"
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", to: to }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+    navigator.clipboard.writeText(code);
+    Utils.showToast('Đã copy mã nguồn Google Apps Script vào bộ nhớ tạm!', 'success', 3000);
   },
 
   async testTelegram() {
@@ -366,6 +537,43 @@ const SettingsPage = {
     }
   },
 
+  async testEmail() {
+    const currentUser = AuthService.getCurrentUser();
+    const defaultEmail = currentUser?.email || 'admin@nsg.edu.vn';
+    const testEmailInput = prompt('Nhập địa chỉ email của bạn để nhận email thử nghiệm:', defaultEmail);
+    if (!testEmailInput || !testEmailInput.includes('@')) {
+      if (testEmailInput !== null) Utils.showToast('Email không hợp lệ!', 'warning');
+      return;
+    }
+
+    const webhookUrl = document.getElementById('email-webhook-url')?.value.trim() || '';
+    const btn = document.getElementById('btn-test-email');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang gửi...';
+    }
+
+    Utils.showToast(`Đang gửi thử email nghiệm thu & đánh giá tới ${testEmailInput}...`, 'info', 3000);
+
+    try {
+      await this.saveSettings(false);
+      const res = await ApiService.testEmail(testEmailInput, webhookUrl);
+      if (res && res.success) {
+        SoundService.playSuccess();
+        Utils.showToast(`✅ Đã gửi email thử nghiệm thành công tới ${testEmailInput}! Vui lòng kiểm tra hộp thư đến (hoặc Spam).`, 'success', 6000);
+      } else {
+        throw new Error(res?.reason === 'NO_CONFIG' ? 'Chưa cấu hình Webhook URL hoặc EmailJS. Hãy dán Webhook URL từ Google Apps Script!' : (res?.error || 'Lỗi gửi email'));
+      }
+    } catch (e) {
+      Utils.showToast('❌ ' + e.message, 'error', 6000);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane text-emerald-600"></i><span>Test Gửi Email</span>';
+      }
+    }
+  },
+
   async saveSettings(showSuccessToast = true) {
     const tokenInput = document.getElementById('tele-bot-token');
     const chatIdInput = document.getElementById('tele-chat-id');
@@ -377,6 +585,13 @@ const SettingsPage = {
     const optAssign = document.getElementById('tele-opt-assign');
     const optReview = document.getElementById('tele-opt-review');
     const optRating = document.getElementById('tele-opt-rating');
+
+    // Email inputs
+    const emailToggle = document.getElementById('email-enable-toggle');
+    const emailWebhook = document.getElementById('email-webhook-url');
+    const emailJsService = document.getElementById('email-js-service-id');
+    const emailJsTemplate = document.getElementById('email-js-template-id');
+    const emailJsKey = document.getElementById('email-js-public-key');
 
     const newConfig = {
       botToken: tokenInput ? tokenInput.value.trim() : '',
@@ -392,12 +607,27 @@ const SettingsPage = {
       updatedAt: new Date().toISOString()
     };
 
+    const newEmailConfig = {
+      isEnabled: emailToggle ? emailToggle.checked : true,
+      webhookUrl: emailWebhook ? emailWebhook.value.trim() : '',
+      emailjsServiceId: emailJsService ? emailJsService.value.trim() : '',
+      emailjsTemplateId: emailJsTemplate ? emailJsTemplate.value.trim() : '',
+      emailjsPublicKey: emailJsKey ? emailJsKey.value.trim() : '',
+      notifyOnComplete: true,
+      updatedAt: new Date().toISOString()
+    };
+
     this.config = newConfig;
-    await ApiService.saveTelegramConfig(newConfig);
+    this.emailConfig = newEmailConfig;
+
+    await Promise.all([
+      ApiService.saveTelegramConfig(newConfig),
+      ApiService.saveEmailConfig(newEmailConfig)
+    ]);
 
     if (showSuccessToast) {
       SoundService.playSuccess();
-      Utils.showToast('Đã lưu cấu hình hệ thống & Telegram thành công!', 'success', 3000);
+      Utils.showToast('Đã lưu cấu hình hệ thống, Telegram & Email thành công!', 'success', 3000);
     }
   }
 };

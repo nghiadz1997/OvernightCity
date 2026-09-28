@@ -10,6 +10,7 @@ const TrackingPage = {
   render() {
     const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
     const prefilledCode = urlParams.get('code') || '';
+    const shouldRate = urlParams.get('rate') === 'true';
 
     // Nếu có mã trên URL thì tự động tìm kiếm ngay
     if (prefilledCode) {
@@ -17,7 +18,7 @@ const TrackingPage = {
         const input = document.getElementById('tracking-code-input');
         if (input) {
           input.value = prefilledCode;
-          TrackingPage.searchReport(prefilledCode);
+          TrackingPage.searchReport(prefilledCode, shouldRate);
         }
       }, 50);
     }
@@ -69,7 +70,7 @@ const TrackingPage = {
     await this.searchReport(code);
   },
 
-  async searchReport(code) {
+  async searchReport(code, shouldRate = false) {
     const container = document.getElementById('tracking-result-container');
     const searchBtn = document.getElementById('btn-tracking-search');
     if (searchBtn) {
@@ -102,6 +103,18 @@ const TrackingPage = {
 
       this.currentReport = report;
       this.renderReportDetail(report);
+
+      // Nếu có yêu cầu mở đánh giá (từ email gửi về)
+      if (shouldRate) {
+        setTimeout(() => {
+          const ratingSection = document.getElementById('tracking-rating-section');
+          if (ratingSection) {
+            ratingSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const textarea = document.getElementById('feedback-comment');
+            if (textarea) textarea.focus();
+          }
+        }, 350);
+      }
     } catch (err) {
       container.innerHTML = `
         <div class="bg-white rounded-2xl p-8 text-center border border-red-200 shadow-sm">
@@ -277,7 +290,7 @@ const TrackingPage = {
 
         <!-- 5-Star Rating Form if Completed (Mục 44) -->
         ${isCompleted ? `
-          <div class="mx-6 mb-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
+          <div id="tracking-rating-section" class="mx-6 mb-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl shadow-sm animate-fade-in">
             <div class="flex items-center gap-3 mb-2">
               <i class="fa-solid fa-award text-amber-500 text-2xl"></i>
               <div>
