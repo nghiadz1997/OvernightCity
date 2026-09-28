@@ -1,18 +1,64 @@
 /**
- * NSG SUPPORT - REPORT SUBMISSION FORM PAGE
- * Form gửi phản ánh đầy đủ trường theo yêu cầu mục 6 & 45 chống spam
- * Hỗ trợ bộ chọn phân cấp 3 tầng: Cơ sở -> Khu vực -> Phòng
+ * NSG SUPPORT - MULTI-CATEGORY REPORT SUBMISSION FORM
+ * Hỗ trợ 4 phân hệ phản ánh chuyên sâu:
+ * 1. 🏫 Cơ sở vật chất (Thiết bị, điện nước, mạng, giảng đường)
+ * 2. 🚗 Tài xế (Chuyến xe, giờ đi/về, an toàn giao thông, thái độ, lộ trình)
+ * 3. 🧹 Vệ sinh – Tạp vụ (Phòng học, WC, hành lang, rác, nước đọng, vật tư)
+ * 4. 🛡️ Bảo vệ (An ninh trật tự, ca trực, kiểm soát ra vào, trông xe)
  */
 
 const ReportFormPage = {
+  selectedType: 'FACILITIES', // 'FACILITIES' | 'DRIVER' | 'CLEANING' | 'SECURITY'
   selectedFiles: [],
   isSubmitting: false,
   COOLDOWN_MS: 5 * 60 * 1000, // 5 phút (300 giây)
   spamInterval: null,
 
+  REPORT_TYPES: {
+    FACILITIES: {
+      id: 'FACILITIES',
+      name: 'Cơ sở vật chất',
+      emoji: '🏫',
+      icon: 'fa-building',
+      badgeClass: 'bg-blue-100 text-blue-800 border-blue-200',
+      activeColor: 'from-blue-600 to-indigo-600',
+      borderActive: 'border-blue-600 bg-blue-50/60 shadow-md',
+      desc: 'Báo hỏng máy tính, máy chiếu, mạng, điện nước, thiết bị giảng đường & văn phòng'
+    },
+    DRIVER: {
+      id: 'DRIVER',
+      name: 'Tài xế',
+      emoji: '🚗',
+      icon: 'fa-car-side',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+      activeColor: 'from-amber-600 to-orange-600',
+      borderActive: 'border-amber-600 bg-amber-50/60 shadow-md',
+      desc: 'Phản ánh chuyến xe, lộ trình, giờ giấc đưa đón, thái độ và an toàn lái xe'
+    },
+    CLEANING: {
+      id: 'CLEANING',
+      name: 'Vệ sinh – Tạp vụ',
+      emoji: '🧹',
+      icon: 'fa-broom',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      activeColor: 'from-emerald-600 to-teal-600',
+      borderActive: 'border-emerald-600 bg-emerald-50/60 shadow-md',
+      desc: 'Phản ánh vệ sinh phòng học, nhà vệ sinh, hành lang, rác thải và cảnh quan'
+    },
+    SECURITY: {
+      id: 'SECURITY',
+      name: 'Bảo vệ',
+      emoji: '🛡️',
+      icon: 'fa-shield-halved',
+      badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      activeColor: 'from-indigo-600 to-purple-600',
+      borderActive: 'border-indigo-600 bg-indigo-50/60 shadow-md',
+      desc: 'Phản ánh an ninh trật tự, ca trực, kiểm soát ra vào, trông giữ xe và an toàn'
+    }
+  },
+
   getRemainingCooldown() {
     const user = AuthService.getCurrentUser();
-    // Tài khoản nội bộ (KTV, Trưởng phòng, Admin) được miễn giới hạn chống spam
     if (user && (AuthService.isStaff() || AuthService.isManager() || AuthService.isAdmin())) {
       return 0;
     }
@@ -85,28 +131,40 @@ const ReportFormPage = {
   },
 
   async init() {
-    // Kiểm tra giới hạn 5 phút chống spam
     this.checkAndStartSpamTimer();
+    this.initDynamicForm();
+  },
 
-    // 1. Tải danh mục thiết bị động
-    try {
-      const categories = await ApiService.loadCategories();
-      const catSelect = document.getElementById('rep-category-id');
-      if (catSelect && categories && categories.length > 0) {
-        catSelect.innerHTML = `
-          <option value="">-- Chọn danh mục phản ánh --</option>
-          ${categories.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
-        `;
-      }
-    } catch (e) {
-      console.warn('Lỗi nạp categories:', e);
-    }
-
-    // 3. Tải địa điểm động & Khởi tạo bộ chọn Cơ sở -> Khu vực -> Phòng
+  async initDynamicForm() {
+    // 1. Tải địa điểm động nếu form hiện tại có bộ chọn địa điểm 3 tầng
     try {
       await ApiService.loadCampuses();
     } catch (e) {}
     this.initLocationSelectors();
+
+    // 2. Tải danh mục thiết bị nếu là form Cơ sở vật chất
+    if (this.selectedType === 'FACILITIES') {
+      try {
+        const categories = await ApiService.loadCategories();
+        const catSelect = document.getElementById('rep-category-id');
+        if (catSelect && categories && categories.length > 0) {
+          catSelect.innerHTML = `
+            <option value="">-- Chọn danh mục phản ánh --</option>
+            ${categories.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
+          `;
+        }
+      } catch (e) {
+        console.warn('Lỗi nạp categories:', e);
+      }
+    }
+
+    // 3. Tự động gán ngày hôm nay cho các form cần chọn ngày
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tripDateEl = document.getElementById('driver-trip-date');
+    if (tripDateEl && !tripDateEl.value) tripDateEl.value = todayStr;
+
+    const secDateEl = document.getElementById('security-date');
+    if (secDateEl && !secDateEl.value) secDateEl.value = todayStr;
   },
 
   initLocationSelectors() {
@@ -115,7 +173,7 @@ const ReportFormPage = {
     const roomSelect = document.getElementById('rep-room-select');
     const customRoomContainer = document.getElementById('rep-room-custom-container');
 
-    if (!campusSelect || !zoneSelect || !roomSelect) return;
+    if (!campusSelect) return;
 
     // Nạp danh sách Cơ sở
     const campuses = window.APP_CONFIG.CAMPUSES || [];
@@ -123,6 +181,9 @@ const ReportFormPage = {
       <option value="">-- Chọn Cơ sở --</option>
       ${campuses.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
     `;
+
+    // Nếu không có zoneSelect (ví dụ chỉ chọn Cơ sở ở form Tài xế)
+    if (!zoneSelect || !roomSelect) return;
 
     // Reset cấp dưới
     zoneSelect.innerHTML = `<option value="">-- Vui lòng chọn Cơ sở trước --</option>`;
@@ -188,14 +249,51 @@ const ReportFormPage = {
     };
   },
 
+  selectReportType(typeKey) {
+    if (!this.REPORT_TYPES[typeKey]) return;
+    this.selectedType = typeKey;
+
+    const formBody = document.getElementById('report-dynamic-content');
+    const headerTitle = document.getElementById('report-header-title');
+    const headerDesc = document.getElementById('report-header-desc');
+
+    if (formBody) {
+      formBody.innerHTML = this.renderCurrentTypeForm();
+      this.initDynamicForm();
+    }
+
+    // Cập nhật giao diện thanh chuyển Tab
+    Object.keys(this.REPORT_TYPES).forEach(k => {
+      const btn = document.getElementById(`tab-type-${k}`);
+      if (btn) {
+        if (k === typeKey) {
+          btn.className = `flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer text-center relative ${this.REPORT_TYPES[k].borderActive}`;
+          const checkIcon = btn.querySelector('.tab-check-icon');
+          if (checkIcon) checkIcon.classList.remove('hidden');
+        } else {
+          btn.className = `flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer text-center bg-white text-slate-700`;
+          const checkIcon = btn.querySelector('.tab-check-icon');
+          if (checkIcon) checkIcon.classList.add('hidden');
+        }
+      }
+    });
+
+    if (headerTitle && headerDesc) {
+      const t = this.REPORT_TYPES[typeKey];
+      headerTitle.innerText = `PHIẾU PHẢN ÁNH: ${t.name.toUpperCase()}`;
+      headerDesc.innerText = t.desc;
+    }
+  },
+
   render() {
     const user = AuthService.getCurrentUser();
-    const categories = window.APP_CONFIG.CATEGORIES;
-    const departments = window.APP_CONFIG.DEPARTMENTS;
 
-    // Lấy query param priority nếu có (ví dụ: ?priority=KHẨN+CẤP)
+    // Lấy query param type nếu có (ví dụ: ?type=DRIVER hoặc ?type=CLEANING)
     const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
-    const defaultPriority = urlParams.get('priority') || 'BÌNH THƯỜNG';
+    const requestedType = urlParams.get('type')?.toUpperCase();
+    if (requestedType && this.REPORT_TYPES[requestedType]) {
+      this.selectedType = requestedType;
+    }
 
     this.isSubmitting = false;
 
@@ -227,7 +325,7 @@ const ReportFormPage = {
             </h1>
 
             <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-8">
-              Để đảm bảo phản ánh được chuyển đúng bộ phận kỹ thuật, ngăn chặn spam và <strong>tự động nhận email cập nhật tiến độ xử lý</strong>, vui lòng đăng nhập tài khoản Google để tiếp tục.
+              Để đảm bảo phản ánh được chuyển đúng bộ phận (<strong>Cơ sở vật chất, Tài xế, Tạp vụ, Bảo vệ</strong>), chống spam và <strong>nhận email cập nhật tiến độ xử lý</strong>, vui lòng đăng nhập tài khoản Google.
             </p>
 
             <!-- Google Login Button -->
@@ -247,42 +345,47 @@ const ReportFormPage = {
 
     setTimeout(() => this.init(), 50);
 
-    // 2. ĐÃ ĐĂNG NHẬP: HIỂN THỊ TOÀN BỘ FORM PHẢN ÁNH
+    const currentTypeObj = this.REPORT_TYPES[this.selectedType];
+
+    // 2. ĐÃ ĐĂNG NHẬP: HIỂN THỊ FORM CHUYỂN ĐỔI 4 LOẠI PHẢN ÁNH
     return `
-      <div class="max-w-3xl mx-auto px-4 py-8 sm:px-6 animate-fade-in">
+      <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 animate-fade-in">
         <!-- Breadcrumb -->
         <div class="flex items-center justify-between mb-6">
           <nav class="flex items-center gap-2 text-xs text-slate-500">
-            <a href="#/" class="hover:text-blue-600">Trang chủ</a>
+            <a href="#/" class="hover:text-blue-600 font-medium">Trang chủ</a>
             <i class="fa-solid fa-chevron-right text-[10px]"></i>
-            <span class="text-slate-900 font-semibold">Gửi phản ánh sự cố</span>
+            <span class="text-slate-900 font-semibold">Gửi phản ánh & hỗ trợ</span>
           </nav>
         </div>
 
         <!-- Form Card -->
         <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          <!-- Header -->
-          <div class="bg-gradient-to-r from-blue-700 to-indigo-700 px-6 sm:px-8 py-6 text-white">
-            <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shrink-0">
-                <i class="fa-solid fa-paper-plane"></i>
+          
+          <!-- Top Header -->
+          <div class="bg-gradient-to-r ${currentTypeObj.activeColor} px-6 sm:px-8 py-6 text-white transition-all duration-300">
+            <div class="flex items-center gap-3.5">
+              <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-3xl shrink-0 shadow-xs">
+                <span>${currentTypeObj.emoji}</span>
               </div>
               <div>
-                <h1 class="text-xl sm:text-2xl font-black">PHIẾU PHẢN ÁNH & HỖ TRỢ KỸ THUẬT</h1>
-                <p class="text-xs sm:text-sm text-blue-100 mt-0.5 font-light">
-                  Vui lòng chọn chính xác địa điểm theo Cơ sở / Khu vực và mô tả sự cố để xử lý nhanh nhất.
+                <h1 id="report-header-title" class="text-xl sm:text-2xl font-black tracking-tight">
+                  PHIẾU PHẢN ÁNH: ${currentTypeObj.name.toUpperCase()}
+                </h1>
+                <p id="report-header-desc" class="text-xs sm:text-sm text-white/90 mt-0.5 font-light">
+                  ${currentTypeObj.desc}
                 </p>
               </div>
             </div>
           </div>
 
-          <!-- Main Form -->
+          <!-- Main Form Container -->
           <form id="report-submission-form" class="p-6 sm:p-8 space-y-6" onsubmit="ReportFormPage.handleSubmit(event)">
-            <!-- Honeypot Field chống spam (mục 45) -->
+            <!-- Honeypot Field chống spam -->
             <input type="text" name="_hp_website" id="_hp_website" style="display:none !important;" tabindex="-1" autocomplete="off">
 
             <!-- Thẻ định danh người dùng đã xác thực Google -->
-            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden ring-2 ring-emerald-300">
                   ${user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user-check"></i>`}
@@ -297,127 +400,53 @@ const ReportFormPage = {
                   <div class="text-xs text-slate-500 font-medium">${user.email}</div>
                 </div>
               </div>
-              <button type="button" onclick="ReportFormPage.handleSwitchAccount()" class="text-xs text-slate-600 hover:text-red-600 font-semibold px-3 py-1.5 rounded-xl bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 transition shrink-0">
+              <button type="button" onclick="ReportFormPage.handleSwitchAccount()" class="text-xs text-slate-600 hover:text-red-600 font-semibold px-3 py-1.5 rounded-xl bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 transition shrink-0 cursor-pointer">
                 <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Đổi tài khoản
               </button>
             </div>
 
-            <!-- Phần 1: Địa điểm xảy ra sự cố & Loại thiết bị (ĐẨY LÊN ĐẦU TIÊN) -->
-            <div class="space-y-4">
-              <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-map-location-dot text-blue-600"></i> 1. Địa điểm xảy ra sự cố & Loại thiết bị
-              </h3>
-
-              <!-- Cụm chọn Địa điểm 3 tầng (Cơ sở -> Khu vực -> Phòng) -->
-              <div class="p-5 bg-blue-50/50 rounded-3xl border border-blue-200 shadow-xs space-y-3.5">
-                <span class="text-xs font-black text-blue-950 flex items-center gap-1.5 uppercase tracking-wide">
-                  <i class="fa-solid fa-building text-blue-600"></i> Chọn vị trí chính xác (3 Tầng):
+            <!-- BỘ CHỌN 4 LOẠI PHẢN ÁNH CHÍNH THEO YÊU CẦU MỚI -->
+            <div class="space-y-3 pt-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-layer-group text-blue-600"></i> Chọn phân hệ phản ánh:
                 </span>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <!-- Tầng 1: Cơ sở -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">1. Cơ sở <span class="text-red-500">*</span></label>
-                    <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required>
-                      <option value="">-- Chọn Cơ sở --</option>
-                    </select>
-                  </div>
-
-                  <!-- Tầng 2: Khu vực / Tòa nhà -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">2. Khu vực / Tòa nhà <span class="text-red-500">*</span></label>
-                    <select id="rep-zone" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required disabled>
-                      <option value="">-- Vui lòng chọn Cơ sở --</option>
-                    </select>
-                  </div>
-
-                  <!-- Tầng 3: Phòng / Vị trí -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">3. Phòng cụ thể <span class="text-red-500">*</span></label>
-                    <select id="rep-room-select" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required disabled>
-                      <option value="">-- Vui lòng chọn Khu vực --</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Ô nhập phòng khác nếu chọn CUSTOM -->
-                <div id="rep-room-custom-container" class="hidden pt-1">
-                  <label class="block text-xs font-bold text-blue-700 mb-1">Nhập tên phòng / vị trí cụ thể khác <span class="text-red-500">*</span></label>
-                  <input type="text" id="rep-room-custom" class="w-full text-xs sm:text-sm p-2.5 rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-500 bg-white font-medium" placeholder="Ví dụ: Phòng họp giao ban, Góc hành lang lầu 2...">
-                </div>
+                <span class="text-[11px] text-slate-400 font-normal">Nhấn vào từng mục để đổi biểu mẫu tương ứng</span>
               </div>
 
-              <!-- Danh mục & Mức độ khẩn cấp -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Loại phản ánh / Thiết bị <span class="text-red-500">*</span></label>
-                  <select id="rep-category-id" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" required>
-                    <option value="">-- Chọn danh mục phản ánh --</option>
-                    ${categories.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Mức độ khẩn cấp <span class="text-red-500">*</span></label>
-                  <select id="rep-priority" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" required>
-                    <option value="BÌNH THƯỜNG" class="text-blue-700" ${defaultPriority === 'BÌNH THƯỜNG' ? 'selected' : ''}>🟢 Bình thường (Xử lý trong 48h)</option>
-                    <option value="TRUNG BÌNH" class="text-yellow-700" ${defaultPriority === 'TRUNG BÌNH' ? 'selected' : ''}>🟡 Trung bình (Xử lý trong 24h)</option>
-                    <option value="CAO" class="text-orange-700" ${defaultPriority === 'CAO' ? 'selected' : ''}>🟠 Cao (Xử lý trong 8h)</option>
-                    <option value="KHẨN CẤP" class="text-red-700 font-black" ${defaultPriority === 'KHẨN CẤP' ? 'selected' : ''}>🔴 Khẩn cấp (Xử lý ngay trong 2h)</option>
-                  </select>
-                </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                ${Object.values(this.REPORT_TYPES).map(t => {
+                  const isActive = t.id === this.selectedType;
+                  return `
+                    <button type="button" id="tab-type-${t.id}" onclick="ReportFormPage.selectReportType('${t.id}')" class="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer text-center relative ${isActive ? t.borderActive : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 bg-white text-slate-700'}">
+                      <span class="text-2xl sm:text-3xl mb-1.5">${t.emoji}</span>
+                      <span class="text-xs font-extrabold text-slate-900">${t.name}</span>
+                      <span class="tab-check-icon ${isActive ? '' : 'hidden'} absolute top-2 right-2 text-blue-600 text-xs font-bold">
+                        <i class="fa-solid fa-circle-check"></i>
+                      </span>
+                    </button>
+                  `;
+                }).join('')}
               </div>
             </div>
 
-            <!-- Phần 2: Nội dung sự cố chi tiết -->
-            <div class="border-t border-slate-200 pt-6">
-              <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation text-blue-600"></i> 2. Mô tả chi tiết sự cố
-              </h3>
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Tiêu đề phản ánh <span class="text-red-500">*</span></label>
-                  <input type="text" id="rep-title" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Tóm tắt ngắn gọn: Máy chiếu không lên nguồn, mất mạng wifi, hỏng bóng đèn..." required>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Nội dung chi tiết <span class="text-red-500">*</span></label>
-                  <textarea id="rep-description" rows="4" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 leading-relaxed font-normal" placeholder="Mô tả hiện tượng sự cố, thời điểm bắt đầu xảy ra, các dấu hiệu (chớp đèn đỏ, có mùi khét, không nhận dây HDMI...)..." required></textarea>
-                </div>
-
-                <!-- Chụp ảnh / Tải tệp đính kèm -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>Hình ảnh / Video / Tệp đính kèm (Tối đa 5 tệp)</span>
-                    <span class="text-[11px] text-slate-400 font-normal">Hỗ trợ JPG, PNG, MP4, PDF, DOCX (&lt;10MB)</span>
-                  </label>
-                  <div class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors bg-slate-50/60 cursor-pointer" onclick="document.getElementById('rep-file-input').click()">
-                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-600 mb-2"></i>
-                    <p class="text-xs font-bold text-slate-700">Nhấn để chụp ảnh hoặc chọn tệp từ máy tính / điện thoại</p>
-                    <p class="text-[11px] text-slate-500 mt-1">Ảnh sẽ được tự động nén tối ưu trước khi gửi để đảm bảo tốc độ</p>
-                  </div>
-                  <input type="file" id="rep-file-input" multiple accept="image/*,video/*,application/pdf,.doc,.docx" class="hidden" onchange="ReportFormPage.handleFileSelect(event)">
-
-                  <!-- Previews -->
-                  <div id="file-previews-container" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-                </div>
-              </div>
+            <!-- NỘI DUNG BIỂU MẪU ĐỘNG THEO LOẠI ĐÃ CHỌN -->
+            <div id="report-dynamic-content" class="space-y-6 pt-2">
+              ${this.renderCurrentTypeForm()}
             </div>
 
-            <!-- Phần 3: Thông tin người gửi phản ánh -->
+            <!-- PHẦN CHUNG: THÔNG TIN NGƯỜI GỬI PHẢN ÁNH (GIỮ NGUYÊN ĐỊNH DẠNG) -->
             <div class="border-t border-slate-200 pt-6">
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-address-card text-blue-600"></i> 3. Thông tin người gửi phản ánh
+                  <i class="fa-solid fa-address-card text-blue-600"></i> Thông tin người gửi phản ánh
                 </h3>
-                ${user ? `
-                  <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                    <i class="fa-solid fa-lock text-[10px]"></i> Đã định danh Google
-                  </span>
-                ` : ''}
+                <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                  <i class="fa-solid fa-lock text-[10px]"></i> Đã định danh Google
+                </span>
               </div>
               <p class="text-xs text-slate-500 mb-4 font-normal">
-                ${user 
-                  ? 'Họ tên và Email được trích xuất tự động từ tài khoản Google đã xác thực. Bạn chỉ cần nhập thêm Số điện thoại liên hệ.' 
-                  : 'Vui lòng cung cấp chính xác Họ tên, Email và Số điện thoại để nhận email xác nhận & thông báo kết quả xử lý sự cố.'}
+                Họ tên và Email được trích xuất tự động từ tài khoản Google đã xác thực. Bạn chỉ cần nhập thêm Số điện thoại để nhận thông báo và liên hệ hỗ trợ.
               </p>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -430,20 +459,20 @@ const ReportFormPage = {
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <i class="fa-solid fa-user"></i>
                     </div>
-                    <input type="text" id="rep-sender-name" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium ${user ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''}" placeholder="Ví dụ: Nguyễn Văn An" value="${user?.displayName || ''}" ${user ? 'readonly' : ''} required>
+                    <input type="text" id="rep-sender-name" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium bg-slate-100 text-slate-700 cursor-not-allowed" placeholder="Ví dụ: Nguyễn Văn An" value="${user?.displayName || ''}" readonly required>
                   </div>
                 </div>
 
                 <!-- Email nhận phản hồi -->
                 <div>
                   <label class="block text-xs font-bold text-slate-700 mb-1">
-                    Email nhận thông báo kết quả <span class="text-red-500">*</span>
+                    Email nhận kết quả xử lý <span class="text-red-500">*</span>
                   </label>
                   <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <i class="fa-solid fa-envelope"></i>
                     </div>
-                    <input type="email" id="rep-sender-email" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium ${user ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''}" placeholder="example@gmail.com" value="${user?.email || ''}" ${user ? 'readonly' : ''} required>
+                    <input type="email" id="rep-sender-email" class="w-full pl-10 pr-3 text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium bg-slate-100 text-slate-700 cursor-not-allowed" placeholder="example@gmail.com" value="${user?.email || ''}" readonly required>
                   </div>
                 </div>
 
@@ -480,11 +509,674 @@ const ReportFormPage = {
                 <span>GỬI PHẢN ÁNH NGAY</span>
               </button>
               <p class="text-[11px] text-slate-400 text-center mt-3">
-                Sau khi gửi thành công, bạn sẽ nhận được Mã yêu cầu để theo dõi tiến độ xử lý và đánh giá chất lượng.
+                Sau khi gửi thành công, bạn sẽ nhận được Mã yêu cầu và Email xác nhận để theo dõi tiến độ xử lý.
               </p>
             </div>
           </form>
         </div>
+      </div>
+    `;
+  },
+
+  /**
+   * Render nội dung form theo từng loại
+   */
+  renderCurrentTypeForm() {
+    switch (this.selectedType) {
+      case 'DRIVER':
+        return this.renderDriverForm();
+      case 'CLEANING':
+        return this.renderCleaningForm();
+      case 'SECURITY':
+        return this.renderSecurityForm();
+      case 'FACILITIES':
+      default:
+        return this.renderFacilitiesForm();
+    }
+  },
+
+  // ========================================================
+  // 1. FORM 🏫 CƠ SỞ VẬT CHẤT (Biểu mẫu thiết bị & hạ tầng)
+  // ========================================================
+  renderFacilitiesForm() {
+    const categories = window.APP_CONFIG.CATEGORIES || [];
+    return `
+      <!-- Khối 1: Vị trí 3 tầng -->
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-map-location-dot text-blue-600"></i> 1. Địa điểm xảy ra sự cố & Loại thiết bị
+        </h3>
+
+        <!-- Cụm chọn Địa điểm 3 tầng -->
+        <div class="p-5 bg-blue-50/50 rounded-3xl border border-blue-200 shadow-2xs space-y-3.5">
+          <span class="text-xs font-black text-blue-950 flex items-center gap-1.5 uppercase tracking-wide">
+            <i class="fa-solid fa-building text-blue-600"></i> Chọn vị trí chính xác (3 Tầng):
+          </span>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">1. Cơ sở <span class="text-red-500">*</span></label>
+              <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required>
+                <option value="">-- Chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">2. Khu vực / Tòa nhà <span class="text-red-500">*</span></label>
+              <select id="rep-zone" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">3. Phòng cụ thể <span class="text-red-500">*</span></label>
+              <select id="rep-room-select" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Khu vực --</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="rep-room-custom-container" class="hidden pt-1">
+            <label class="block text-xs font-bold text-blue-700 mb-1">Nhập tên phòng / vị trí cụ thể khác <span class="text-red-500">*</span></label>
+            <input type="text" id="rep-room-custom" class="w-full text-xs sm:text-sm p-2.5 rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-500 bg-white font-medium" placeholder="Ví dụ: Phòng họp giao ban, Góc hành lang lầu 2...">
+          </div>
+        </div>
+
+        <!-- Danh mục & Mức độ khẩn cấp -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Loại phản ánh / Thiết bị <span class="text-red-500">*</span></label>
+            <select id="rep-category-id" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" required>
+              <option value="">-- Chọn danh mục phản ánh --</option>
+              ${categories.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Mức độ khẩn cấp <span class="text-red-500">*</span></label>
+            <select id="rep-priority" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-bold" required>
+              <option value="BÌNH THƯỜNG" class="text-blue-700">🟢 Bình thường (Xử lý trong 48h)</option>
+              <option value="TRUNG BÌNH" class="text-yellow-700">🟡 Trung bình (Xử lý trong 24h)</option>
+              <option value="CAO" class="text-orange-700">🟠 Cao (Xử lý trong 8h)</option>
+              <option value="KHẨN CẤP" class="text-red-700 font-black">🔴 Khẩn cấp (Xử lý ngay trong 2h)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 2: Mô tả chi tiết sự cố -->
+      <div class="border-t border-slate-200 pt-6">
+        <h3 class="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-blue-600"></i> 2. Mô tả chi tiết sự cố
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Tiêu đề phản ánh <span class="text-red-500">*</span></label>
+            <input type="text" id="rep-title" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 font-medium" placeholder="Tóm tắt ngắn gọn: Máy chiếu không lên nguồn, mất mạng wifi, hỏng bóng đèn..." required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nội dung chi tiết <span class="text-red-500">*</span></label>
+            <textarea id="rep-description" rows="4" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 leading-relaxed font-normal" placeholder="Mô tả hiện tượng sự cố, thời điểm bắt đầu xảy ra, các dấu hiệu (chớp đèn đỏ, có mùi khét, không nhận dây HDMI...)..." required></textarea>
+          </div>
+
+          <!-- Đính kèm ảnh / video -->
+          ${this.renderAttachmentPicker()}
+        </div>
+      </div>
+    `;
+  },
+
+  // ========================================================
+  // 2. FORM 🚗 TÀI XẾ (Biểu mẫu dịch vụ xe đưa đón)
+  // ========================================================
+  renderDriverForm() {
+    return `
+      <!-- Khối 1: Thông tin chuyến xe -->
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-car-side text-amber-600"></i> 1. Thông tin chuyến xe & Lộ trình
+        </h3>
+
+        <!-- Chọn Cơ sở liên quan -->
+        <div class="p-5 bg-amber-50/50 rounded-3xl border border-amber-200 space-y-3.5">
+          <span class="text-xs font-black text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
+            <i class="fa-solid fa-building text-amber-600"></i> Cơ sở xuất phát / Điểm đón ban đầu:
+          </span>
+          <div>
+            <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white" required>
+              <option value="">-- Chọn Cơ sở --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Ngày sử dụng xe <span class="text-red-500">*</span></label>
+            <input type="date" id="driver-trip-date" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white" required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Giờ đi</label>
+            <input type="time" id="driver-dept-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Giờ về (nếu có)</label>
+            <input type="time" id="driver-return-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Điểm đón <span class="text-red-500">*</span></label>
+            <input type="text" id="driver-pickup" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Cổng chính CS1, 04 Nguyễn Thông..." required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Điểm đến <span class="text-red-500">*</span></label>
+            <input type="text" id="driver-destination" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Cơ sở 2, Trung tâm Hội nghị..." required>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Biển số xe (nếu nhớ)</label>
+            <input type="text" id="driver-plate" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-mono font-bold" placeholder="Ví dụ: 51B-123.45">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Tên tài xế (nếu biết)</label>
+            <input type="text" id="driver-name" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Chú Ba, Anh Tuấn...">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Mục đích chuyến đi / công tác</label>
+            <input type="text" id="driver-purpose" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Đưa đón giảng viên, công tác...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 2: Nội dung phản ánh (Checkboxes nhiều mục) -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-amber-600"></i> 2. Nội dung phản ánh (Chọn một hoặc nhiều mục) <span class="text-red-500">*</span>
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Tài xế đến trễ',
+            'Không đúng lịch điều xe',
+            'Thái độ giao tiếp chưa phù hợp',
+            'Không hỗ trợ hành khách khi cần',
+            'Sử dụng điện thoại khi lái xe',
+            'Lái xe nhanh / thiếu an toàn',
+            'Không tuân thủ quy định giao thông',
+            'Tự ý thay đổi lộ trình',
+            'Xe không sạch sẽ',
+            'Điều hòa / trang thiết bị trên xe có vấn đề',
+            'Hút thuốc trên xe',
+            'Có lời nói hoặc hành vi gây khó chịu',
+            'Khác'
+          ].map((item, idx) => `
+            <label class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-amber-100/50 cursor-pointer text-xs font-semibold text-slate-800 transition">
+              <input type="checkbox" name="driver-issues" value="${item}" class="w-4 h-4 text-amber-600 rounded focus:ring-amber-500 mt-0.5 cursor-pointer">
+              <span>${item}</span>
+            </label>
+          `).join('')}
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết sự việc <span class="text-red-500">*</span></label>
+          <textarea id="driver-description" rows="3" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 leading-relaxed font-normal" placeholder="Vui lòng ghi rõ thời gian, địa điểm, diễn biến sự việc và các thông tin liên quan để đơn vị có cơ sở kiểm tra..." required></textarea>
+        </div>
+      </div>
+
+      <!-- Khối 3: Mức độ sự việc -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-gauge-high text-amber-600"></i> 3. Mức độ sự việc <span class="text-red-500">*</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 cursor-pointer text-xs font-bold text-emerald-800 transition">
+            <input type="radio" name="driver-severity" value="GÓP Ý" class="text-emerald-600" checked>
+            <span>🟢 Góp ý</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-yellow-50 cursor-pointer text-xs font-bold text-yellow-800 transition">
+            <input type="radio" name="driver-severity" value="CẦN NHẮC NHỞ" class="text-yellow-600">
+            <span>🟡 Cần nhắc nhở</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-orange-50 cursor-pointer text-xs font-bold text-orange-800 transition">
+            <input type="radio" name="driver-severity" value="NGHIÊM TRỌNG" class="text-orange-600">
+            <span>🟠 Nghiêm trọng</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 cursor-pointer text-xs font-bold text-red-800 transition">
+            <input type="radio" name="driver-severity" value="NGUY CƠ AN TOÀN" class="text-red-600">
+            <span>🔴 Nguy cơ an toàn</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Khối 4: Minh chứng & Nhân chứng -->
+      <div class="border-t border-slate-200 pt-6 space-y-4">
+        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-paperclip text-amber-600"></i> 4. Minh chứng & Nhân chứng
+        </h3>
+
+        ${this.renderAttachmentPicker()}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Có nhân chứng đi cùng không?</label>
+            <div class="flex items-center gap-4 pt-1">
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                <input type="radio" name="driver-has-witness" value="YES" onchange="document.getElementById('driver-witness-container').classList.remove('hidden')">
+                <span>Có nhân chứng</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                <input type="radio" name="driver-has-witness" value="NO" checked onchange="document.getElementById('driver-witness-container').classList.add('hidden')">
+                <span>Không có</span>
+              </label>
+            </div>
+          </div>
+          <div id="driver-witness-container" class="hidden">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Tên / người đi cùng liên quan</label>
+            <input type="text" id="driver-witness-name" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Thầy Nam, Cô Hương (Khoa CNTT)...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 5: Mong muốn xử lý -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-bullseye text-amber-600"></i> 5. Mong muốn xử lý
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Chỉ ghi nhận góp ý',
+            'Đề nghị kiểm tra sự việc',
+            'Đề nghị phản hồi kết quả',
+            'Đề nghị liên hệ trực tiếp với tôi',
+            'Khác'
+          ].map(out => `
+            <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-amber-100/40 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="driver-outcomes" value="${out}" class="w-4 h-4 text-amber-600 rounded focus:ring-amber-500">
+              <span>${out}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  // ========================================================
+  // 3. FORM 🧹 VỆ SINH – TẠP VỤ (Biểu mẫu làm sạch & cảnh quan)
+  // ========================================================
+  renderCleaningForm() {
+    return `
+      <!-- Khối 1: Vị trí 3 tầng -->
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-map-location-dot text-emerald-600"></i> 1. Địa điểm xảy ra vấn đề vệ sinh
+        </h3>
+
+        <!-- Cụm chọn Địa điểm 3 tầng -->
+        <div class="p-5 bg-emerald-50/50 rounded-3xl border border-emerald-200 space-y-3.5">
+          <span class="text-xs font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+            <i class="fa-solid fa-building text-emerald-600"></i> Chọn vị trí chính xác (3 Tầng):
+          </span>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">1. Cơ sở <span class="text-red-500">*</span></label>
+              <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-bold bg-white" required>
+                <option value="">-- Chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">2. Khu vực / Tòa nhà <span class="text-red-500">*</span></label>
+              <select id="rep-zone" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">3. Phòng / Vị trí cụ thể <span class="text-red-500">*</span></label>
+              <select id="rep-room-select" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Khu vực --</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="rep-room-custom-container" class="hidden pt-1">
+            <label class="block text-xs font-bold text-emerald-700 mb-1">Nhập tên phòng / vị trí cụ thể khác <span class="text-red-500">*</span></label>
+            <input type="text" id="rep-room-custom" class="w-full text-xs sm:text-sm p-2.5 rounded-xl border border-emerald-300 focus:ring-2 focus:ring-emerald-500 bg-white font-medium" placeholder="Ví dụ: Nhà vệ sinh nữ lầu 2, Hành lang khu B...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 2: Khu vực cụ thể cần phản ánh -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-vector-square text-emerald-600"></i> 2. Loại khu vực cần vệ sinh
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Phòng học',
+            'Phòng làm việc',
+            'Hành lang',
+            'Cầu thang',
+            'Nhà vệ sinh',
+            'Sân trường',
+            'Bãi xe',
+            'Khu vực công cộng',
+            'Thùng rác',
+            'Khác'
+          ].map(area => `
+            <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-100/50 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="cleaning-areas" value="${area}" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+              <span>${area}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Khối 3: Nội dung phản ánh -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-emerald-600"></i> 3. Nội dung phản ánh chi tiết <span class="text-red-500">*</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Sàn nhà bẩn / có nước đọng',
+            'Có rác chưa được thu gom',
+            'Thùng rác đầy',
+            'Có mùi khó chịu',
+            'Nhà vệ sinh chưa sạch',
+            'Thiếu giấy vệ sinh',
+            'Thiếu xà phòng rửa tay',
+            'Bồn rửa tay bẩn / nghẹt',
+            'Bồn cầu / bồn tiểu bẩn hoặc nghẹt',
+            'Kính / cửa / bàn ghế nhiều bụi',
+            'Hành lang / cầu thang chưa vệ sinh',
+            'Có côn trùng',
+            'Chất thải hoặc nước thải chưa xử lý',
+            'Nhân viên tạp vụ chưa thực hiện đúng lịch',
+            'Thái độ phục vụ chưa phù hợp',
+            'Khác'
+          ].map(item => `
+            <label class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-emerald-100/50 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="cleaning-issues" value="${item}" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 mt-0.5">
+              <span>${item}</span>
+            </label>
+          `).join('')}
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả tình trạng chi tiết <span class="text-red-500">*</span></label>
+          <textarea id="cleaning-description" rows="3" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 leading-relaxed font-normal" placeholder="Ví dụ: Nhà vệ sinh nữ tầng 3 khu A, khoảng 14:20, sàn có nhiều nước và thùng rác đã đầy..." required></textarea>
+        </div>
+      </div>
+
+      <!-- Khối 4: Mức độ cần xử lý -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-gauge-high text-emerald-600"></i> 4. Mức độ cần xử lý <span class="text-red-500">*</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 cursor-pointer text-xs font-bold text-emerald-800 transition">
+            <input type="radio" name="cleaning-severity" value="THÔNG THƯỜNG" class="text-emerald-600" checked>
+            <span>🟢 Thông thường</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-yellow-50 cursor-pointer text-xs font-bold text-yellow-800 transition">
+            <input type="radio" name="cleaning-severity" value="CẦN XỬ LÝ SỚM" class="text-yellow-600">
+            <span>🟡 Cần xử lý sớm</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-orange-50 cursor-pointer text-xs font-bold text-orange-800 transition">
+            <input type="radio" name="cleaning-severity" value="CẦN XỬ LÝ NGAY" class="text-orange-600">
+            <span>🟠 Cần xử lý ngay</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 cursor-pointer text-xs font-bold text-red-800 transition">
+            <input type="radio" name="cleaning-severity" value="KHẨN CẤP" class="text-red-600">
+            <span>🔴 Khẩn cấp (Nguy cơ ngã/tràn)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Khối 5: Minh chứng -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-camera text-emerald-600"></i> 5. Hình ảnh / Minh chứng thực tế
+        </h3>
+        <p class="text-xs text-slate-500">Hình ảnh sẽ giúp bộ phận phụ trách xác định vị trí và cử nhân viên đến xử lý nhanh hơn.</p>
+        ${this.renderAttachmentPicker()}
+      </div>
+
+      <!-- Khối 6: Mong muốn xử lý -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-bullseye text-emerald-600"></i> 6. Mong muốn xử lý
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Đề nghị vệ sinh lại khu vực',
+            'Đề nghị bổ sung vật tư',
+            'Đề nghị kiểm tra thiết bị',
+            'Đề nghị kiểm tra lịch làm việc',
+            'Chỉ góp ý',
+            'Khác'
+          ].map(out => `
+            <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-emerald-100/40 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="cleaning-outcomes" value="${out}" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+              <span>${out}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  // ========================================================
+  // 4. FORM 🛡️ BẢO VỆ (Biểu mẫu an ninh & trật tự)
+  // ========================================================
+  renderSecurityForm() {
+    return `
+      <!-- Khối 1: Vị trí 3 tầng -->
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-map-location-dot text-indigo-600"></i> 1. Địa điểm xảy ra sự việc
+        </h3>
+
+        <!-- Cụm chọn Địa điểm 3 tầng -->
+        <div class="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-200 space-y-3.5">
+          <span class="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase tracking-wide">
+            <i class="fa-solid fa-building text-indigo-600"></i> Chọn vị trí chính xác (3 Tầng):
+          </span>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">1. Cơ sở <span class="text-red-500">*</span></label>
+              <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-bold bg-white" required>
+                <option value="">-- Chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">2. Khu vực / Cổng / Tòa nhà <span class="text-red-500">*</span></label>
+              <select id="rep-zone" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Cơ sở --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">3. Vị trí cụ thể <span class="text-red-500">*</span></label>
+              <select id="rep-room-select" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-bold bg-white" required disabled>
+                <option value="">-- Vui lòng chọn Khu vực --</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="rep-room-custom-container" class="hidden pt-1">
+            <label class="block text-xs font-bold text-indigo-700 mb-1">Nhập vị trí / cổng cụ thể khác <span class="text-red-500">*</span></label>
+            <input type="text" id="rep-room-custom" class="w-full text-xs sm:text-sm p-2.5 rounded-xl border border-indigo-300 focus:ring-2 focus:ring-indigo-500 bg-white font-medium" placeholder="Ví dụ: Cổng phụ đường Nguyễn Huệ, Khu gửi xe giáo viên...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 2: Thời gian xảy ra & Ca trực -->
+      <div class="border-t border-slate-200 pt-6 space-y-4">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-clock text-indigo-600"></i> 2. Thời gian xảy ra & Ca trực
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Ngày xảy ra <span class="text-red-500">*</span></label>
+            <input type="date" id="security-date" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-bold bg-white" required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Giờ xảy ra (khoảng)</label>
+            <input type="time" id="security-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-medium bg-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Ca trực liên quan <span class="text-red-500">*</span></label>
+            <select id="security-shift" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-bold bg-white" required>
+              <option value="SÁNG">🌅 Ca Sáng (06:00 - 12:00)</option>
+              <option value="CHIỀU">☀️ Ca Chiều (12:00 - 18:00)</option>
+              <option value="TỐI">🌆 Ca Tối (18:00 - 22:00)</option>
+              <option value="ĐÊM">🌙 Ca Đêm (22:00 - 06:00)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 3: Nội dung phản ánh -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-indigo-600"></i> 3. Nội dung phản ánh (Chọn một hoặc nhiều mục) <span class="text-red-500">*</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Thái độ giao tiếp chưa phù hợp',
+            'Không hướng dẫn khách/người đến liên hệ',
+            'Không có mặt tại vị trí trực',
+            'Rời vị trí trực không rõ lý do',
+            'Kiểm soát người ra vào chưa chặt chẽ',
+            'Không kiểm tra thẻ/giấy tờ khi cần thiết',
+            'Xử lý xe ra vào chưa phù hợp',
+            'Sắp xếp xe chưa đúng khu vực',
+            'Chậm xử lý sự cố',
+            'Không hỗ trợ khi có yêu cầu',
+            'Có lời nói/hành vi gây khó chịu',
+            'Sử dụng điện thoại riêng trong lúc trực',
+            'Ngủ hoặc mất tập trung khi trực',
+            'Không thực hiện đúng quy định an ninh',
+            'Có dấu hiệu gây mất an toàn',
+            'Khác'
+          ].map(item => `
+            <label class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-indigo-100/50 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="security-issues" value="${item}" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 mt-0.5">
+              <span>${item}</span>
+            </label>
+          `).join('')}
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết sự việc <span class="text-red-500">*</span></label>
+          <textarea id="security-description" rows="3" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 leading-relaxed font-normal" placeholder="Ví dụ: Khoảng 10:20 tại cổng chính, khách đến liên hệ nhưng không được hướng dẫn khu vực làm việc và phải chờ khá lâu..." required></textarea>
+        </div>
+      </div>
+
+      <!-- Khối 4: Mức độ sự việc -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-gauge-high text-indigo-600"></i> 4. Mức độ sự việc <span class="text-red-500">*</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 cursor-pointer text-xs font-bold text-emerald-800 transition">
+            <input type="radio" name="security-severity" value="GÓP Ý" class="text-emerald-600" checked>
+            <span>🟢 Góp ý</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-yellow-50 cursor-pointer text-xs font-bold text-yellow-800 transition">
+            <input type="radio" name="security-severity" value="CẦN NHẮC NHỞ" class="text-yellow-600">
+            <span>🟡 Cần nhắc nhở</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-orange-50 cursor-pointer text-xs font-bold text-orange-800 transition">
+            <input type="radio" name="security-severity" value="KIỂM TRA SỚM" class="text-orange-600">
+            <span>🟠 Cần kiểm tra sớm</span>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:bg-red-50 cursor-pointer text-xs font-bold text-red-800 transition">
+            <input type="radio" name="security-severity" value="KHẨN CẤP" class="text-red-600">
+            <span>🔴 Khẩn cấp (Xâm nhập/Xô xát)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Khối 5: Minh chứng & Nhận dạng liên quan -->
+      <div class="border-t border-slate-200 pt-6 space-y-4">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-paperclip text-indigo-600"></i> 5. Minh chứng & Nhận dạng đối tượng
+        </h3>
+
+        ${this.renderAttachmentPicker()}
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Biển số xe liên quan (nếu có)</label>
+            <input type="text" id="security-plate" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-mono font-bold" placeholder="Ví dụ: 59X1-999.99">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả nhận dạng người liên quan</label>
+            <input type="text" id="security-person" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-medium" placeholder="Ví dụ: Nam, áo đen, đeo kính...">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Có nhân chứng không?</label>
+            <select id="security-has-witness" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 font-medium bg-white">
+              <option value="NO">Không có</option>
+              <option value="YES">Có nhân chứng</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Khối 6: Mong muốn xử lý -->
+      <div class="border-t border-slate-200 pt-6 space-y-3">
+        <h3 class="text-sm font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-bullseye text-indigo-600"></i> 6. Mong muốn xử lý
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          ${[
+            'Chỉ ghi nhận góp ý',
+            'Đề nghị kiểm tra camera',
+            'Đề nghị xác minh ca trực',
+            'Đề nghị nhắc nhở nhân viên',
+            'Đề nghị phản hồi kết quả',
+            'Đề nghị liên hệ trực tiếp',
+            'Khác'
+          ].map(out => `
+            <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-indigo-100/40 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" name="security-outcomes" value="${out}" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+              <span>${out}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  /**
+   * Khối tải đính kèm file dùng chung
+   */
+  renderAttachmentPicker() {
+    return `
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+          <span>Hình ảnh / Video / Tệp đính kèm (Tối đa 5 tệp)</span>
+          <span class="text-[11px] text-slate-400 font-normal">Hỗ trợ JPG, PNG, MP4, PDF, DOCX (&lt;10MB)</span>
+        </label>
+        <div class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors bg-slate-50/60 cursor-pointer" onclick="document.getElementById('rep-file-input').click()">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-600 mb-2"></i>
+          <p class="text-xs font-bold text-slate-700">Nhấn để chụp ảnh hoặc chọn tệp từ máy tính / điện thoại</p>
+          <p class="text-[11px] text-slate-500 mt-1">Ảnh sẽ được tự động nén tối ưu trước khi gửi để đảm bảo tốc độ</p>
+        </div>
+        <input type="file" id="rep-file-input" multiple accept="image/*,video/*,application/pdf,.doc,.docx" class="hidden" onchange="ReportFormPage.handleFileSelect(event)">
+
+        <!-- Previews -->
+        <div id="file-previews-container" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
       </div>
     `;
   },
@@ -494,12 +1186,13 @@ const ReportFormPage = {
     if (!files.length) return;
 
     const container = document.getElementById('file-previews-container');
-    container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tối ưu hóa tệp ảnh...</div>';
+    if (container) {
+      container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tối ưu hóa tệp ảnh...</div>';
+    }
 
     this.selectedFiles = [];
     for (const f of files) {
       if (f.type.startsWith('image/')) {
-        // Tự động nén ảnh qua canvas
         const compressed = await Utils.compressImage(f);
         this.selectedFiles.push(compressed);
       } else {
@@ -507,6 +1200,7 @@ const ReportFormPage = {
       }
     }
 
+    if (!container) return;
     container.innerHTML = '';
     this.selectedFiles.forEach((file, index) => {
       const isImg = file.type.startsWith('image/');
@@ -536,7 +1230,7 @@ const ReportFormPage = {
     e.preventDefault();
     if (this.isSubmitting) return;
 
-    // Kiểm tra giới hạn 5 phút chống spam
+    // 1. Kiểm tra chống spam
     const remaining = this.getRemainingCooldown();
     if (remaining > 0) {
       const mins = Math.floor(remaining / 60);
@@ -546,72 +1240,30 @@ const ReportFormPage = {
       return;
     }
 
-    // Chống honeypot bot trap
+    // 2. Chống honeypot
     const hp = document.getElementById('_hp_website')?.value;
     if (hp) {
       console.warn('Bot detected via honeypot');
       return;
     }
 
-    // Lấy thông tin địa điểm 3 tầng
-    const campusSelect = document.getElementById('rep-campus');
-    const zoneSelect = document.getElementById('rep-zone');
-    const roomSelect = document.getElementById('rep-room-select');
-    const customRoomInput = document.getElementById('rep-room-custom');
-
-    const campusName = campusSelect.options[campusSelect.selectedIndex]?.getAttribute('data-name') || campusSelect.value;
-    const zoneName = zoneSelect.options[zoneSelect.selectedIndex]?.getAttribute('data-name') || zoneSelect.value;
-    
-    let roomName = roomSelect.value;
-    if (roomName === 'CUSTOM') {
-      roomName = customRoomInput ? customRoomInput.value.trim() : '';
-      if (!roomName) {
-        Utils.showToast('Vui lòng nhập tên phòng / vị trí cụ thể!', 'warning');
-        if (customRoomInput) customRoomInput.focus();
-        return;
-      }
-    }
-
-    if (!campusName || !zoneName || !roomName) {
-      Utils.showToast('Vui lòng chọn đầy đủ Cơ sở, Khu vực và Phòng xảy ra sự cố!', 'warning');
-      return;
-    }
-
-    const fullLocation = `${campusName} - ${zoneName}`;
-
-    // Lấy thông tin tiêu đề và mô tả
-    const title = document.getElementById('rep-title')?.value?.trim();
-    const description = document.getElementById('rep-description')?.value?.trim();
-    if (!title) {
-      Utils.showToast('Vui lòng nhập Tiêu đề phản ánh sự cố!', 'warning');
-      document.getElementById('rep-title')?.focus();
-      return;
-    }
-    if (!description) {
-      Utils.showToast('Vui lòng nhập Mô tả chi tiết sự cố!', 'warning');
-      document.getElementById('rep-description')?.focus();
-      return;
-    }
-
-    // Lấy và kiểm tra thông tin người gửi
+    // 3. Thông tin người gửi dùng chung
     const senderName = document.getElementById('rep-sender-name')?.value?.trim();
     const senderEmail = document.getElementById('rep-sender-email')?.value?.trim();
     const senderPhone = document.getElementById('rep-sender-phone')?.value?.trim();
 
     if (!senderName) {
       Utils.showToast('Vui lòng nhập Họ và tên người gửi phản ánh!', 'warning');
-      document.getElementById('rep-sender-name')?.focus();
       return;
     }
 
     if (!senderEmail || !senderEmail.includes('@')) {
-      Utils.showToast('Vui lòng nhập địa chỉ Email hợp lệ để nhận thông báo tiến độ!', 'warning');
-      document.getElementById('rep-sender-email')?.focus();
+      Utils.showToast('Vui lòng nhập Email hợp lệ!', 'warning');
       return;
     }
 
     if (!senderPhone) {
-      Utils.showToast('Vui lòng nhập Số điện thoại liên hệ để Kỹ thuật viên liên lạc!', 'warning');
+      Utils.showToast('Vui lòng nhập Số điện thoại liên hệ!', 'warning');
       document.getElementById('rep-sender-phone')?.focus();
       return;
     }
@@ -623,13 +1275,207 @@ const ReportFormPage = {
       return;
     }
 
+    // 4. Thu thập dữ liệu địa điểm chung
+    const campusSelect = document.getElementById('rep-campus');
+    const zoneSelect = document.getElementById('rep-zone');
+    const roomSelect = document.getElementById('rep-room-select');
+    const customRoomInput = document.getElementById('rep-room-custom');
+
+    const campusName = campusSelect?.options[campusSelect.selectedIndex]?.getAttribute('data-name') || campusSelect?.value || 'Cơ sở chính';
+    const zoneName = zoneSelect?.options[zoneSelect.selectedIndex]?.getAttribute('data-name') || zoneSelect?.value || '';
+    
+    let roomName = roomSelect?.value || '';
+    if (roomName === 'CUSTOM') {
+      roomName = customRoomInput ? customRoomInput.value.trim() : '';
+      if (!roomName) {
+        Utils.showToast('Vui lòng nhập tên phòng / vị trí cụ thể!', 'warning');
+        if (customRoomInput) customRoomInput.focus();
+        return;
+      }
+    }
+
+    let fullLocation = campusName;
+    if (zoneName) fullLocation += ` - ${zoneName}`;
+
+    // 5. Chuẩn bị payload theo từng loại form
+    let title = '';
+    let description = '';
+    let categoryId = 'OTHER';
+    let categoryName = 'Khác';
+    let priority = 'BÌNH THƯỜNG';
+    let extraMeta = {};
+
+    const typeObj = this.REPORT_TYPES[this.selectedType];
+
+    if (this.selectedType === 'FACILITIES') {
+      if (!zoneName || !roomName) {
+        Utils.showToast('Vui lòng chọn đầy đủ Cơ sở, Khu vực và Phòng xảy ra sự cố!', 'warning');
+        return;
+      }
+      const catSelect = document.getElementById('rep-category-id');
+      categoryId = catSelect?.value || 'FACILITIES';
+      categoryName = catSelect?.options[catSelect.selectedIndex]?.getAttribute('data-name') || 'Cơ sở vật chất';
+      priority = document.getElementById('rep-priority')?.value || 'BÌNH THƯỜNG';
+      title = document.getElementById('rep-title')?.value?.trim();
+      description = document.getElementById('rep-description')?.value?.trim();
+
+      if (!title || !description) {
+        Utils.showToast('Vui lòng nhập đầy đủ Tiêu đề và Mô tả chi tiết sự cố!', 'warning');
+        return;
+      }
+    } else if (this.selectedType === 'DRIVER') {
+      const tripDate = document.getElementById('driver-trip-date')?.value || '';
+      const deptTime = document.getElementById('driver-dept-time')?.value || '';
+      const returnTime = document.getElementById('driver-return-time')?.value || '';
+      const pickup = document.getElementById('driver-pickup')?.value?.trim() || '';
+      const destination = document.getElementById('driver-destination')?.value?.trim() || '';
+      const plate = document.getElementById('driver-plate')?.value?.trim() || '';
+      const driverName = document.getElementById('driver-name')?.value?.trim() || '';
+      const purpose = document.getElementById('driver-purpose')?.value?.trim() || '';
+
+      if (!pickup || !destination) {
+        Utils.showToast('Vui lòng nhập đầy đủ Điểm đón và Điểm đến của chuyến xe!', 'warning');
+        return;
+      }
+
+      const issuesChecked = Array.from(document.querySelectorAll('input[name="driver-issues"]:checked')).map(cb => cb.value);
+      const rawDesc = document.getElementById('driver-description')?.value?.trim() || '';
+
+      if (!rawDesc && issuesChecked.length === 0) {
+        Utils.showToast('Vui lòng chọn ít nhất một nội dung phản ánh hoặc mô tả chi tiết sự việc!', 'warning');
+        return;
+      }
+
+      const severity = document.querySelector('input[name="driver-severity"]:checked')?.value || 'GÓP Ý';
+      const hasWitness = document.querySelector('input[name="driver-has-witness"]:checked')?.value === 'YES';
+      const witnessName = document.getElementById('driver-witness-name')?.value?.trim() || '';
+      const outcomes = Array.from(document.querySelectorAll('input[name="driver-outcomes"]:checked')).map(cb => cb.value);
+
+      // Mapping priority
+      if (severity === 'NGUY CƠ AN TOÀN') priority = 'KHẨN CẤP';
+      else if (severity === 'NGHIÊM TRỌNG') priority = 'CAO';
+      else if (severity === 'CẦN NHẮC NHỞ') priority = 'TRUNG BÌNH';
+      else priority = 'BÌNH THƯỜNG';
+
+      categoryId = 'DRIVER';
+      categoryName = 'Tài xế / Dịch vụ xe';
+      title = `[Tài xế] ${issuesChecked[0] || 'Phản ánh chuyến xe'} - Xe ${plate || pickup + ' ➔ ' + destination}`;
+      
+      description = `📌 NỘI DUNG PHẢN ÁNH CHUYẾN XE / TÀI XẾ:\n` +
+        `• Ngày đi: ${tripDate} ${deptTime ? `(${deptTime} - ${returnTime || '...'}` : ''})\n` +
+        `• Lộ trình: ${pickup} ➔ ${destination}\n` +
+        `• Biển số xe: ${plate || 'Chưa rõ'} | Tài xế: ${driverName || 'Chưa rõ'}\n` +
+        `• Mục đích: ${purpose || 'Không ghi'}\n` +
+        `• Vấn đề: ${issuesChecked.join(', ') || 'Xem mô tả'}\n` +
+        `• Mức độ: ${severity}\n` +
+        `• Nhân chứng: ${hasWitness ? `Có (${witnessName || 'Có đi cùng'})` : 'Không'}\n` +
+        `• Mong muốn: ${outcomes.join(', ') || 'Ghi nhận xử lý'}\n\n` +
+        `📝 CHI TIẾT SỰ VIỆC:\n${rawDesc}`;
+
+      fullLocation = `${campusName} (${pickup} ➔ ${destination})`;
+      roomName = plate ? `Xe ${plate}` : 'Xe đưa đón';
+
+      extraMeta = {
+        tripDate, deptTime, returnTime, pickup, destination, plate, driverName, purpose,
+        issuesList: issuesChecked, severity, hasWitness, witnessName, desiredOutcomes: outcomes
+      };
+    } else if (this.selectedType === 'CLEANING') {
+      if (!zoneName || !roomName) {
+        Utils.showToast('Vui lòng chọn đầy đủ Cơ sở, Khu vực và Phòng xảy ra sự cố!', 'warning');
+        return;
+      }
+
+      const cleaningAreas = Array.from(document.querySelectorAll('input[name="cleaning-areas"]:checked')).map(cb => cb.value);
+      const issuesChecked = Array.from(document.querySelectorAll('input[name="cleaning-issues"]:checked')).map(cb => cb.value);
+      const rawDesc = document.getElementById('cleaning-description')?.value?.trim() || '';
+
+      if (!rawDesc && issuesChecked.length === 0) {
+        Utils.showToast('Vui lòng chọn nội dung phản ánh hoặc mô tả chi tiết tình trạng vệ sinh!', 'warning');
+        return;
+      }
+
+      const severity = document.querySelector('input[name="cleaning-severity"]:checked')?.value || 'THÔNG THƯỜNG';
+      const outcomes = Array.from(document.querySelectorAll('input[name="cleaning-outcomes"]:checked')).map(cb => cb.value);
+
+      if (severity === 'KHẨN CẤP') priority = 'KHẨN CẤP';
+      else if (severity === 'CẦN XỬ LÝ NGAY') priority = 'CAO';
+      else if (severity === 'CẦN XỬ LÝ SỚM') priority = 'TRUNG BÌNH';
+      else priority = 'BÌNH THƯỜNG';
+
+      categoryId = 'CLEANING';
+      categoryName = 'Vệ sinh – Tạp vụ';
+      title = `[Vệ sinh] ${cleaningAreas.join(', ') || roomName} - ${issuesChecked[0] || 'Yêu cầu vệ sinh'}`;
+
+      description = `📌 PHẢN ÁNH VỆ SINH – TẠP VỤ:\n` +
+        `• Vị trí: ${fullLocation} - ${roomName}\n` +
+        `• Khu vực: ${cleaningAreas.join(', ') || 'Chung'}\n` +
+        `• Tình trạng: ${issuesChecked.join(', ') || 'Xem mô tả'}\n` +
+        `• Mức độ cần xử lý: ${severity}\n` +
+        `• Mong muốn: ${outcomes.join(', ') || 'Đề nghị vệ sinh lại'}\n\n` +
+        `📝 CHI TIẾT HIỆN TRƯỜNG:\n${rawDesc}`;
+
+      extraMeta = {
+        cleaningAreas, issuesList: issuesChecked, severity, desiredOutcomes: outcomes
+      };
+    } else if (this.selectedType === 'SECURITY') {
+      if (!zoneName || !roomName) {
+        Utils.showToast('Vui lòng chọn đầy đủ Cơ sở, Khu vực và Vị trí xảy ra sự việc!', 'warning');
+        return;
+      }
+
+      const secDate = document.getElementById('security-date')?.value || '';
+      const secTime = document.getElementById('security-time')?.value || '';
+      const secShift = document.getElementById('security-shift')?.value || 'SÁNG';
+      const secPlate = document.getElementById('security-plate')?.value?.trim() || '';
+      const secPerson = document.getElementById('security-person')?.value?.trim() || '';
+      const secWitness = document.getElementById('security-has-witness')?.value || 'NO';
+
+      const issuesChecked = Array.from(document.querySelectorAll('input[name="security-issues"]:checked')).map(cb => cb.value);
+      const rawDesc = document.getElementById('security-description')?.value?.trim() || '';
+
+      if (!rawDesc && issuesChecked.length === 0) {
+        Utils.showToast('Vui lòng chọn nội dung phản ánh hoặc mô tả chi tiết sự việc an ninh!', 'warning');
+        return;
+      }
+
+      const severity = document.querySelector('input[name="security-severity"]:checked')?.value || 'GÓP Ý';
+      const outcomes = Array.from(document.querySelectorAll('input[name="security-outcomes"]:checked')).map(cb => cb.value);
+
+      if (severity === 'KHẨN CẤP') priority = 'KHẨN CẤP';
+      else if (severity === 'KIỂM TRA SỚM') priority = 'CAO';
+      else if (severity === 'CẦN NHẮC NHỞ') priority = 'TRUNG BÌNH';
+      else priority = 'BÌNH THƯỜNG';
+
+      categoryId = 'SECURITY';
+      categoryName = 'An ninh – Bảo vệ';
+      title = `[Bảo vệ] Ca ${secShift} - ${issuesChecked[0] || 'Phản ánh an ninh trật tự'}`;
+
+      description = `📌 PHẢN ÁNH AN NINH & BẢO VỆ:\n` +
+        `• Thời điểm: ${secDate} ${secTime ? `(${secTime})` : ''} - Ca trực: ${secShift}\n` +
+        `• Vị trí: ${fullLocation} - ${roomName}\n` +
+        `• Vấn đề: ${issuesChecked.join(', ') || 'Xem mô tả'}\n` +
+        `• Mức độ: ${severity}\n` +
+        `• Biển số xe / Người liên quan: ${secPlate || 'Không'} | ${secPerson || 'Không'}\n` +
+        `• Nhân chứng: ${secWitness === 'YES' ? 'Có' : 'Không'}\n` +
+        `• Mong muốn: ${outcomes.join(', ') || 'Kiểm tra xác minh'}\n\n` +
+        `📝 CHI TIẾT SỰ VIỆC:\n${rawDesc}`;
+
+      extraMeta = {
+        incidentDate: secDate, incidentTime: secTime, incidentShift: secShift,
+        licensePlate: secPlate, personDescription: secPerson, hasWitness: secWitness === 'YES',
+        issuesList: issuesChecked, severity, desiredOutcomes: outcomes
+      };
+    }
+
     const submitBtn = document.getElementById('btn-submit-report');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-lg"></i><span>Đang xử lý & tạo mã yêu cầu...</span>';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-lg"></i><span>Đang xử lý & tạo mã yêu cầu...</span>';
+    }
     this.isSubmitting = true;
 
     try {
-      // 1. Upload files nếu có
+      // 6. Upload files đính kèm
       let uploadedAttachments = [];
       if (this.selectedFiles.length > 0) {
         try {
@@ -642,52 +1488,52 @@ const ReportFormPage = {
         }
       }
 
-      // 2. Lấy dữ liệu form & Device ID định danh thiết bị
-      const catSelect = document.getElementById('rep-category-id');
-      const catName = catSelect.options[catSelect.selectedIndex]?.getAttribute('data-name') || 'Khác';
+      // 7. Tạo Payload hoàn chỉnh
+      const currentUser = AuthService.getCurrentUser();
       const deviceId = Utils.getOrCreateDeviceId();
 
-      const currentUser = AuthService.getCurrentUser();
       const payload = {
+        reportType: this.selectedType,
+        reportTypeName: typeObj.name,
+        reportTypeEmoji: typeObj.emoji,
         senderName: senderName,
         senderCode: currentUser?.uid || '',
         senderDept: currentUser?.departmentName || '',
         senderPhone: senderPhone,
         senderEmail: senderEmail || currentUser?.email || '',
         deviceId: deviceId,
-        categoryId: catSelect.value,
-        categoryName: catName,
-        priority: document.getElementById('rep-priority').value,
+        categoryId: categoryId,
+        categoryName: categoryName,
+        priority: priority,
         location: fullLocation,
         room: roomName,
         title: title,
         description: description,
-        attachments: uploadedAttachments
+        attachments: uploadedAttachments,
+        ...extraMeta
       };
 
       const result = await ApiService.submitReport(payload);
 
       if (result.success) {
-        // Ghi nhận thời gian gửi để kích hoạt giới hạn 5 phút chống spam cho thiết bị này
+        // Ghi nhận thời gian gửi chống spam
         const user = AuthService.getCurrentUser();
         if (!user || (!AuthService.isStaff() && !AuthService.isManager() && !AuthService.isAdmin())) {
           localStorage.setItem('nsg_last_report_submit_time', Date.now().toString());
         }
 
-        // Cập nhật realtime engine cho client an toàn
-        if (result.data) {
+        // Đồng bộ realtime engine
+        if (result.data && window.RealtimeService) {
           try {
             RealtimeService.handleIncomingReport(result.data);
-          } catch (rtErr) {
-            console.warn('[ReportFormPage] Realtime sync error:', rtErr);
-          }
+          } catch (rtErr) {}
         }
 
         try {
           SoundService.playSuccess();
         } catch (sErr) {}
 
-        this.renderSuccessModal(result.code, senderEmail);
+        this.renderSuccessModal(result.code, senderEmail, typeObj);
       } else {
         throw new Error(result.message || 'Lỗi gửi phản ánh.');
       }
@@ -714,7 +1560,6 @@ const ReportFormPage = {
       const user = await AuthService.loginWithGoogle();
       Utils.showToast(`✅ Đã xác thực: ${user.displayName} (${user.email})`, 'success');
 
-      // Re-render lại trang để hiển thị form phản ánh đầy đủ
       const appMain = document.getElementById('app-main');
       if (appMain) {
         appMain.innerHTML = this.render();
@@ -730,7 +1575,7 @@ const ReportFormPage = {
   },
 
   /**
-   * Đổi tài khoản hoặc Đăng xuất tại Form
+   * Đổi tài khoản tại Form
    */
   async handleSwitchAccount() {
     try {
@@ -746,12 +1591,14 @@ const ReportFormPage = {
   },
 
   /**
-   * Hiển thị thông báo thành công theo đúng yêu cầu mục 6
+   * Hiển thị thông báo thành công trực quan
    */
-  renderSuccessModal(code, senderEmail = '') {
-    // Xóa modal cũ nếu có
+  renderSuccessModal(code, senderEmail = '', typeObj = null) {
     const old = document.getElementById('report-success-modal');
     if (old) old.remove();
+
+    const tName = typeObj?.name || 'Phản ánh';
+    const tEmoji = typeObj?.emoji || '📋';
 
     const modal = document.createElement('div');
     modal.id = 'report-success-modal';
@@ -767,12 +1614,12 @@ const ReportFormPage = {
         </div>
 
         <h2 class="text-2xl font-black text-slate-900 mb-1">Gửi phản ánh thành công!</h2>
-        <p class="text-xs text-slate-500 mb-4">Hệ thống đã lưu vào cơ sở dữ liệu và chuyển thông tin tới Trưởng bộ phận Kỹ thuật.</p>
+        <p class="text-xs text-slate-500 mb-4">Hệ thống đã tiếp nhận yêu cầu <strong>${tEmoji} ${tName}</strong> và chuyển tới bộ phận phụ trách xử lý.</p>
 
         <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
           <span class="text-xs font-bold text-blue-600 uppercase tracking-wider block mb-1">Mã yêu cầu của bạn:</span>
           <span class="font-mono text-2xl font-black text-blue-900 tracking-wider select-all">${code}</span>
-          <p class="text-[11px] text-blue-700/80 mt-1">Vui lòng lưu lại mã này để tra cứu tình trạng xử lý.</p>
+          <p class="text-[11px] text-blue-700/80 mt-1">Vui lòng lưu lại mã này để tra cứu tiến độ xử lý và đánh giá chất lượng.</p>
         </div>
 
         ${senderEmail ? `
@@ -787,7 +1634,7 @@ const ReportFormPage = {
         <div class="space-y-3">
           <a href="#/tracking?code=${code}" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5" onclick="document.getElementById('report-success-modal')?.remove()">
             <i class="fa-solid fa-comments"></i>
-            <span>THEO DÕI TIẾN ĐỘ & NHẮN TIN VỚI KỸ THUẬT</span>
+            <span>THEO DÕI TIẾN ĐỘ & TRAO ĐỔI TRỰC TUYẾN</span>
           </a>
           <a href="#/" class="block w-full py-2.5 px-4 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors" onclick="document.getElementById('report-success-modal')?.remove()">
             Về trang chủ

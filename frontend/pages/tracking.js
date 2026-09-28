@@ -143,9 +143,10 @@ const TrackingPage = {
         <!-- Top Status Bar -->
         <div class="bg-slate-900 text-white p-6 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
               <span class="font-mono text-base font-black px-3 py-1 bg-blue-600 rounded-lg">${report.code}</span>
               ${Utils.renderPriorityBadge(report.priority)}
+              ${report.reportTypeName ? `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-white/20 text-white border border-white/30">${report.reportTypeEmoji || '📋'} ${report.reportTypeName}</span>` : ''}
             </div>
             <h2 class="text-xl font-bold mt-2">${report.title}</h2>
           </div>
@@ -190,6 +191,9 @@ const TrackingPage = {
           </div>
         </div>
 
+        <!-- Specialized Report Details Card (Driver / Cleaning / Security) -->
+        ${this.renderSpecializedDetails(report)}
+
         <!-- Detailed Information Grid -->
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           <!-- Cột thông tin sự cố -->
@@ -198,10 +202,10 @@ const TrackingPage = {
             <div><span class="text-slate-500">Người gửi:</span> <strong class="text-slate-800">${report.senderName || 'Ẩn danh'}</strong></div>
             <div><span class="text-slate-500">Số điện thoại:</span> ${report.senderPhone ? `<a href="tel:${report.senderPhone}" class="font-bold text-blue-600 hover:underline"><i class="fa-solid fa-phone text-[10px] mr-1"></i>${report.senderPhone}</a>` : '<strong class="text-slate-500 italic">Không có</strong>'}</div>
             <div><span class="text-slate-500">Địa điểm:</span> <strong class="text-slate-800">${report.location} ${report.room ? `- ${report.room}` : ''}</strong></div>
-            <div><span class="text-slate-500">Danh mục:</span> <strong class="text-slate-800">${report.categoryName || 'Kỹ thuật'}</strong></div>
+            <div><span class="text-slate-500">Danh mục:</span> <strong class="text-slate-800">${report.reportTypeName ? `${report.reportTypeEmoji || '📋'} ${report.reportTypeName}` : (report.categoryName || 'Kỹ thuật')}</strong></div>
             <div><span class="text-slate-500">Ngày gửi:</span> <strong class="text-slate-800">${Utils.formatDateTime(report.createdAt)}</strong></div>
             <div><span class="text-slate-500">Nội dung mô tả:</span>
-              <p class="mt-1 bg-slate-50 p-3 rounded-lg border text-slate-700 leading-relaxed">${report.description}</p>
+              <p class="mt-1 bg-slate-50 p-3 rounded-lg border text-slate-700 leading-relaxed whitespace-pre-line">${report.description}</p>
             </div>
           </div>
 
@@ -321,6 +325,138 @@ const TrackingPage = {
 
     // Kích hoạt Realtime Chat Listener cho phiếu này
     setTimeout(() => this.initChatListener(report), 100);
+  },
+
+  renderSpecializedDetails(report) {
+    if (!report) return '';
+    const hasDriver = report.reportType === 'DRIVER' || report.tripLicensePlate || report.tripDate || report.tripDriverName;
+    const hasCleaning = report.reportType === 'CLEANING' || (report.cleaningAreas && report.cleaningAreas.length > 0);
+    const hasSecurity = report.reportType === 'SECURITY' || report.incidentShift || report.incidentDate;
+
+    if (!hasDriver && !hasCleaning && !hasSecurity && (!report.issuesList || report.issuesList.length === 0)) {
+      return '';
+    }
+
+    if (hasDriver) {
+      return `
+        <div class="mx-6 p-4 sm:p-5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-amber-200 pb-2">
+            <h4 class="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🚗</span>
+              <span>Thông tin dịch vụ Chuyến xe & Tài xế</span>
+            </h4>
+            ${report.severity ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">${report.severity}</span>` : ''}
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div><span class="text-amber-800/80">Ngày sử dụng:</span> <strong class="text-amber-950">${report.tripDate || 'Chưa rõ'} ${report.tripDepartureTime ? `(${report.tripDepartureTime} - ${report.tripReturnTime || ''})` : ''}</strong></div>
+            <div><span class="text-amber-800/80">Lộ trình:</span> <strong class="text-amber-950">${report.tripPickupLocation || 'Chưa rõ'} ➔ ${report.tripDestination || 'Chưa rõ'}</strong></div>
+            <div><span class="text-amber-800/80">Biển số & Tài xế:</span> <strong class="text-amber-950">${report.tripLicensePlate ? `[${report.tripLicensePlate}]` : ''} ${report.tripDriverName || 'Không rõ'}</strong></div>
+            <div><span class="text-amber-800/80">Mục đích chuyến đi:</span> <strong class="text-amber-950">${report.tripPurpose || 'Công tác'}</strong></div>
+          </div>
+
+          ${Array.isArray(report.issuesList) && report.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-amber-200/60">
+              <span class="text-[11px] font-bold text-amber-900 block mb-1.5">Vấn đề phản ánh:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-amber-300 text-amber-900 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(report.desiredOutcomes) && report.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-amber-900 block mb-1">Kết quả mong muốn:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (hasCleaning) {
+      return `
+        <div class="mx-6 p-4 sm:p-5 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-emerald-200 pb-2">
+            <h4 class="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🧹</span>
+              <span>Thông tin phản ánh Vệ sinh – Tạp vụ</span>
+            </h4>
+            ${report.severity ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900 border border-emerald-300">${report.severity}</span>` : ''}
+          </div>
+
+          ${Array.isArray(report.cleaningAreas) && report.cleaningAreas.length > 0 ? `
+            <div>
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1">Khu vực cụ thể:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.cleaningAreas.map(area => `<span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px]">${area}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(report.issuesList) && report.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-emerald-200/60">
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1.5">Vấn đề vệ sinh ghi nhận:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-emerald-300 text-emerald-950 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(report.desiredOutcomes) && report.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1">Mong muốn xử lý:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (hasSecurity) {
+      return `
+        <div class="mx-6 p-4 sm:p-5 bg-indigo-50/80 border border-indigo-200 rounded-2xl space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-indigo-200 pb-2">
+            <h4 class="text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🛡️</span>
+              <span>Thông tin phản ánh An ninh – Bảo vệ</span>
+            </h4>
+            ${report.severity ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-200 text-indigo-900 border border-indigo-300">${report.severity}</span>` : ''}
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div><span class="text-indigo-800/80">Thời điểm xảy ra:</span> <strong class="text-indigo-950">${report.incidentDate || 'Chưa rõ'} ${report.incidentTime ? `(${report.incidentTime})` : ''}</strong></div>
+            <div><span class="text-indigo-800/80">Ca trực:</span> <strong class="text-indigo-950 font-bold">${report.incidentShift || 'Chưa rõ'}</strong></div>
+            <div><span class="text-indigo-800/80">Biển số liên quan:</span> <strong class="text-indigo-950">${report.licensePlate || 'Không'}</strong></div>
+            <div><span class="text-indigo-800/80">Người liên quan:</span> <strong class="text-indigo-950">${report.personDescription || 'Không'}</strong></div>
+          </div>
+
+          ${Array.isArray(report.issuesList) && report.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-indigo-200/60">
+              <span class="text-[11px] font-bold text-indigo-900 block mb-1.5">Vấn đề an ninh ghi nhận:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-indigo-300 text-indigo-950 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(report.desiredOutcomes) && report.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-indigo-900 block mb-1">Kết quả mong muốn:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${report.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-indigo-100 text-indigo-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    return '';
   },
 
   renderTimelineStep(title, isDone, icon) {

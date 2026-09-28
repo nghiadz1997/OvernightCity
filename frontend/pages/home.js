@@ -107,6 +107,96 @@ const HomePage = {
           </div>
         </div>
 
+        <!-- 4 Specialized Service Reporting Portals -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+          <div class="text-center max-w-2xl mx-auto mb-6">
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tight">
+              CỔNG TIẾP NHẬN THEO TỪNG PHÂN HỆ
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+              Chọn đúng phân hệ dịch vụ để phản ánh được chuyển trực tiếp tới đơn vị phụ trách xử lý
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- 1. Cơ sở vật chất -->
+            <a href="#/report?type=FACILITIES" class="group bg-white hover:bg-blue-50/70 p-5 rounded-2xl border-2 border-slate-200 hover:border-blue-500 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left flex flex-col justify-between">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-blue-100 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center text-2xl mb-3 shadow-xs transition-colors">
+                  🏫
+                </div>
+                <h3 class="text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase">
+                  Cơ sở vật chất
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Máy tính, máy chiếu, mạng WiFi, điện nước, bàn ghế giảng đường & phòng làm việc.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+                <span>Gửi phản ánh CSVC</span>
+                <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+              </div>
+            </a>
+
+            <!-- 2. Tài xế -->
+            <a href="#/report?type=DRIVER" class="group bg-white hover:bg-amber-50/70 p-5 rounded-2xl border-2 border-slate-200 hover:border-amber-500 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left flex flex-col justify-between">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-100 group-hover:bg-amber-600 text-amber-600 group-hover:text-white flex items-center justify-center text-2xl mb-3 shadow-xs transition-colors">
+                  🚗
+                </div>
+                <h3 class="text-base font-black text-slate-900 group-hover:text-amber-600 transition-colors uppercase">
+                  Tài xế – Xe đưa đón
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Lộ trình, giờ đón/về, tác phong tài xế, điều hòa, an toàn giao thông và vệ sinh xe.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-600">
+                <span>Gửi phản ánh Tài xế</span>
+                <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+              </div>
+            </a>
+
+            <!-- 3. Vệ sinh – Tạp vụ -->
+            <a href="#/report?type=CLEANING" class="group bg-white hover:bg-emerald-50/70 p-5 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left flex flex-col justify-between">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-100 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white flex items-center justify-center text-2xl mb-3 shadow-xs transition-colors">
+                  🧹
+                </div>
+                <h3 class="text-base font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase">
+                  Vệ sinh – Tạp vụ
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Vệ sinh nhà vệ sinh, phòng học, hành lang, rác tồn đọng, thiếu giấy xà phòng, mùi khó chịu.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-600">
+                <span>Gửi phản ánh Tạp vụ</span>
+                <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+              </div>
+            </a>
+
+            <!-- 4. Bảo vệ -->
+            <a href="#/report?type=SECURITY" class="group bg-white hover:bg-indigo-50/70 p-5 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left flex flex-col justify-between">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-100 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white flex items-center justify-center text-2xl mb-3 shadow-xs transition-colors">
+                  🛡️
+                </div>
+                <h3 class="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase">
+                  An ninh – Bảo vệ
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Thái độ bảo vệ, ca trực vắng mặt, kiểm soát cổng ra vào, trật tự bãi giữ xe & an ninh khuôn viên.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600">
+                <span>Gửi phản ánh Bảo vệ</span>
+                <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+              </div>
+            </a>
+          </div>
+        </div>
+
         <!-- Emergency Hotline & Information -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
           <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">

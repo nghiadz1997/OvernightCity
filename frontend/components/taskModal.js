@@ -240,6 +240,138 @@ const TaskModalComponent = {
     `;
   },
 
+  renderSpecializedDetails(item) {
+    if (!item) return '';
+    const hasDriver = item.reportType === 'DRIVER' || item.tripLicensePlate || item.tripDate || item.tripDriverName;
+    const hasCleaning = item.reportType === 'CLEANING' || (item.cleaningAreas && item.cleaningAreas.length > 0);
+    const hasSecurity = item.reportType === 'SECURITY' || item.incidentShift || item.incidentDate;
+
+    if (!hasDriver && !hasCleaning && !hasSecurity && (!item.issuesList || item.issuesList.length === 0)) {
+      return '';
+    }
+
+    if (hasDriver) {
+      return `
+        <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-amber-200/80 pb-2">
+            <h4 class="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🚗</span>
+              <span>Thông tin dịch vụ Xe & Chuyến đi</span>
+            </h4>
+            ${item.severity ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">${item.severity}</span>` : ''}
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div><span class="text-amber-800/80">Ngày sử dụng:</span> <strong class="text-amber-950">${item.tripDate || 'Chưa rõ'} ${item.tripDepartureTime ? `(${item.tripDepartureTime} - ${item.tripReturnTime || ''})` : ''}</strong></div>
+            <div><span class="text-amber-800/80">Lộ trình:</span> <strong class="text-amber-950">${item.tripPickupLocation || 'Chưa rõ'} ➔ ${item.tripDestination || 'Chưa rõ'}</strong></div>
+            <div><span class="text-amber-800/80">Biển số & Tài xế:</span> <strong class="text-amber-950">${item.tripLicensePlate ? `[${item.tripLicensePlate}]` : ''} ${item.tripDriverName || 'Không rõ'}</strong></div>
+            <div><span class="text-amber-800/80">Mục đích:</span> <strong class="text-amber-950">${item.tripPurpose || 'Công tác'}</strong></div>
+          </div>
+
+          ${Array.isArray(item.issuesList) && item.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-amber-200/60">
+              <span class="text-[11px] font-bold text-amber-900 block mb-1.5">Nhóm vấn đề phản ánh:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-amber-300 text-amber-900 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(item.desiredOutcomes) && item.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-amber-900 block mb-1">Kết quả mong muốn:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (hasCleaning) {
+      return `
+        <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+            <h4 class="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🧹</span>
+              <span>Thông tin dịch vụ Vệ sinh – Tạp vụ</span>
+            </h4>
+            ${item.severity ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">${item.severity}</span>` : ''}
+          </div>
+
+          ${Array.isArray(item.cleaningAreas) && item.cleaningAreas.length > 0 ? `
+            <div>
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1">Khu vực cụ thể:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.cleaningAreas.map(area => `<span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px]">${area}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(item.issuesList) && item.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-emerald-200/60">
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1.5">Vấn đề vệ sinh ghi nhận:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-emerald-300 text-emerald-950 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(item.desiredOutcomes) && item.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-emerald-900 block mb-1">Mong muốn xử lý:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (hasSecurity) {
+      return `
+        <div class="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+          <div class="flex items-center justify-between border-b border-indigo-200/80 pb-2">
+            <h4 class="text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-2">
+              <span class="text-base">🛡️</span>
+              <span>Thông tin sự việc An ninh – Bảo vệ</span>
+            </h4>
+            ${item.severity ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-200 text-indigo-900">${item.severity}</span>` : ''}
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div><span class="text-indigo-800/80">Thời điểm:</span> <strong class="text-indigo-950">${item.incidentDate || 'Chưa rõ'} ${item.incidentTime ? `(${item.incidentTime})` : ''}</strong></div>
+            <div><span class="text-indigo-800/80">Ca trực:</span> <strong class="text-indigo-950 font-bold">${item.incidentShift || 'Chưa rõ'}</strong></div>
+            <div><span class="text-indigo-800/80">Biển số liên quan:</span> <strong class="text-indigo-950">${item.licensePlate || 'Không'}</strong></div>
+            <div><span class="text-indigo-800/80">Người liên quan:</span> <strong class="text-indigo-950">${item.personDescription || 'Không'}</strong></div>
+          </div>
+
+          ${Array.isArray(item.issuesList) && item.issuesList.length > 0 ? `
+            <div class="pt-2 border-t border-indigo-200/60">
+              <span class="text-[11px] font-bold text-indigo-900 block mb-1.5">Vấn đề an ninh ghi nhận:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.issuesList.map(issue => `<span class="px-2.5 py-0.5 rounded-lg bg-white border border-indigo-300 text-indigo-950 font-bold text-[11px] shadow-2xs">${issue}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${Array.isArray(item.desiredOutcomes) && item.desiredOutcomes.length > 0 ? `
+            <div class="pt-1">
+              <span class="text-[11px] font-bold text-indigo-900 block mb-1">Kết quả mong muốn:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${item.desiredOutcomes.map(out => `<span class="px-2.5 py-0.5 rounded-lg bg-indigo-100 text-indigo-950 text-[11px] font-semibold">${out}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    return '';
+  },
+
   // ==========================================
   // TAB 1: TỔNG QUAN & XỬ LÝ (5 KHỐI TRỰC QUAN)
   // ==========================================
@@ -261,7 +393,7 @@ const TaskModalComponent = {
         <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
           <div class="flex items-center gap-2 mb-1.5 flex-wrap">
             <span class="px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
-              ${item.categoryName || 'Cơ sở vật chất'}
+              ${item.reportTypeName ? `${item.reportTypeEmoji || '📋'} ${item.reportTypeName}` : (item.categoryName || 'Cơ sở vật chất')}
             </span>
             ${item.priority === 'KHẨN CẤP' ? '<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-red-100 text-red-700 border border-red-200 animate-pulse">🚨 YÊU CẦU XỬ LÝ GẤP</span>' : ''}
           </div>
@@ -272,6 +404,9 @@ const TaskModalComponent = {
             ${item.description || 'Không có mô tả chi tiết.'}
           </p>
         </div>
+
+        <!-- SPECIALIZED METADATA CARD (NẾU LÀ TÀI XẾ, VỆ SINH, BẢO VỆ) -->
+        ${this.renderSpecializedDetails(item)}
 
         <!-- GRID 2 CỘT: 👤 PHÂN CÔNG & 📍 ĐỊA ĐIỂM -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
