@@ -801,6 +801,20 @@ const ApiService = {
         }
       }
 
+      // Tự động gửi Email thông báo hoàn thành & Link đánh giá khi trạng thái là HOÀN THÀNH
+      if (statusData.status === 'HOÀN THÀNH') {
+        try {
+          const senderEmail = targetDocData?.senderEmail || targetDocData?.email;
+          const senderName = targetDocData?.senderName || 'Quý Thầy/Cô';
+          const code = statusData.code || targetDocData?.code || targetId;
+          if (senderEmail) {
+            this.sendCompletionEmail(targetDocData, code, senderEmail, senderName, statusData.note);
+          }
+        } catch (emailErr) {
+          console.warn('[ApiService] Lỗi gửi email hoàn thành:', emailErr);
+        }
+      }
+
       return { success: true };
     } catch (err) {
       console.error('[ApiService] updateTaskStatus error:', err);
@@ -903,6 +917,17 @@ const ApiService = {
             `⏰ <b>Thời gian duyệt:</b> ${new Date().toLocaleString('vi-VN')}`;
 
           this.sendTelegramNotification(teleMsg, null, null, afterPhoto, 'REVIEW');
+
+          // TỰ ĐỘNG GỬI EMAIL THÔNG BÁO HOÀN THÀNH & LINK ĐÁNH GIÁ CHẤT LƯỢNG CHO NGƯỜI GỬI PHẢN ÁNH
+          try {
+            const senderEmail = targetDocData?.senderEmail || targetDocData?.email;
+            const senderName = targetDocData?.senderName || 'Quý Thầy/Cô';
+            if (senderEmail) {
+              this.sendCompletionEmail(targetDocData, code, senderEmail, senderName, reviewData.note);
+            }
+          } catch (emailErr) {
+            console.warn('[ApiService] Lỗi gửi email hoàn thành:', emailErr);
+          }
         } else {
           const teleMsg = `⚠️ <b>[NSG SUPPORT] YÊU CẦU XỬ LÝ LẠI CÔNG VIỆC!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1291,6 +1316,284 @@ const ApiService = {
       `👉 <i>Hệ thống tự động thông báo kết quả đánh giá chất lượng phục vụ của KTV.</i>`;
 
     return await this.sendTelegramNotification(msg, customToken, customChatId, null, 'INCIDENT');
+  },
+
+  // ========================================================
+  // 11.2. CẤU HÌNH & GỬI EMAIL TỰ ĐỘNG (HOÀN TẤT & ĐÁNH GIÁ)
+  // ========================================================
+  getEmailConfig() {
+    try {
+      const saved = localStorage.getItem('nsg_email_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      isEnabled: true,
+      serviceType: 'WEBHOOK', // 'WEBHOOK' (Google Apps Script / Relay) hoặc 'EMAILJS'
+      webhookUrl: '',
+      emailjsServiceId: '',
+      emailjsTemplateId: '',
+      emailjsPublicKey: '',
+      senderName: 'Phòng Quản trị Thiết bị và CSVC - NSG',
+      notifyOnComplete: true
+    };
+  },
+
+  async loadEmailConfig() {
+    try {
+      const db = this.getDb();
+      const doc = await db.collection('system_settings').doc('email').get();
+      if (doc.exists) {
+        const data = doc.data();
+        localStorage.setItem('nsg_email_config', JSON.stringify(data));
+        return data;
+      }
+    } catch (e) {
+      console.warn('[ApiService] Không thể tải Email config từ Firestore:', e);
+    }
+    return this.getEmailConfig();
+  },
+
+  async saveEmailConfig(config) {
+    localStorage.setItem('nsg_email_config', JSON.stringify(config));
+    if (window.firebase && window.firebase.firestore) {
+      try {
+        await window.firebase.firestore().collection('system_settings').doc('email').set(config, { merge: true });
+        console.log('[ApiService] Đã đồng bộ Email config lên Firestore');
+      } catch (err) {
+        console.warn('Lỗi lưu Email config lên Firestore:', err);
+      }
+    }
+  },
+
+  async sendCompletionEmail(item, code, senderEmail, senderName, reviewNote = '') {
+    if (!senderEmail || !senderEmail.includes('@')) {
+      console.log('[EmailService] Không có email người gửi để gửi thông báo hoàn thành.');
+      return { success: false, reason: 'NO_EMAIL' };
+    }
+
+    let config = this.getEmailConfig();
+    if (!config.webhookUrl && !config.emailjsServiceId) {
+      try {
+        config = await this.loadEmailConfig();
+      } catch (e) {}
+    }
+
+    if (config.isEnabled === false) {
+      return { success: false, reason: 'DISABLED' };
+    }
+
+    const title = item?.title || 'Phản ánh sự cố';
+    const location = item?.location || 'Khuôn viên trường';
+    const room = item?.room ? `(${item.room})` : '';
+    const staffName = item?.assignedToName || 'Kỹ thuật viên CSVC';
+    const note = reviewNote || item?.reviewNote || item?.latestNote || 'Đã kiểm tra đạt yêu cầu kỹ thuật và bàn giao.';
+    const nowIso = new Date().toISOString();
+    const completedAtFormatted = Utils.formatDateTime(nowIso);
+
+    // Link đánh giá trực tiếp (trỏ thẳng vào trang tra cứu kèm cờ mở form đánh giá)
+    const baseUrl = window.location.origin + window.location.pathname;
+    const ratingUrl = `${baseUrl}#/tracking?code=${encodeURIComponent(code)}&rate=true`;
+
+    const emailSubject = `[NSG SUPPORT] Phiếu ${code} đã hoàn tất - Mời đánh giá chất lượng phục vụ`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b; }
+  .email-wrapper { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+  .email-header { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #ffffff; padding: 28px 24px; text-align: center; }
+  .email-badge { display: inline-block; background: #2563eb; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .email-title { margin: 0; font-size: 20px; font-weight: 900; }
+  .email-body { padding: 28px 24px; line-height: 1.6; }
+  .greeting { font-size: 15px; font-weight: bold; color: #0f172a; margin-bottom: 12px; }
+  .success-banner { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 16px; margin: 16px 0; color: #065f46; font-size: 13px; font-weight: 600; }
+  .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; font-size: 13px; }
+  .info-table td { padding: 10px 14px; border-bottom: 1px solid #edf2f7; }
+  .info-label { color: #64748b; font-weight: 600; width: 38%; }
+  .info-val { color: #0f172a; font-weight: bold; }
+  .cta-section { text-align: center; margin: 25px 0 15px; }
+  .rating-btn { display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff !important; text-decoration: none; font-size: 14px; font-weight: 800; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35); text-transform: uppercase; letter-spacing: 0.5px; }
+  .footer { background: #f1f5f9; padding: 18px 24px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="email-header">
+      <span class="email-badge">NSG SUPPORT SYSTEM</span>
+      <h1 class="email-title">SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ HOÀN TẤT</h1>
+    </div>
+    <div class="email-body">
+      <div class="greeting">Kính gửi ${senderName || 'Quý Thầy/Cô, Cán bộ / Sinh viên'},</div>
+      <p style="font-size: 13px; color: #475569; margin: 0 0 14px;">
+        Bộ phận Kỹ thuật & Quản trị Thiết bị xin thông báo: Phiếu phản ánh sự cố của Quý vị đã được tiếp nhận, kiểm tra và <strong>xử lý hoàn thành đạt chuẩn</strong> tại hiện trường.
+      </p>
+      
+      <div class="success-banner">
+        ✅ Mã phiếu: <strong>${code}</strong> — Đã nghiệm thu & bàn giao thành công
+      </div>
+
+      <table class="info-table">
+        <tr>
+          <td class="info-label">📋 Tiêu đề sự cố:</td>
+          <td class="info-val">${title}</td>
+        </tr>
+        <tr>
+          <td class="info-label">📍 Vị trí:</td>
+          <td class="info-val">${location} ${room}</td>
+        </tr>
+        <tr>
+          <td class="info-label">👨‍🔧 KTV thực hiện:</td>
+          <td class="info-val">${staffName}</td>
+        </tr>
+        <tr>
+          <td class="info-label">🕒 Thời gian hoàn tất:</td>
+          <td class="info-val">${completedAtFormatted}</td>
+        </tr>
+        ${note ? `
+        <tr>
+          <td class="info-label">📝 Ghi chú nghiệm thu:</td>
+          <td class="info-val" style="color: #047857; font-style: italic;">"${note}"</td>
+        </tr>
+        ` : ''}
+      </table>
+
+      <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
+        <p style="margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #92400e;">
+          Ý kiến của bạn rất quan trọng để chúng tôi nâng cao chất lượng phục vụ!
+        </p>
+        <p style="margin: 0 0 16px; font-size: 12px; color: #b45309;">
+          Xin vui lòng dành 10 giây để đánh giá mức độ hài lòng về thái độ và chất lượng phục vụ:
+        </p>
+        <div class="cta-section" style="margin: 0;">
+          <a href="${ratingUrl}" class="rating-btn" target="_blank">
+            ⭐ ĐÁNH GIÁ CHẤT LƯỢNG DỊCH VỤ (1 - 5 SAO) ⭐
+          </a>
+        </div>
+      </div>
+
+      <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px;">
+        Nếu nút bấm không mở được, bạn vui lòng copy liên kết sau vào trình duyệt: <br>
+        <a href="${ratingUrl}" style="color: #2563eb; word-break: break-all;">${ratingUrl}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <strong>HỆ THỐNG NSG SUPPORT — PHÒNG QUẢN TRỊ THIẾT BỊ VÀ CSVC</strong><br>
+      Trường Cao đẳng / Đại học Công nghệ Sài Gòn & Bình Dương (NSG)<br>
+      Email này được gửi tự động từ hệ thống quản lý yêu cầu bảo trì.
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const textContent = `Kính gửi ${senderName || 'Quý Thầy/Cô'},\n\nPhiếu phản ánh ${code} (${title}) tại ${location} đã được xử lý hoàn thành.\nKính mời Quý Thầy/Cô đánh giá chất lượng phục vụ tại: ${ratingUrl}\n\nTrân trọng,\nPhòng Quản trị Thiết bị và CSVC NSG`;
+
+    try {
+      // 1. Gửi qua Google Apps Script Web App hoặc Webhook Relay
+      if (config.webhookUrl) {
+        await fetch(config.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          mode: 'no-cors',
+          body: JSON.stringify({
+            to: senderEmail,
+            recipient: senderEmail,
+            name: senderName || 'Người dùng',
+            subject: emailSubject,
+            html: htmlContent,
+            text: textContent,
+            code: code,
+            title: title,
+            ratingUrl: ratingUrl
+          })
+        });
+        console.log('[EmailService] Đã gửi email hoàn thành qua Webhook / Google Apps Script tới:', senderEmail);
+        return { success: true, to: senderEmail };
+      }
+
+      // 2. Gửi qua EmailJS nếu có cấu hình
+      if (config.emailjsServiceId && config.emailjsTemplateId && config.emailjsPublicKey) {
+        const payload = {
+          service_id: config.emailjsServiceId,
+          template_id: config.emailjsTemplateId,
+          user_id: config.emailjsPublicKey,
+          template_params: {
+            to_email: senderEmail,
+            to_name: senderName || 'Người dùng',
+            subject: emailSubject,
+            code: code,
+            title: title,
+            location: `${location} ${room}`,
+            staff_name: staffName,
+            completed_at: completedAtFormatted,
+            note: note,
+            rating_url: ratingUrl,
+            message_html: htmlContent
+          }
+        };
+
+        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          console.log('[EmailService] Đã gửi email hoàn thành qua EmailJS tới:', senderEmail);
+          return { success: true, to: senderEmail };
+        }
+      }
+
+      // 3. Gửi qua Backend Server Relay nếu có
+      try {
+        const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/email/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: senderEmail,
+            subject: emailSubject,
+            html: htmlContent,
+            text: textContent
+          })
+        });
+        if (backendRes.ok) {
+          return { success: true, to: senderEmail };
+        }
+      } catch (beErr) {}
+
+      console.log('[EmailService] Chưa cấu hình Webhook / EmailJS trong Cài đặt để gửi email tới:', senderEmail);
+      return { success: false, reason: 'NO_CONFIG' };
+    } catch (e) {
+      console.warn('[EmailService] Lỗi gửi email hoàn thành:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async testEmail(toEmail, customWebhook = null) {
+    if (!toEmail || !toEmail.includes('@')) {
+      throw new Error('Vui lòng nhập địa chỉ email nhận hợp lệ!');
+    }
+
+    const testItem = {
+      title: 'Kiểm tra hệ thống gửi Email thông báo hoàn thành & Đánh giá chất lượng',
+      location: 'Tòa nhà A - Cơ sở chính',
+      room: 'Phòng A.205',
+      assignedToName: 'Nguyễn Văn A (Kỹ thuật viên CSVC)',
+      reviewNote: 'Đã kiểm tra xử lý hoàn tất, hệ thống gửi email hoạt động bình thường.'
+    };
+
+    const code = `TEST-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    if (customWebhook) {
+      const config = this.getEmailConfig();
+      config.webhookUrl = customWebhook;
+      localStorage.setItem('nsg_email_config', JSON.stringify(config));
+    }
+
+    return await this.sendCompletionEmail(testItem, code, toEmail, 'Quản trị viên NSG SUPPORT', 'Đã kiểm tra đạt yêu cầu kỹ thuật và nghiệm thu.');
   },
 
   // ========================================================
