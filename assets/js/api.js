@@ -133,14 +133,24 @@ const ApiService = {
         let teleMsg = '';
 
         if (reportData.reportType === 'DRIVER') {
+          const tripPlate = escape(reportData.tripLicensePlate || reportData.plate || reportData.licensePlate || '');
+          const tripDriver = escape(reportData.tripDriverName || reportData.driverName || 'Không rõ tên');
+          const tripPickup = escape(reportData.tripPickupLocation || reportData.pickup || 'Chưa rõ');
+          const tripDest = escape(reportData.tripDestination || reportData.destination || 'Chưa rõ');
+          const tripPurpose = escape(reportData.tripPurpose || reportData.purpose || 'Không ghi');
+          const tripDate = escape(reportData.tripDate || 'Không rõ');
+          const tripDept = escape(reportData.tripDepartureTime || reportData.deptTime || '');
+          const tripRet = escape(reportData.tripReturnTime || reportData.returnTime || '');
+          const timeStr = tripDept ? `(${tripDept}${tripRet ? ` - ${tripRet}` : ''})` : '';
+
           teleMsg = `🚗 <b>[NSG SUPPORT] PHẢN ÁNH DỊCH VỤ TÀI XẾ!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
             `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b> ${reportData.severity ? `(${escape(reportData.severity)})` : ''}\n` +
-            `📅 <b>Ngày sử dụng:</b> ${escape(reportData.tripDate || 'Không rõ')} ${reportData.tripDepartureTime ? `(${escape(reportData.tripDepartureTime)} - ${escape(reportData.tripReturnTime || '')})` : ''}\n` +
-            `🚏 <b>Lộ trình:</b> ${escape(reportData.tripPickupLocation || 'Chưa rõ')} ➔ ${escape(reportData.tripDestination || 'Chưa rõ')}\n` +
-            `🚘 <b>Xe / Tài xế:</b> ${reportData.tripLicensePlate ? `[${escape(reportData.tripLicensePlate)}]` : ''} ${escape(reportData.tripDriverName || 'Không rõ tên')}\n` +
-            `🎯 <b>Mục đích:</b> ${escape(reportData.tripPurpose || 'Công tác')}\n` +
+            `📅 <b>Ngày sử dụng:</b> ${tripDate} ${timeStr}\n` +
+            `🚏 <b>Lộ trình:</b> ${tripPickup} ➔ ${tripDest}\n` +
+            `🚘 <b>Xe / Tài xế:</b> ${tripPlate ? `[${tripPlate}]` : ''} ${tripDriver}\n` +
+            `🎯 <b>Mục đích:</b> ${tripPurpose}\n` +
             `⚠️ <b>Nhóm vấn đề:</b> ${(reportData.issuesList || []).map(escape).join(', ') || 'Xem chi tiết'}\n` +
             `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b> (${escape(reportData.senderPhone || 'Không có SĐT')})\n` +
             `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +

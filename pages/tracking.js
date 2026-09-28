@@ -329,7 +329,7 @@ const TrackingPage = {
 
   renderSpecializedDetails(report) {
     if (!report) return '';
-    const hasDriver = report.reportType === 'DRIVER' || report.tripLicensePlate || report.tripDate || report.tripDriverName;
+    const hasDriver = report.reportType === 'DRIVER' || report.tripLicensePlate || report.plate || report.licensePlate || report.tripDate || report.tripDriverName || report.driverName || report.pickup || report.tripPickupLocation;
     const hasCleaning = report.reportType === 'CLEANING' || (report.cleaningAreas && report.cleaningAreas.length > 0);
     const hasSecurity = report.reportType === 'SECURITY' || report.incidentShift || report.incidentDate;
 
@@ -338,6 +338,16 @@ const TrackingPage = {
     }
 
     if (hasDriver) {
+      const tripPlate = report.tripLicensePlate || report.plate || report.licensePlate || '';
+      const tripDriver = report.tripDriverName || report.driverName || 'Không rõ';
+      const tripPickup = report.tripPickupLocation || report.pickup || 'Chưa rõ';
+      const tripDest = report.tripDestination || report.destination || 'Chưa rõ';
+      const tripPurpose = report.tripPurpose || report.purpose || 'Công tác';
+      const tripDate = report.tripDate || 'Chưa rõ';
+      const tripDept = report.tripDepartureTime || report.deptTime || '';
+      const tripRet = report.tripReturnTime || report.returnTime || '';
+      const timeStr = tripDept ? `(${tripDept}${tripRet ? ` - ${tripRet}` : ''})` : '';
+
       return `
         <div class="mx-6 p-4 sm:p-5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3 shadow-2xs">
           <div class="flex items-center justify-between border-b border-amber-200 pb-2">
@@ -349,11 +359,17 @@ const TrackingPage = {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div><span class="text-amber-800/80">Ngày sử dụng:</span> <strong class="text-amber-950">${report.tripDate || 'Chưa rõ'} ${report.tripDepartureTime ? `(${report.tripDepartureTime} - ${report.tripReturnTime || ''})` : ''}</strong></div>
-            <div><span class="text-amber-800/80">Lộ trình:</span> <strong class="text-amber-950">${report.tripPickupLocation || 'Chưa rõ'} ➔ ${report.tripDestination || 'Chưa rõ'}</strong></div>
-            <div><span class="text-amber-800/80">Biển số & Tài xế:</span> <strong class="text-amber-950">${report.tripLicensePlate ? `[${report.tripLicensePlate}]` : ''} ${report.tripDriverName || 'Không rõ'}</strong></div>
-            <div><span class="text-amber-800/80">Mục đích chuyến đi:</span> <strong class="text-amber-950">${report.tripPurpose || 'Công tác'}</strong></div>
+            <div><span class="text-amber-800/80">Ngày sử dụng:</span> <strong class="text-amber-950">${tripDate} ${timeStr}</strong></div>
+            <div><span class="text-amber-800/80">Lộ trình:</span> <strong class="text-amber-950">${tripPickup} ➔ ${tripDest}</strong></div>
+            <div><span class="text-amber-800/80">Biển số & Tài xế:</span> <strong class="text-amber-950">${tripPlate ? `[${tripPlate}]` : ''} ${tripDriver}</strong></div>
+            <div><span class="text-amber-800/80">Mục đích chuyến đi:</span> <strong class="text-amber-950">${tripPurpose}</strong></div>
           </div>
+
+          ${report.hasWitness ? `
+            <div class="pt-1 text-xs">
+              <span class="text-amber-800/80">Người chứng kiến:</span> <strong class="text-amber-950">${report.witnessName || 'Có người đi cùng'}</strong>
+            </div>
+          ` : ''}
 
           ${Array.isArray(report.issuesList) && report.issuesList.length > 0 ? `
             <div class="pt-2 border-t border-amber-200/60">

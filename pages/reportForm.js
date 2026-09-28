@@ -641,62 +641,84 @@ const ReportFormPage = {
   // ========================================================
   renderDriverForm() {
     return `
-      <!-- Khối 1: Thông tin chuyến xe -->
+      <!-- Khối 1: Thông tin chuyến xe & Lộ trình di chuyển -->
       <div class="space-y-4">
-        <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-car-side text-amber-600"></i> 1. Thông tin chuyến xe & Lộ trình
-        </h3>
-
-        <!-- Chọn Cơ sở liên quan -->
-        <div class="p-5 bg-amber-50/50 rounded-3xl border border-amber-200 space-y-3.5">
-          <span class="text-xs font-black text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
-            <i class="fa-solid fa-building text-amber-600"></i> Cơ sở xuất phát / Điểm đón ban đầu:
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-car-side text-amber-600"></i> 1. Thông tin chuyến xe & Lộ trình di chuyển
+          </h3>
+          <span class="text-[11px] text-amber-800 font-bold bg-amber-100/80 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+            <i class="fa-solid fa-pen-to-square text-[10px] text-amber-600"></i> Nhập trực tiếp
           </span>
-          <div>
-            <select id="rep-campus" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white" required>
-              <option value="">-- Chọn Cơ sở --</option>
-            </select>
-          </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Ngày sử dụng xe <span class="text-red-500">*</span></label>
-            <input type="date" id="driver-trip-date" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white" required>
+        <div class="p-5 bg-amber-50/60 rounded-3xl border border-amber-200 shadow-2xs space-y-4">
+          <!-- Hàng 1: Điểm đón và Điểm đến -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-location-dot text-amber-600"></i>
+                <span>Điểm đón / Nơi xuất phát <span class="text-red-500">*</span></span>
+              </label>
+              <input type="text" id="driver-pickup" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white text-slate-900 placeholder:text-slate-400" placeholder="Ví dụ: Cơ sở 1 (04 Nguyễn Thông), Sân bay Tân Sơn Nhất, Tòa nhà A..." required>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-flag-checkered text-amber-600"></i>
+                <span>Điểm đến / Nơi đến <span class="text-red-500">*</span></span>
+              </label>
+              <input type="text" id="driver-destination" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white text-slate-900 placeholder:text-slate-400" placeholder="Ví dụ: Cơ sở 2 (Nhà Bè), Khách sạn Rex, Trung tâm Hội nghị..." required>
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Giờ đi</label>
-            <input type="time" id="driver-dept-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Giờ về (nếu có)</label>
-            <input type="time" id="driver-return-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white">
-          </div>
-        </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Điểm đón <span class="text-red-500">*</span></label>
-            <input type="text" id="driver-pickup" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Cổng chính CS1, 04 Nguyễn Thông..." required>
+          <!-- Hàng 2: Thời gian sử dụng xe -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-day text-amber-600"></i>
+                <span>Ngày sử dụng xe <span class="text-red-500">*</span></span>
+              </label>
+              <input type="date" id="driver-trip-date" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-bold bg-white text-slate-900" required>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-clock text-amber-600"></i>
+                <span>Giờ đi / Giờ đón</span>
+              </label>
+              <input type="time" id="driver-dept-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white text-slate-900">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-clock-rotate-left text-amber-600"></i>
+                <span>Giờ về / Giờ trả</span>
+              </label>
+              <input type="time" id="driver-return-time" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white text-slate-900">
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Điểm đến <span class="text-red-500">*</span></label>
-            <input type="text" id="driver-destination" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Cơ sở 2, Trung tâm Hội nghị..." required>
-          </div>
-        </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Biển số xe (nếu nhớ)</label>
-            <input type="text" id="driver-plate" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-mono font-bold" placeholder="Ví dụ: 51B-123.45">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Tên tài xế (nếu biết)</label>
-            <input type="text" id="driver-name" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Chú Ba, Anh Tuấn...">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Mục đích chuyến đi / công tác</label>
-            <input type="text" id="driver-purpose" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium" placeholder="Ví dụ: Đưa đón giảng viên, công tác...">
+          <!-- Hàng 3: Biển số xe, Tên tài xế & Mục đích chuyến đi -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-rectangle-ad text-amber-600"></i>
+                <span>Biển số xe (nếu nhớ)</span>
+              </label>
+              <input type="text" id="driver-plate" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-mono font-bold bg-white text-blue-900 placeholder:text-slate-400 uppercase" placeholder="Ví dụ: 51B-123.45, 50F-888.99...">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-id-badge text-amber-600"></i>
+                <span>Tên tài xế (nếu biết)</span>
+              </label>
+              <input type="text" id="driver-name" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white text-slate-900 placeholder:text-slate-400" placeholder="Ví dụ: Chú Ba, Anh Tuấn...">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-bullseye text-amber-600"></i>
+                <span>Mục đích chuyến đi / công tác</span>
+              </label>
+              <input type="text" id="driver-purpose" class="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 font-medium bg-white text-slate-900 placeholder:text-slate-400" placeholder="Ví dụ: Đưa đón giảng viên, đoàn công tác...">
+            </div>
           </div>
         </div>
       </div>
@@ -1370,25 +1392,44 @@ const ReportFormPage = {
 
       categoryId = 'DRIVER';
       categoryName = 'Tài xế / Dịch vụ xe';
-      title = `[Tài xế] ${issuesChecked[0] || 'Phản ánh chuyến xe'} - Xe ${plate || pickup + ' ➔ ' + destination}`;
+      title = `[Tài xế] ${issuesChecked[0] || 'Phản ánh chuyến xe'} - ${plate ? `Xe ${plate}` : `${pickup} ➔ ${destination}`}`;
       
       description = `📌 NỘI DUNG PHẢN ÁNH CHUYẾN XE / TÀI XẾ:\n` +
-        `• Ngày đi: ${tripDate} ${deptTime ? `(${deptTime} - ${returnTime || '...'}` : ''})\n` +
+        `• Ngày đi: ${tripDate} ${deptTime ? `(${deptTime}${returnTime ? ` - ${returnTime}` : ''})` : ''}\n` +
         `• Lộ trình: ${pickup} ➔ ${destination}\n` +
         `• Biển số xe: ${plate || 'Chưa rõ'} | Tài xế: ${driverName || 'Chưa rõ'}\n` +
         `• Mục đích: ${purpose || 'Không ghi'}\n` +
         `• Vấn đề: ${issuesChecked.join(', ') || 'Xem mô tả'}\n` +
         `• Mức độ: ${severity}\n` +
-        `• Nhân chứng: ${hasWitness ? `Có (${witnessName || 'Có đi cùng'})` : 'Không'}\n` +
+        `• Nhân chứng: ${hasWitness ? `Có (${witnessName || 'Có người đi cùng'})` : 'Không'}\n` +
         `• Mong muốn: ${outcomes.join(', ') || 'Ghi nhận xử lý'}\n\n` +
         `📝 CHI TIẾT SỰ VIỆC:\n${rawDesc}`;
 
-      fullLocation = `${campusName} (${pickup} ➔ ${destination})`;
-      roomName = plate ? `Xe ${plate}` : 'Xe đưa đón';
+      fullLocation = `${pickup} ➔ ${destination}`;
+      roomName = plate ? `Xe ${plate}` : (driverName ? `Tài xế ${driverName}` : 'Xe đưa đón');
 
       extraMeta = {
-        tripDate, deptTime, returnTime, pickup, destination, plate, driverName, purpose,
-        issuesList: issuesChecked, severity, hasWitness, witnessName, desiredOutcomes: outcomes
+        tripDate,
+        deptTime,
+        returnTime,
+        tripDepartureTime: deptTime,
+        tripReturnTime: returnTime,
+        pickup,
+        destination,
+        tripPickupLocation: pickup,
+        tripDestination: destination,
+        plate,
+        licensePlate: plate,
+        tripLicensePlate: plate,
+        driverName,
+        tripDriverName: driverName,
+        purpose,
+        tripPurpose: purpose,
+        issuesList: issuesChecked,
+        severity,
+        hasWitness,
+        witnessName,
+        desiredOutcomes: outcomes
       };
     } else if (this.selectedType === 'CLEANING') {
       if (!zoneName || !roomName) {
