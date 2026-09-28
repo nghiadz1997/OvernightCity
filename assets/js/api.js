@@ -66,6 +66,7 @@ const ApiService = {
       };
 
       const fullData = {
+        ...reportData,
         senderName: reportData.senderName || '',
         senderCode: reportData.senderCode || '',
         senderDept: reportData.senderDept || '',
@@ -106,7 +107,7 @@ const ApiService = {
           deviceId: deviceId,
           clientIp: clientIp,
           userAgent: navigator.userAgent,
-          details: `Gửi phản ánh #${code}: ${reportData.title || reportData.categoryName || ''}`,
+          details: `Gửi phản ánh #${code}: [${reportData.reportTypeName || 'CSVC'}] ${reportData.title || reportData.categoryName || ''}`,
           createdAt: nowIso
         });
       } catch (e) {}
@@ -118,7 +119,7 @@ const ApiService = {
           action: 'TẠO PHẢN ÁNH',
           actorName: reportData.senderName || 'Người gửi',
           actorRole: 'USER',
-          details: `Gửi phản ánh tại ${reportData.location || ''} - ${reportData.room || ''}`,
+          details: `Gửi phản ánh [${reportData.reportTypeName || 'CSVC'}] tại ${reportData.location || ''} - ${reportData.room || ''}`,
           timestamp: nowIso
         });
       } catch (logErr) {
@@ -129,29 +130,72 @@ const ApiService = {
       try {
         const priorityIcon = reportData.priority === 'KHẨN CẤP' ? '🚨 KHẨN CẤP' : reportData.priority === 'CAO' ? '🟠 CAO' : '🔵 ' + (reportData.priority || 'BÌNH THƯỜNG');
         const escape = (txt) => (Utils.escapeHtml ? Utils.escapeHtml(txt) : String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-        
-        const cleanTitle = escape(reportData.title || 'Không có tiêu đề');
-        const cleanDesc = escape(reportData.description || 'Chưa có nội dung mô tả chi tiết');
-        const rawTech = (reportData.techRequirement || reportData.technicalRequirement || '').trim();
-        const cleanTech = rawTech ? escape(rawTech) : 'Tiếp nhận, kiểm tra hiện trường và xử lý theo quy trình kỹ thuật tiêu chuẩn.';
+        let teleMsg = '';
 
-        const teleMsg = `📢 <b>[NSG SUPPORT] CÓ PHẢN ÁNH SỰ CỐ MỚI!</b>\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
-          `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b>\n` +
-          `📌 <b>Loại sự cố:</b> ${escape(reportData.categoryName || 'Khác')}\n` +
-          `📍 <b>Vị trí:</b> ${escape(reportData.location || '')} ${reportData.room ? `- ${escape(reportData.room)}` : ''}\n` +
-          `🏷️ <b>Tiêu đề:</b> ${cleanTitle}\n` +
-          `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b>\n` +
-          `📞 <b>SĐT liên hệ:</b> <code>${escape(reportData.senderPhone || 'Không có')}</code>\n` +
-          `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `📝 <b>Nội dung chi tiết:</b>\n` +
-          `<i>${cleanDesc}</i>\n\n` +
-          `🛠️ <b>Yêu cầu kỹ thuật:</b>\n` +
-          `<i>${cleanTech}</i>\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
+        if (reportData.reportType === 'DRIVER') {
+          teleMsg = `🚗 <b>[NSG SUPPORT] PHẢN ÁNH DỊCH VỤ TÀI XẾ!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b> ${reportData.severity ? `(${escape(reportData.severity)})` : ''}\n` +
+            `📅 <b>Ngày sử dụng:</b> ${escape(reportData.tripDate || 'Không rõ')} ${reportData.tripDepartureTime ? `(${escape(reportData.tripDepartureTime)} - ${escape(reportData.tripReturnTime || '')})` : ''}\n` +
+            `🚏 <b>Lộ trình:</b> ${escape(reportData.tripPickupLocation || 'Chưa rõ')} ➔ ${escape(reportData.tripDestination || 'Chưa rõ')}\n` +
+            `🚘 <b>Xe / Tài xế:</b> ${reportData.tripLicensePlate ? `[${escape(reportData.tripLicensePlate)}]` : ''} ${escape(reportData.tripDriverName || 'Không rõ tên')}\n` +
+            `🎯 <b>Mục đích:</b> ${escape(reportData.tripPurpose || 'Công tác')}\n` +
+            `⚠️ <b>Nhóm vấn đề:</b> ${(reportData.issuesList || []).map(escape).join(', ') || 'Xem chi tiết'}\n` +
+            `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b> (${escape(reportData.senderPhone || 'Không có SĐT')})\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
+        } else if (reportData.reportType === 'CLEANING') {
+          teleMsg = `🧹 <b>[NSG SUPPORT] PHẢN ÁNH VỆ SINH & TẠP VỤ!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b> ${reportData.severity ? `(${escape(reportData.severity)})` : ''}\n` +
+            `📍 <b>Vị trí:</b> ${escape(reportData.location || '')} ${reportData.room ? `- ${escape(reportData.room)}` : ''}\n` +
+            `🧽 <b>Khu vực:</b> ${(reportData.cleaningAreas || []).map(escape).join(', ') || 'Chung'}\n` +
+            `⚠️ <b>Nhóm vấn đề:</b> ${(reportData.issuesList || []).map(escape).join(', ') || 'Xem chi tiết'}\n` +
+            `🎯 <b>Mong muốn:</b> ${(reportData.desiredOutcomes || []).map(escape).join(', ') || 'Xử lý làm sạch'}\n` +
+            `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b> (${escape(reportData.senderPhone || 'Không có SĐT')})\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
+        } else if (reportData.reportType === 'SECURITY') {
+          teleMsg = `🛡️ <b>[NSG SUPPORT] PHẢN ÁNH AN NINH & BẢO VỆ!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b> ${reportData.severity ? `(${escape(reportData.severity)})` : ''}\n` +
+            `📍 <b>Vị trí:</b> ${escape(reportData.location || '')} ${reportData.room ? `- ${escape(reportData.room)}` : ''}\n` +
+            `🕒 <b>Thời điểm:</b> ${escape(reportData.incidentDate || '')} ${reportData.incidentTime ? `(${escape(reportData.incidentTime)})` : ''} - Ca: ${escape(reportData.incidentShift || 'Không rõ')}\n` +
+            `⚠️ <b>Nhóm vấn đề:</b> ${(reportData.issuesList || []).map(escape).join(', ') || 'Xem chi tiết'}\n` +
+            `🔍 <b>Liên quan:</b> Biển số: ${escape(reportData.licensePlate || 'Không')} | Người: ${escape(reportData.personDescription || 'Không')}\n` +
+            `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b> (${escape(reportData.senderPhone || 'Không có SĐT')})\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
+        } else {
+          const cleanTitle = escape(reportData.title || 'Không có tiêu đề');
+          const cleanDesc = escape(reportData.description || 'Chưa có nội dung mô tả chi tiết');
+          const rawTech = (reportData.techRequirement || reportData.technicalRequirement || '').trim();
+          const cleanTech = rawTech ? escape(rawTech) : 'Tiếp nhận, kiểm tra hiện trường và xử lý theo quy trình kỹ thuật tiêu chuẩn.';
+
+          teleMsg = `📢 <b>[NSG SUPPORT] CÓ PHẢN ÁNH SỰ CỐ MỚI!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 <b>Mã phiếu:</b> <code>${code}</code>\n` +
+            `⚠️ <b>Mức độ:</b> <b>${priorityIcon}</b>\n` +
+            `📌 <b>Loại sự cố:</b> ${escape(reportData.categoryName || 'Cơ sở vật chất')}\n` +
+            `📍 <b>Vị trí:</b> ${escape(reportData.location || '')} ${reportData.room ? `- ${escape(reportData.room)}` : ''}\n` +
+            `🏷️ <b>Tiêu đề:</b> ${cleanTitle}\n` +
+            `👤 <b>Người gửi:</b> <b>${escape(reportData.senderName || 'Ẩn danh')}</b>\n` +
+            `📞 <b>SĐT liên hệ:</b> <code>${escape(reportData.senderPhone || 'Không có')}</code>\n` +
+            `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📝 <b>Nội dung chi tiết:</b>\n` +
+            `<i>${cleanDesc}</i>\n\n` +
+            `🛠️ <b>Yêu cầu kỹ thuật:</b>\n` +
+            `<i>${cleanTech}</i>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
+        }
 
         let firstImage = null;
         if (Array.isArray(reportData.attachments) && reportData.attachments.length > 0) {
