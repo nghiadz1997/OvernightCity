@@ -618,6 +618,17 @@ const ReportFormPage = {
             <textarea id="rep-description" rows="4" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 leading-relaxed font-normal" placeholder="Mô tả hiện tượng sự cố, thời điểm bắt đầu xảy ra, các dấu hiệu (chớp đèn đỏ, có mùi khét, không nhận dây HDMI...)..." required></textarea>
           </div>
 
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-screwdriver-wrench text-blue-600"></i>
+                <span>Yêu cầu kỹ thuật / Đề xuất hỗ trợ <span class="text-slate-400 font-normal text-[11px]">(Tùy chọn)</span></span>
+              </span>
+              <span class="text-[11px] text-blue-600 font-medium">Gợi ý mang theo linh kiện, công cụ</span>
+            </label>
+            <textarea id="rep-tech-requirement" rows="2" class="w-full text-sm p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 leading-relaxed font-normal bg-slate-50/50" placeholder="Ví dụ: Cần thay dây HDMI dài 5m, mang thang chữ A để kiểm tra trần, chuẩn bị bóng đèn tuýp LED 1m2..."></textarea>
+          </div>
+
           <!-- Đính kèm ảnh / video -->
           ${this.renderAttachmentPicker()}
         </div>
@@ -1491,6 +1502,7 @@ const ReportFormPage = {
       // 7. Tạo Payload hoàn chỉnh
       const currentUser = AuthService.getCurrentUser();
       const deviceId = Utils.getOrCreateDeviceId();
+      const techRequirement = (document.getElementById('rep-tech-requirement')?.value || '').trim();
 
       const payload = {
         reportType: this.selectedType,
@@ -1509,6 +1521,8 @@ const ReportFormPage = {
         room: roomName,
         title: title,
         description: description,
+        techRequirement: techRequirement,
+        technicalRequirement: techRequirement,
         attachments: uploadedAttachments,
         ...extraMeta
       };
