@@ -350,21 +350,31 @@ const Utils = {
    * Kiểm tra xem 1 công việc có thuộc diện xử lý/quản lý của người dùng này hay không
    * Hỗ trợ KTV thực hiện, Người quản lý điều phối (Phó phòng) và Người nghiệm thu
    */
-  isTaskAssignedToUser(item, userId) {
-    if (!item || !userId) return false;
-    // KTV thực hiện
-    if (item.assignedTo === userId) return true;
-    if (Array.isArray(item.assignedTo) && item.assignedTo.includes(userId)) return true;
-    if (Array.isArray(item.assignedToIds) && item.assignedToIds.includes(userId)) return true;
-    if (Array.isArray(item.assignees) && item.assignees.some(a => (a.uid === userId || a.id === userId))) return true;
-    if (typeof item.assignedTo === 'string' && item.assignedTo.split(',').map(s => s.trim()).includes(userId)) return true;
+  isTaskAssignedToUser(item, userId, user) {
+    if (!item) return false;
+    if (!userId && !user) return false;
+    const uid = userId || user?.uid;
+    const name = user?.displayName;
 
-    // Người quản lý / điều phối (Phó phòng / Trưởng phòng)
-    if (item.assignedManagerId === userId) return true;
-    if (item.deputyId === userId || item.deputyCoordinatorId === userId) return true;
+    if (uid) {
+      if (item.assignedTo === uid) return true;
+      if (Array.isArray(item.assignedTo) && item.assignedTo.includes(uid)) return true;
+      if (Array.isArray(item.assignedToIds) && item.assignedToIds.includes(uid)) return true;
+      if (Array.isArray(item.assignees) && item.assignees.some(a => (a.uid === uid || a.id === uid))) return true;
+      if (typeof item.assignedTo === 'string' && item.assignedTo.split(',').map(s => s.trim()).includes(uid)) return true;
 
-    // Người nghiệm thu
-    if (item.assignedReviewerId === userId) return true;
+      // Người quản lý / điều phối (Phó phòng / Trưởng phòng)
+      if (item.assignedManagerId === uid) return true;
+      if (item.deputyId === uid || item.deputyCoordinatorId === uid) return true;
+
+      // Người nghiệm thu
+      if (item.assignedReviewerId === uid) return true;
+    }
+
+    if (name) {
+      if (item.assignedToName && item.assignedToName.includes(name)) return true;
+      if (item.assignedManagerName && item.assignedManagerName.includes(name)) return true;
+    }
 
     return false;
   },
