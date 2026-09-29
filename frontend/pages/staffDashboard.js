@@ -252,7 +252,7 @@ const StaffDashboardPage = {
     // Lọc công việc của KTV này (hoặc hiển thị tất cả nếu chưa đăng nhập vai trò cụ thể để dễ demo)
     const myItems = allItems.filter(item => {
       if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MANAGER') return true;
-      return Utils.isTaskAssignedToUser(item, currentUser.uid) || !item.assignedTo;
+      return Utils.isTaskAssignedToUser(item, currentUser.uid, currentUser) || !item.assignedTo;
     });
 
     // Cập nhật badges
