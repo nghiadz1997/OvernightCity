@@ -69,8 +69,9 @@ const TaskCardComponent = {
             </div>
             <div class="flex items-center gap-1.5 truncate col-span-1 sm:col-span-2" title="Kỹ thuật viên thực hiện: ${item.assignedToName || 'Chưa phân công'}">
               <i class="fa-solid ${item.assignedToName && item.assignedToName.includes(',') ? 'fa-users text-indigo-600' : 'fa-screwdriver-wrench text-indigo-600'}"></i>
-              <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate">
-                ${item.assignedToName ? (item.assignedToName.includes(',') ? `👥 KTV: ${item.assignedToName}` : `🔧 KTV: ${item.assignedToName}`) : 'KTV: Chưa phân công'}
+              <span class="font-semibold ${item.assignedToName ? 'text-indigo-700' : 'text-slate-400 italic'} truncate flex items-center gap-1 flex-wrap">
+                <span>${item.assignedToName ? (item.assignedToName.includes(',') ? `👥 Nhóm KTV: ${item.assignedToName}` : `🔧 KTV: ${item.assignedToName}`) : 'KTV: Chưa phân công'}</span>
+                ${status === 'ĐANG XỬ LÝ' && item.acceptedByName ? `<span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs">✓ ${item.acceptedByName} đã nhận việc</span>` : ''}
               </span>
             </div>
           </div>
@@ -154,6 +155,7 @@ const TaskCardComponent = {
     }
 
     try {
+      const currentUser = AuthService.getCurrentUser();
       await ApiService.updateTaskStatus(targetId || code, targetType, {
         status: 'ĐANG XỬ LÝ',
         note: 'Kỹ thuật viên đã tiếp nhận và bắt đầu xử lý tại hiện trường.',
@@ -170,6 +172,8 @@ const TaskCardComponent = {
       if (item) {
         item.status = 'ĐANG XỬ LÝ';
         item.acceptedAt = new Date().toISOString();
+        item.acceptedBy = currentUser?.uid || '';
+        item.acceptedByName = currentUser?.displayName || 'Kỹ thuật viên';
         if (targetType === 'TASK') {
           RealtimeService.handleTaskUpdate(item);
         } else {

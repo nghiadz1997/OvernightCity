@@ -672,7 +672,7 @@ const TaskModalComponent = {
     const status = item.status || 'CHỜ PHÂN CÔNG';
 
     const isDeputy = AuthService.isDeputyManager();
-    const isAssignedToMe = Utils.isTaskAssignedToUser(item, currentUser?.uid);
+    const isAssignedToMe = Utils.isTaskAssignedToUser(item, currentUser?.uid, currentUser);
     const canAssign = AuthService.canAssignTask(item);
     const canReview = AuthService.canReviewTask(item);
 
@@ -743,7 +743,7 @@ const TaskModalComponent = {
                 <h5 class="font-black text-sm flex items-center gap-2">
                   <i class="fa-solid fa-bell animate-bounce"></i> Bạn đã được phân công xử lý phiếu này!
                 </h5>
-                <p class="text-xs text-blue-100 mt-0.5">Vui lòng nhấn nút nhận việc để bắt đầu thực hiện tại hiện trường.</p>
+                <p class="text-xs text-blue-100 mt-0.5">${item.assignedToName && item.assignedToName.includes(',') ? `Công việc được giao cho nhóm (${item.assignedToName}). Chỉ cần 1 KTV bấm nhận việc là toàn nhóm cùng bắt đầu.` : 'Vui lòng nhấn nút nhận việc để bắt đầu thực hiện tại hiện trường.'}</p>
               </div>
               <button type="button" class="w-full sm:w-auto px-6 py-3 bg-white text-blue-900 hover:bg-blue-50 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer transform hover:scale-105 shrink-0" onclick="TaskModalComponent.acceptTask()">
                 <i class="fa-solid fa-play"></i>
@@ -776,6 +776,23 @@ const TaskModalComponent = {
     if (status === 'ĐANG XỬ LÝ') {
       return `
         <div class="space-y-4">
+          ${item.assignedToName && item.assignedToName.includes(',') ? `
+            <div class="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl flex items-center justify-between gap-3 text-xs text-indigo-900">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-2xs">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+                <div>
+                  <span class="font-extrabold block">Công việc nhóm đang thực hiện</span>
+                  <span class="text-indigo-700">Nhóm KTV cùng phụ trách: <strong>${item.assignedToName}</strong> ${item.acceptedByName ? `• Đã tiếp nhận bởi: <strong>${item.acceptedByName}</strong>` : ''}</span>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-200/60 text-indigo-800 uppercase tracking-wide shrink-0">
+                Đang xử lý
+              </span>
+            </div>
+          ` : ''}
+
           <!-- Form KTV Báo hoàn tất & Tải ảnh nghiệm thu -->
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
             <h5 class="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
@@ -1283,6 +1300,7 @@ const TaskModalComponent = {
     const item = this.currentData;
     const isReport = item.type === 'REPORT' || (item.code && item.code.startsWith('PYC-'));
     const targetType = isReport ? 'REPORT' : 'TASK';
+    const currentUser = AuthService.getCurrentUser();
 
     try {
       await ApiService.updateTaskStatus(item.id || item.code, targetType, {
@@ -1293,6 +1311,8 @@ const TaskModalComponent = {
 
       item.status = 'ĐANG XỬ LÝ';
       item.acceptedAt = new Date().toISOString();
+      item.acceptedBy = currentUser?.uid || '';
+      item.acceptedByName = currentUser?.displayName || 'Kỹ thuật viên';
 
       if (targetType === 'TASK') {
         RealtimeService.handleTaskUpdate(item);

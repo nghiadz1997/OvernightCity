@@ -179,7 +179,7 @@ const TasksPage = {
 
     // Cập nhật số lượng trên các tab badges
     const totalCount = allItems.length;
-    const myCount = allItems.filter(i => Utils.isTaskAssignedToUser(i, currentUser?.uid)).length;
+    const myCount = allItems.filter(i => Utils.isTaskAssignedToUser(i, currentUser?.uid, currentUser)).length;
     const pendingCount = allItems.filter(i => i.status === 'CHỜ PHÂN CÔNG' || i.status === 'MỚI').length;
     const assignedCount = allItems.filter(i => i.status === 'ĐÃ PHÂN CÔNG').length;
     const processingCount = allItems.filter(i => i.status === 'ĐANG XỬ LÝ').length;
@@ -214,7 +214,7 @@ const TasksPage = {
 
     // Lọc theo Scope Tab
     if (this.activeScopeTab === 'my_tasks') {
-      items = items.filter(i => Utils.isTaskAssignedToUser(i, currentUser?.uid));
+      items = items.filter(i => Utils.isTaskAssignedToUser(i, currentUser?.uid, currentUser));
     } else if (this.activeScopeTab === 'CHỜ PHÂN CÔNG') {
       items = items.filter(i => i.status === 'CHỜ PHÂN CÔNG' || i.status === 'MỚI');
     } else if (this.activeScopeTab !== 'all') {

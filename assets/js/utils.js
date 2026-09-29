@@ -348,19 +348,20 @@ const Utils = {
 
   /**
    * Kiểm tra xem 1 công việc có thuộc diện xử lý/quản lý của người dùng này hay không
-   * Hỗ trợ KTV thực hiện, Người quản lý điều phối (Phó phòng) và Người nghiệm thu
+   * Hỗ trợ KTV thực hiện (đơn hoặc nhóm), Người quản lý điều phối (Phó phòng) và Người nghiệm thu
    */
   isTaskAssignedToUser(item, userId, user) {
     if (!item) return false;
     if (!userId && !user) return false;
     const uid = userId || user?.uid;
-    const name = user?.displayName;
+    const name = user?.displayName || user?.fullName || user?.name;
+    const email = user?.email;
 
     if (uid) {
       if (item.assignedTo === uid) return true;
       if (Array.isArray(item.assignedTo) && item.assignedTo.includes(uid)) return true;
       if (Array.isArray(item.assignedToIds) && item.assignedToIds.includes(uid)) return true;
-      if (Array.isArray(item.assignees) && item.assignees.some(a => (a.uid === uid || a.id === uid))) return true;
+      if (Array.isArray(item.assignees) && item.assignees.some(a => (a.uid === uid || a.id === uid || a.userId === uid))) return true;
       if (typeof item.assignedTo === 'string' && item.assignedTo.split(',').map(s => s.trim()).includes(uid)) return true;
 
       // Người quản lý / điều phối (Phó phòng / Trưởng phòng)
@@ -372,8 +373,14 @@ const Utils = {
     }
 
     if (name) {
-      if (item.assignedToName && item.assignedToName.includes(name)) return true;
-      if (item.assignedManagerName && item.assignedManagerName.includes(name)) return true;
+      if (item.assignedToName && (item.assignedToName === name || item.assignedToName.includes(name))) return true;
+      if (item.assignedManagerName && (item.assignedManagerName === name || item.assignedManagerName.includes(name))) return true;
+      if (Array.isArray(item.assignees) && item.assignees.some(a => a.name && (a.name === name || a.name.includes(name) || name.includes(a.name)))) return true;
+    }
+
+    if (email) {
+      if (item.assignedToEmail && (item.assignedToEmail === email || item.assignedToEmail.includes(email))) return true;
+      if (Array.isArray(item.assignees) && item.assignees.some(a => a.email && (a.email === email || email.includes(a.email)))) return true;
     }
 
     return false;

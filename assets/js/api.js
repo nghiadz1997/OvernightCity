@@ -715,8 +715,10 @@ const ApiService = {
         updatedAt: nowIso
       };
 
-      if (statusData.status === 'ĐANG XỬ LÝ' && !targetDocData?.acceptedAt) {
-        updatePayload.acceptedAt = nowIso;
+      if (statusData.status === 'ĐANG XỬ LÝ') {
+        if (!targetDocData?.acceptedAt) updatePayload.acceptedAt = nowIso;
+        updatePayload.acceptedBy = currentUser?.uid || '';
+        updatePayload.acceptedByName = currentUser?.displayName || 'Kỹ thuật viên';
       }
       if (statusData.status === 'CHỜ NGHIỆM THU') {
         updatePayload.submittedForReviewAt = nowIso;
@@ -736,7 +738,13 @@ const ApiService = {
 
       if (statusData.status === 'ĐANG XỬ LÝ') {
         actionName = 'NHẬN VIỆC & BẮT ĐẦU XỬ LÝ';
-        actionDetails = statusData.note || 'Kỹ thuật viên đã tiếp nhận và bắt đầu xử lý tại hiện trường';
+        const teamNames = targetDocData?.assignedToName || '';
+        const isGroup = teamNames.includes(',') || (targetDocData?.assignees && targetDocData.assignees.length > 1);
+        if (isGroup) {
+          actionDetails = statusData.note || `KTV ${currentUser?.displayName || 'Kỹ thuật viên'} đã nhận việc thay mặt nhóm (${teamNames}). Toàn bộ nhóm chuyển sang trạng thái Đang xử lý.`;
+        } else {
+          actionDetails = statusData.note || 'Kỹ thuật viên đã tiếp nhận và bắt đầu xử lý tại hiện trường';
+        }
       } else if (statusData.status === 'CHỜ NGHIỆM THU') {
         actionName = 'BÁO HOÀN TẤT & GỬI NGHIỆM THU';
         actionDetails = statusData.note || 'Đã hoàn thành công việc tại hiện trường, gửi yêu cầu nghiệm thu';
