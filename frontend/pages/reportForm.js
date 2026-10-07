@@ -1215,16 +1215,21 @@ const ReportFormPage = {
   },
 
   async handleFileSelect(e) {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+    const newFiles = Array.from(e.target.files || []);
+    if (!newFiles.length) return;
 
     const container = document.getElementById('file-previews-container');
     if (container) {
-      container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tối ưu hóa tệp ảnh...</div>';
+      container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang nén & tối ưu hóa tệp ảnh...</div>';
     }
 
-    this.selectedFiles = [];
-    for (const f of files) {
+    if (!this.selectedFiles) this.selectedFiles = [];
+
+    for (const f of newFiles) {
+      if (this.selectedFiles.length >= 5) {
+        Utils.showToast('Tối đa đính kèm 5 tệp / ảnh!', 'warning');
+        break;
+      }
       if (f.type.startsWith('image/')) {
         const compressed = await Utils.compressImage(f);
         this.selectedFiles.push(compressed);
@@ -1233,19 +1238,29 @@ const ReportFormPage = {
       }
     }
 
+    this.renderFilePreviews();
+    // Reset file input để có thể chọn lại cùng 1 file nếu cần
+    if (e.target) e.target.value = '';
+  },
+
+  renderFilePreviews() {
+    const container = document.getElementById('file-previews-container');
     if (!container) return;
     container.innerHTML = '';
-    this.selectedFiles.forEach((file, index) => {
+
+    (this.selectedFiles || []).forEach((file, index) => {
       const isImg = file.type.startsWith('image/');
       const card = document.createElement('div');
-      card.className = 'relative border border-slate-200 rounded-xl p-2 bg-white flex items-center gap-2 text-xs overflow-hidden shadow-xs';
+      card.className = 'relative border border-slate-200 rounded-xl p-2.5 bg-white flex items-center gap-2 text-xs overflow-hidden shadow-xs hover:border-blue-300 transition-all';
       card.innerHTML = `
-        <i class="fa-solid ${isImg ? 'fa-image text-emerald-500' : 'fa-file-lines text-blue-500'} text-lg"></i>
-        <div class="truncate flex-1">
-          <p class="font-bold text-slate-800 truncate">${file.name}</p>
-          <p class="text-[10px] text-slate-400">${(file.size / 1024).toFixed(0)} KB</p>
+        <div class="w-8 h-8 rounded-lg ${isImg ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center shrink-0">
+          <i class="fa-solid ${isImg ? 'fa-image' : 'fa-file-lines'} text-sm"></i>
         </div>
-        <button type="button" class="text-slate-400 hover:text-red-500 p-1 cursor-pointer" onclick="ReportFormPage.removeFile(${index})">
+        <div class="truncate flex-1">
+          <p class="font-bold text-slate-800 truncate text-[11px]">${file.name}</p>
+          <p class="text-[10px] text-emerald-600 font-medium">${(file.size / 1024).toFixed(1)} KB ${isImg ? '(Đã tối ưu)' : ''}</p>
+        </div>
+        <button type="button" class="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer rounded-lg hover:bg-slate-100 transition-colors" onclick="ReportFormPage.removeFile(${index})" title="Xóa tệp">
           <i class="fa-solid fa-xmark"></i>
         </button>
       `;
@@ -1254,9 +1269,9 @@ const ReportFormPage = {
   },
 
   removeFile(index) {
+    if (!this.selectedFiles) return;
     this.selectedFiles.splice(index, 1);
-    const event = { target: { files: this.selectedFiles } };
-    this.handleFileSelect(event);
+    this.renderFilePreviews();
   },
 
   async handleSubmit(e) {

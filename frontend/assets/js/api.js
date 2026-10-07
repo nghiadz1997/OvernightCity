@@ -18,6 +18,92 @@ const ApiService = {
     throw new Error('Firebase Firestore chưa sẵn sàng. Vui lòng tải lại trang.');
   },
 
+  getStorage() {
+    if (window.firebase) {
+      if (!window.firebase.apps || !window.firebase.apps.length) {
+        if (window.APP_CONFIG && window.APP_CONFIG.firebaseConfig) {
+          window.firebase.initializeApp(window.APP_CONFIG.firebaseConfig);
+        }
+      }
+      if (typeof window.firebase.storage === 'function') {
+        try {
+          return window.firebase.storage();
+        } catch (e) {
+          console.warn('[ApiService] Firebase storage error:', e);
+        }
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Đảm bảo Document Payload không bao giờ vượt quá giới hạn 1,048,576 bytes của Cloud Firestore
+   */
+  async sanitizeDocPayload(payload, maxByteLimit = 850000) {
+    if (!payload || typeof payload !== 'object') return payload;
+    try {
+      let jsonStr = JSON.stringify(payload);
+      let totalBytes = (new Blob([jsonStr])).size;
+
+      if (totalBytes <= maxByteLimit) {
+        return payload;
+      }
+
+      console.warn(`[ApiService] Payload size (${totalBytes} bytes) vượt ngưỡng an toàn (${maxByteLimit} bytes). Đang tự động nén tối ưu...`);
+      const cloned = { ...payload };
+
+      // 1. Tối ưu hóa attachments
+      if (Array.isArray(cloned.attachments) && cloned.attachments.length > 0) {
+        const newAttachments = [];
+        for (let att of cloned.attachments) {
+          if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:image/') && att.url.length > 70000) {
+            try {
+              const compressedUrl = await Utils.compressDataUrl(att.url, 800, 800, 0.5);
+              newAttachments.push({ ...att, url: compressedUrl, size: Math.round(compressedUrl.length * 0.75) });
+            } catch (e) {
+              newAttachments.push(att);
+            }
+          } else {
+            newAttachments.push(att);
+          }
+        }
+        cloned.attachments = newAttachments;
+      }
+
+      // 2. Tối ưu hóa afterPhotos / beforePhotos / photos
+      for (let photoKey of ['afterPhotos', 'beforePhotos', 'photos']) {
+        if (Array.isArray(cloned[photoKey]) && cloned[photoKey].length > 0) {
+          const newPhotos = [];
+          for (let photoUrl of cloned[photoKey]) {
+            if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('data:image/') && photoUrl.length > 70000) {
+              try {
+                const compUrl = await Utils.compressDataUrl(photoUrl, 800, 800, 0.5);
+                newPhotos.push(compUrl);
+              } catch (e) {
+                newPhotos.push(photoUrl);
+              }
+            } else {
+              newPhotos.push(photoUrl);
+            }
+          }
+          cloned[photoKey] = newPhotos;
+        }
+      }
+
+      // 3. Nếu sau khi nén ảnh mà vẫn quá lớn (> 950KB) do số lượng ảnh quá nhiều, cắt bớt ảnh phụ để không bị crash Firebase
+      jsonStr = JSON.stringify(cloned);
+      totalBytes = (new Blob([jsonStr])).size;
+      if (totalBytes > 950000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 2) {
+        cloned.attachments = cloned.attachments.slice(0, 2);
+      }
+
+      return cloned;
+    } catch (err) {
+      console.warn('[ApiService] sanitizeDocPayload error:', err);
+      return payload;
+    }
+  },
+
   // 1. Gửi phản ánh từ người dùng (Ưu tiên gọi Backend API để thu thập IP, Device ID & gửi Email tự động)
   async submitReport(reportData) {
     const deviceId = reportData.deviceId || (window.Utils ? Utils.getOrCreateDeviceId() : '');
@@ -93,8 +179,9 @@ const ApiService = {
         isOverdue: false
       };
 
-      const docRef = await db.collection('reports').add(fullData);
-      fullData.id = docRef.id;
+      const cleanFullData = await this.sanitizeDocPayload(fullData);
+      const docRef = await db.collection('reports').add(cleanFullData);
+      cleanFullData.id = docRef.id;
 
       // Ghi nhật ký vào collection 'audit_logs' & 'activity_logs'
       try {
@@ -377,23 +464,59 @@ const ApiService = {
     }
   },
 
-  // 4. Upload tệp/ảnh (Lưu Base64 Data URL kiên cố phục vụ hiển thị và gửi trực tiếp Telegram)
+  // 4. Upload tệp/ảnh (Ưu tiên Firebase Storage -> Fallback nén Base64 thông minh < 100KB)
   async uploadFiles(fileList) {
+    if (!fileList || !fileList.length) return { success: true, files: [] };
     const files = [];
+    const storage = this.getStorage();
+
     for (let i = 0; i < fileList.length; i++) {
-      const f = fileList[i];
-      const dataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(f);
-      });
-      if (dataUrl) {
+      let f = fileList[i];
+      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng < 100KB
+      if (f.type && f.type.startsWith('image/') && window.Utils && typeof Utils.compressImage === 'function') {
+        try {
+          f = await Utils.compressImage(f);
+        } catch (compErr) {
+          console.warn('[ApiService] Nén ảnh lỗi, dùng file gốc:', compErr);
+        }
+      }
+
+      let fileUrl = null;
+      let uploadSuccessToStorage = false;
+
+      // 1. Thử tải lên Firebase Storage trước (nếu có quyền và cấu hình Storage)
+      if (storage) {
+        try {
+          const timestamp = Date.now();
+          const randomId = Math.random().toString(36).substring(2, 8);
+          const safeName = (f.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const storagePath = `attachments/${new Date().getFullYear()}/${timestamp}_${randomId}_${safeName}`;
+          const storageRef = storage.ref().child(storagePath);
+          const snap = await storageRef.put(f, { contentType: f.type || 'image/jpeg' });
+          fileUrl = await snap.ref.getDownloadURL();
+          uploadSuccessToStorage = true;
+        } catch (storageErr) {
+          console.warn('[ApiService] Firebase Storage upload error, falling back to compressed Base64:', storageErr.message);
+        }
+      }
+
+      // 2. Fallback sang chuỗi Base64 Data URL đã nén siêu nhẹ
+      if (!fileUrl) {
+        fileUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(f);
+        });
+      }
+
+      if (fileUrl) {
         files.push({
-          name: f.name,
-          url: dataUrl,
-          size: f.size,
-          mimetype: f.type
+          name: f.name || 'attachment.jpg',
+          url: fileUrl,
+          size: f.size || Math.round(fileUrl.length * 0.75),
+          mimetype: f.type || 'image/jpeg',
+          isStorage: uploadSuccessToStorage
         });
       }
     }
@@ -428,8 +551,9 @@ const ApiService = {
         }
       });
 
-      const docRef = await db.collection('tasks').add(fullData);
-      fullData.id = docRef.id;
+      const cleanFullData = await this.sanitizeDocPayload(fullData);
+      const docRef = await db.collection('tasks').add(cleanFullData);
+      cleanFullData.id = docRef.id;
 
       // Broadcast realtime
       try {
@@ -765,7 +889,8 @@ const ApiService = {
         updatePayload.history = window.firebase.firestore.FieldValue.arrayUnion(historyEntry);
       }
 
-      await docRef.set(updatePayload, { merge: true });
+      const safePayload = await this.sanitizeDocPayload(updatePayload);
+      await docRef.set(safePayload, { merge: true });
 
       // Ghi nhật ký vào collection activity_logs
       try {
