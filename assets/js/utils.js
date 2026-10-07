@@ -213,11 +213,12 @@ const Utils = {
   },
 
   /**
-   * Nén ảnh trực tiếp trên trình duyệt qua HTML5 Canvas trước khi upload
+   * Nén ảnh thông minh nhiều tầng trên trình duyệt qua HTML5 Canvas
+   * Đảm bảo dung lượng mỗi ảnh < 100KB để không vượt quá giới hạn 1MB của Cloud Firestore Document
    */
-  compressImage(file, maxWidth = 1600, maxHeight = 1600, quality = 0.82) {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
+  compressImage(file, maxWidth = 1024, maxHeight = 1024, quality = 0.7, maxSizeBytes = 110 * 1024) {
+    return new Promise((resolve) => {
+      if (!file || !file.type || !file.type.startsWith('image/')) {
         return resolve(file); // Nếu không phải ảnh thì giữ nguyên file
       }
 
@@ -227,41 +228,99 @@ const Utils = {
         const img = new Image();
         img.src = event.target.result;
         img.onload = () => {
-          let width = img.width;
-          let height = img.height;
+          const attemptCompress = (wLimit, hLimit, q) => {
+            let width = img.width;
+            let height = img.height;
 
-          if (width > maxWidth || height > maxHeight) {
-            if (width > height) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            } else {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
+            if (width > wLimit || height > hLimit) {
+              if (width > height) {
+                height = Math.round((height * wLimit) / width);
+                width = wLimit;
+              } else {
+                width = Math.round((width * hLimit) / height);
+                height = hLimit;
+              }
             }
-          }
 
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            // Vẽ nền trắng trong trường hợp ảnh PNG trong suốt chuyển sang JPEG
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
 
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) return resolve(file);
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              });
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            quality
-          );
+            return new Promise((resBlob) => {
+              canvas.toBlob(
+                (blob) => resBlob(blob),
+                'image/jpeg',
+                q
+              );
+            });
+          };
+
+          // Tầng 1: 1024px @ 0.70
+          attemptCompress(maxWidth, maxHeight, quality).then(async (blob) => {
+            if (!blob) return resolve(file);
+
+            // Tầng 2: Nếu vẫn > 110KB, giảm xuống 800px @ 0.58
+            if (blob.size > maxSizeBytes) {
+              const blob2 = await attemptCompress(800, 800, 0.58);
+              if (blob2 && blob2.size < blob.size) blob = blob2;
+            }
+
+            // Tầng 3: Nếu vẫn > 110KB (ảnh phức tạp nhiều chi tiết), giảm xuống 640px @ 0.48
+            if (blob.size > maxSizeBytes) {
+              const blob3 = await attemptCompress(640, 640, 0.48);
+              if (blob3 && blob3.size < blob.size) blob = blob3;
+            }
+
+            const compressedFile = new File([blob], (file.name || 'image').replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          }).catch(() => resolve(file));
         };
         img.onerror = () => resolve(file);
       };
       reader.onerror = () => resolve(file);
+    });
+  },
+
+  /**
+   * Nén trực tiếp chuỗi Data URL Base64 nếu chuỗi quá dài
+   */
+  compressDataUrl(dataUrl, maxWidth = 900, maxHeight = 900, quality = 0.6) {
+    return new Promise((resolve) => {
+      if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+        return resolve(dataUrl);
+      }
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
     });
   },
 
