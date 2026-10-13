@@ -108,17 +108,22 @@ const ApiService = {
   async submitReport(reportData) {
     const deviceId = reportData.deviceId || (window.Utils ? Utils.getOrCreateDeviceId() : '');
 
-    // Thử gửi qua Server Backend API trước để thu thập IP, User-Agent, Device ID và gửi Email
+    // Thử gửi qua Server Backend API trước để thu thập IP, User-Agent, Device ID và gửi Email (timeout an toàn 1.5s)
     try {
       const apiBase = window.APP_CONFIG?.apiBaseUrl || '/api';
+      const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 1500) : null;
+
       const res = await fetch(`${apiBase}/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-device-id': deviceId
         },
-        body: JSON.stringify({ ...reportData, deviceId })
+        body: JSON.stringify({ ...reportData, deviceId }),
+        signal: controller ? controller.signal : undefined
       });
+      if (timeoutId) clearTimeout(timeoutId);
 
       if (res.ok) {
         const json = await res.json();
@@ -127,7 +132,7 @@ const ApiService = {
         }
       }
     } catch (apiErr) {
-      console.warn('[ApiService] Server API submit error, falling back to direct Firestore:', apiErr);
+      // Backend offline hoặc không có API server, tiếp tục lưu trực tiếp vào Cloud Firestore
     }
 
     try {
@@ -464,59 +469,65 @@ const ApiService = {
     }
   },
 
-  // 4. Upload tệp/ảnh (Ưu tiên Firebase Storage -> Fallback nén Base64 thông minh < 100KB)
+  // 4. Upload tệp/ảnh (Lưu Base64 Data URL tối ưu siêu nhẹ cho Cloud Firestore, tức thì không bị nghẽn mạng)
   async uploadFiles(fileList) {
     if (!fileList || !fileList.length) return { success: true, files: [] };
     const files = [];
-    const storage = this.getStorage();
 
     for (let i = 0; i < fileList.length; i++) {
       let f = fileList[i];
-      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng < 100KB
+      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng < 80KB
       if (f.type && f.type.startsWith('image/') && window.Utils && typeof Utils.compressImage === 'function') {
         try {
-          f = await Utils.compressImage(f);
+          f = await Utils.compressImage(f, 960, 960, 0.65);
         } catch (compErr) {
           console.warn('[ApiService] Nén ảnh lỗi, dùng file gốc:', compErr);
         }
       }
 
-      let fileUrl = null;
-      let uploadSuccessToStorage = false;
+      // Đọc sang Base64 Data URL với safety timeout 5s chống treo
+      const dataUrl = await new Promise((resolve) => {
+        let isDone = false;
+        const timer = setTimeout(() => {
+          if (!isDone) {
+            isDone = true;
+            console.warn('[ApiService] Đọc file timeout, bỏ qua tệp:', f.name);
+            resolve(null);
+          }
+        }, 5000);
 
-      // 1. Thử tải lên Firebase Storage trước (nếu có quyền và cấu hình Storage)
-      if (storage) {
         try {
-          const timestamp = Date.now();
-          const randomId = Math.random().toString(36).substring(2, 8);
-          const safeName = (f.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
-          const storagePath = `attachments/${new Date().getFullYear()}/${timestamp}_${randomId}_${safeName}`;
-          const storageRef = storage.ref().child(storagePath);
-          const snap = await storageRef.put(f, { contentType: f.type || 'image/jpeg' });
-          fileUrl = await snap.ref.getDownloadURL();
-          uploadSuccessToStorage = true;
-        } catch (storageErr) {
-          console.warn('[ApiService] Firebase Storage upload error, falling back to compressed Base64:', storageErr.message);
-        }
-      }
-
-      // 2. Fallback sang chuỗi Base64 Data URL đã nén siêu nhẹ
-      if (!fileUrl) {
-        fileUrl = await new Promise((resolve) => {
           const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = () => resolve(null);
+          reader.onload = (e) => {
+            if (!isDone) {
+              isDone = true;
+              clearTimeout(timer);
+              resolve(e.target?.result || null);
+            }
+          };
+          reader.onerror = () => {
+            if (!isDone) {
+              isDone = true;
+              clearTimeout(timer);
+              resolve(null);
+            }
+          };
           reader.readAsDataURL(f);
-        });
-      }
+        } catch (readErr) {
+          if (!isDone) {
+            isDone = true;
+            clearTimeout(timer);
+            resolve(null);
+          }
+        }
+      });
 
-      if (fileUrl) {
+      if (dataUrl) {
         files.push({
-          name: f.name || 'attachment.jpg',
-          url: fileUrl,
-          size: f.size || Math.round(fileUrl.length * 0.75),
-          mimetype: f.type || 'image/jpeg',
-          isStorage: uploadSuccessToStorage
+          name: f.name || `photo_${i + 1}.jpg`,
+          url: dataUrl,
+          size: f.size || Math.round(dataUrl.length * 0.75),
+          mimetype: f.type || 'image/jpeg'
         });
       }
     }

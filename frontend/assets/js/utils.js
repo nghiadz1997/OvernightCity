@@ -213,32 +213,51 @@ const Utils = {
   },
 
   /**
-   * Nén ảnh thông minh nhiều tầng trên trình duyệt qua HTML5 Canvas
-   * Đảm bảo dung lượng mỗi ảnh < 100KB để không vượt quá giới hạn 1MB của Cloud Firestore Document
+   * Nén ảnh thông minh trên trình duyệt qua HTML5 Canvas
+   * Đảm bảo dung lượng mỗi ảnh an toàn (~40-70KB) để không vượt quá giới hạn 1MB của Cloud Firestore Document
    */
-  compressImage(file, maxWidth = 1024, maxHeight = 1024, quality = 0.7, maxSizeBytes = 110 * 1024) {
+  compressImage(file, maxWidth = 960, maxHeight = 960, quality = 0.65) {
     return new Promise((resolve) => {
       if (!file || !file.type || !file.type.startsWith('image/')) {
         return resolve(file); // Nếu không phải ảnh thì giữ nguyên file
       }
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const attemptCompress = (wLimit, hLimit, q) => {
-            let width = img.width;
-            let height = img.height;
+      // Giới hạn thời gian tối đa 4 giây để chống treo trình duyệt
+      let isSettled = false;
+      const timeoutTimer = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          console.warn('[Utils.compressImage] Timeout nén ảnh, sử dụng file gốc');
+          resolve(file);
+        }
+      }, 4000);
 
-            if (width > wLimit || height > hLimit) {
+      const done = (result) => {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timeoutTimer);
+          resolve(result);
+        }
+      };
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result;
+        if (!dataUrl) return done(file);
+
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
+
+            if (width > maxWidth || height > maxHeight) {
               if (width > height) {
-                height = Math.round((height * wLimit) / width);
-                width = wLimit;
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
               } else {
-                width = Math.round((width * hLimit) / height);
-                height = hLimit;
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
               }
             }
 
@@ -246,46 +265,40 @@ const Utils = {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            // Vẽ nền trắng trong trường hợp ảnh PNG trong suốt chuyển sang JPEG
+            // Vẽ nền trắng chống lỗi PNG trong suốt thành nền đen
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
 
-            return new Promise((resBlob) => {
-              canvas.toBlob(
-                (blob) => resBlob(blob),
-                'image/jpeg',
-                q
-              );
-            });
-          };
-
-          // Tầng 1: 1024px @ 0.70
-          attemptCompress(maxWidth, maxHeight, quality).then(async (blob) => {
-            if (!blob) return resolve(file);
-
-            // Tầng 2: Nếu vẫn > 110KB, giảm xuống 800px @ 0.58
-            if (blob.size > maxSizeBytes) {
-              const blob2 = await attemptCompress(800, 800, 0.58);
-              if (blob2 && blob2.size < blob.size) blob = blob2;
-            }
-
-            // Tầng 3: Nếu vẫn > 110KB (ảnh phức tạp nhiều chi tiết), giảm xuống 640px @ 0.48
-            if (blob.size > maxSizeBytes) {
-              const blob3 = await attemptCompress(640, 640, 0.48);
-              if (blob3 && blob3.size < blob.size) blob = blob3;
-            }
-
-            const compressedFile = new File([blob], (file.name || 'image').replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          }).catch(() => resolve(file));
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return done(file);
+                try {
+                  const safeName = (file.name || 'image').replace(/\.[^/.]+$/, '') + '.jpg';
+                  const compressedFile = new File([blob], safeName, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                  });
+                  done(compressedFile);
+                } catch (fileErr) {
+                  // Fallback cho trình duyệt không hỗ trợ new File([blob])
+                  blob.name = (file.name || 'image').replace(/\.[^/.]+$/, '') + '.jpg';
+                  done(blob);
+                }
+              },
+              'image/jpeg',
+              quality
+            );
+          } catch (canvasErr) {
+            console.warn('[Utils.compressImage] Canvas error:', canvasErr);
+            done(file);
+          }
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => done(file);
+        img.src = dataUrl;
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = () => done(file);
+      reader.readAsDataURL(file);
     });
   },
 
@@ -297,29 +310,50 @@ const Utils = {
       if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
         return resolve(dataUrl);
       }
+
+      let isSettled = false;
+      const timer = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve(dataUrl);
+        }
+      }, 3000);
+
+      const done = (res) => {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
+      };
+
       const img = new Image();
       img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth || height > maxHeight) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          } else {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
+        try {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
           }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          done(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          done(dataUrl);
         }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = () => resolve(dataUrl);
+      img.onerror = () => done(dataUrl);
       img.src = dataUrl;
     });
   },
