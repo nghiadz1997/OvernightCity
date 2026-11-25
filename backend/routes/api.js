@@ -10,6 +10,7 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 const { reportSubmitLimiter, checkHoneypot } = require('../middleware/rateLimiter');
 const upload = require('../middleware/uploadMiddleware');
 const telegramService = require('../services/telegramService');
+const zaloProvider = require('../services/zaloProvider');
 
 // ==========================================
 // 1. PUBLIC ROUTES (Người dùng & Khách)
@@ -100,6 +101,69 @@ router.post('/telegram/send', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, error: error.response?.data?.description || error.message });
   }
+});
+
+// ==========================================
+// BOT 3: ZALO OA - WEBHOOK & BOT TIẾP NHẬN PHẢN ÁNH
+// ==========================================
+
+// 1. Zalo OA Webhook Verification (Challenge endpoint cho Zalo for Developers)
+router.get('/zalo/webhook', (req, res) => {
+  try {
+    const challenge = req.query.challenge || req.query['hub.challenge'];
+    if (challenge) {
+      console.log('[ZaloWebhook] Verification Challenge received:', challenge);
+      return res.status(200).send(challenge);
+    }
+    return res.status(200).json({
+      status: 'OK',
+      service: 'NSG ZALO OA WEBHOOK',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return res.status(500).send(err.message);
+  }
+});
+
+// 2. Tiếp nhận sự kiện Webhook từ Zalo Official Account (Người dùng gửi tin nhắn/ảnh phản ánh)
+router.post('/zalo/webhook', async (req, res) => {
+  try {
+    if (!zaloProvider.verifyWebhook(req)) {
+      console.warn('[ZaloWebhook] Rejected unauthorized request (invalid secret token)');
+      return res.status(401).json({ error: -1, message: 'Invalid Secret Token' });
+    }
+
+    // Xử lý sự kiện bất đồng bộ để phản hồi HTTP 200 ngay lập tức cho Zalo server (< 2s)
+    zaloProvider.handleWebhookEvent(req.body).catch(err => {
+      console.error('[ZaloWebhook] Error handling event:', err);
+    });
+
+    return res.status(200).json({ error: 0, message: 'Success' });
+  } catch (err) {
+    console.error('[ZaloWebhook] Webhook endpoint error:', err);
+    return res.status(200).json({ error: 0, message: 'Error caught' });
+  }
+});
+
+// 3. Test kết nối Zalo OA Token & Secret
+router.post('/zalo/test', async (req, res) => {
+  try {
+    const { accessToken, secretToken } = req.body || {};
+    const result = await zaloProvider.testConnection(accessToken, secretToken);
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Lấy & Cập nhật cấu hình Zalo OA
+router.get('/zalo/config', (req, res) => {
+  res.json({ success: true, config: zaloProvider.getConfig() });
+});
+
+router.post('/zalo/config', (req, res) => {
+  zaloProvider.updateConfig(req.body || {});
+  res.json({ success: true, message: 'Cập nhật cấu hình Zalo OA thành công' });
 });
 
 // ==========================================

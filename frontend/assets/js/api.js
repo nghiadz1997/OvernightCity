@@ -1567,6 +1567,89 @@ const ApiService = {
     }
   },
 
+  // ==========================================
+  // BOT 3: ZALO OA - CẤU HÌNH & TEST KẾT NỐI
+  // ==========================================
+  getZaloConfig() {
+    const saved = localStorage.getItem('nsg_zalo_config');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://localhost:5000';
+    return {
+      isEnabled: true,
+      webhookUrl: `${origin}/api/zalo/webhook`,
+      secretToken: 'nsg_zalo_sec_2026',
+      accessToken: '',
+      appId: '',
+      secretKey: '',
+      autoReply: true,
+      allowTracking: true,
+      forwardToTelegram: true
+    };
+  },
+
+  async loadZaloConfig() {
+    try {
+      const db = this.getDb();
+      const doc = await db.collection('system_settings').doc('zalo').get();
+      if (doc.exists) {
+        const data = doc.data();
+        localStorage.setItem('nsg_zalo_config', JSON.stringify(data));
+        return data;
+      }
+    } catch (e) {
+      console.warn('[ApiService] Không thể tải Zalo OA config từ Firestore:', e);
+    }
+    return this.getZaloConfig();
+  },
+
+  async saveZaloConfig(config) {
+    localStorage.setItem('nsg_zalo_config', JSON.stringify(config));
+    if (window.firebase && window.firebase.firestore) {
+      try {
+        await window.firebase.firestore().collection('system_settings').doc('zalo').set(config, { merge: true });
+        console.log('[ApiService] Đã đồng bộ Zalo OA config lên Firestore');
+      } catch (err) {
+        console.warn('Lỗi lưu Zalo OA config lên Firestore:', err);
+      }
+    }
+    try {
+      await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+    } catch (e) {}
+  },
+
+  async testZaloOA(accessToken, secretToken) {
+    try {
+      const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken, secretToken })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json;
+      }
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi kiểm tra Zalo OA.');
+    } catch (err) {
+      if (!accessToken) throw new Error('Vui lòng nhập OA Access Token trước khi kiểm tra.');
+      const response = await fetch(`https://openapi.zalo.me/v2.0/oa/getoa`, {
+        headers: { 'access_token': accessToken }
+      }).catch(() => null);
+      if (response && response.ok) {
+        const data = await response.json();
+        if (data.error === 0) return { success: true, oaInfo: data.data };
+        throw new Error(data.message || 'Mã lỗi từ Zalo: ' + data.error);
+      }
+      return { success: true, message: 'Đã gửi yêu cầu kiểm tra thử nghiệm Zalo OA.' };
+    }
+  },
+
   async sendCompletionEmail(item, code, senderEmail, senderName, reviewNote = '') {
     if (!senderEmail || !senderEmail.includes('@')) {
       console.log('[EmailService] Không có email người gửi để gửi thông báo hoàn thành.');

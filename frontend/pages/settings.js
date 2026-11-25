@@ -25,6 +25,17 @@ const SettingsPage = {
     emailjsPublicKey: '',
     notifyOnComplete: true
   },
+  zaloConfig: {
+    isEnabled: true,
+    webhookUrl: '',
+    secretToken: '',
+    accessToken: '',
+    appId: '',
+    secretKey: '',
+    autoReply: true,
+    allowTracking: true,
+    forwardToTelegram: true
+  },
 
   async init() {
     console.log('[SettingsPage] Initializing settings...');
@@ -38,6 +49,12 @@ const SettingsPage = {
       this.emailConfig = await ApiService.loadEmailConfig();
     } catch (e) {
       this.emailConfig = ApiService.getEmailConfig();
+    }
+
+    try {
+      this.zaloConfig = await ApiService.loadZaloConfig();
+    } catch (e) {
+      this.zaloConfig = ApiService.getZaloConfig();
     }
 
     this.populateFields();
@@ -65,6 +82,28 @@ const SettingsPage = {
     if (optAssign) optAssign.checked = this.config.notifyOnAssign !== false;
     if (optReview) optReview.checked = this.config.notifyOnReview !== false;
     if (optRating) optRating.checked = this.config.notifyOnRating !== false;
+
+    // Zalo OA Config
+    const zaloToggle = document.getElementById('zalo-enable-toggle');
+    const zaloWebhook = document.getElementById('zalo-webhook-url');
+    const zaloSecretToken = document.getElementById('zalo-secret-token');
+    const zaloAccessToken = document.getElementById('zalo-access-token');
+    const zaloAppId = document.getElementById('zalo-app-id');
+    const zaloSecretKey = document.getElementById('zalo-secret-key');
+    const zaloAutoReply = document.getElementById('zalo-opt-auto-reply');
+    const zaloTracking = document.getElementById('zalo-opt-tracking');
+    const zaloForwardTele = document.getElementById('zalo-opt-forward-tele');
+
+    const defaultWebhook = `${window.location.origin}/api/zalo/webhook`;
+    if (zaloToggle) zaloToggle.checked = this.zaloConfig.isEnabled !== false;
+    if (zaloWebhook) zaloWebhook.value = this.zaloConfig.webhookUrl || defaultWebhook;
+    if (zaloSecretToken) zaloSecretToken.value = this.zaloConfig.secretToken || '';
+    if (zaloAccessToken) zaloAccessToken.value = this.zaloConfig.accessToken || '';
+    if (zaloAppId) zaloAppId.value = this.zaloConfig.appId || '';
+    if (zaloSecretKey) zaloSecretKey.value = this.zaloConfig.secretKey || '';
+    if (zaloAutoReply) zaloAutoReply.checked = this.zaloConfig.autoReply !== false;
+    if (zaloTracking) zaloTracking.checked = this.zaloConfig.allowTracking !== false;
+    if (zaloForwardTele) zaloForwardTele.checked = this.zaloConfig.forwardToTelegram !== false;
 
     // Email Config
     const emailToggle = document.getElementById('email-enable-toggle');
@@ -95,9 +134,9 @@ const SettingsPage = {
             </div>
             <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
               <i class="fa-solid fa-sliders text-blue-600"></i>
-              <span>CÀI ĐẶT HỆ THỐNG & TELEGRAM BOTS</span>
+              <span>CÀI ĐẶT HỆ THỐNG & BOTS (TELEGRAM & ZALO OA)</span>
             </h1>
-            <p class="text-xs text-slate-500 mt-1">Cấu hình 2 Bot Telegram: Tiếp nhận phản ánh sự cố & Báo cáo Nghiệm thu kèm hình ảnh.</p>
+            <p class="text-xs text-slate-500 mt-1">Cấu hình Bot Telegram (Báo sự cố & Nghiệm thu), Bot Zalo OA (Tiếp nhận phản ánh & Tra cứu) và Email Tự động.</p>
           </div>
 
           <button type="button" class="w-full sm:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer hover:shadow-lg transform hover:-translate-y-0.5" onclick="SettingsPage.saveSettings()">
@@ -231,7 +270,124 @@ const SettingsPage = {
           </div>
         </div>
 
-        <!-- Section 3: Cấu hình Gửi Email Tự Động (Hoàn tất & Đánh giá dịch vụ) -->
+        <!-- Section 3: BOT 3: ZALO OA – Tiếp nhận phản ánh bằng Bot Zalo -->
+        <div class="bg-white rounded-3xl border border-blue-200 shadow-xs p-6 sm:p-8 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-blue-100 pb-5 gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow-md shadow-blue-600/20 shrink-0">
+                <i class="fa-solid fa-comments"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2 flex-wrap">
+                  <span>BOT 3: ZALO OA – TIẾP NHẬN PHẢN ÁNH QUA BOT ZALO</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-700 border border-blue-200">[NSG SUPPORT] ZALO OA BOT</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Tiếp nhận tin nhắn & ảnh phản ánh sự cố từ người dùng qua Zalo OA, tự động cấp mã phiếu PYC và hỗ trợ tra cứu.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" id="btn-copy-zalo-webhook" class="px-3.5 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 font-bold text-xs rounded-xl border border-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs" onclick="SettingsPage.copyZaloWebhookUrl()">
+                <i class="fa-solid fa-copy text-slate-600"></i>
+                <span>Copy Webhook</span>
+              </button>
+              <button type="button" id="btn-test-zalo" class="px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs" onclick="SettingsPage.testZaloOA()">
+                <i class="fa-solid fa-paper-plane text-blue-600"></i>
+                <span>Test Bot 3 Zalo OA</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Form inputs Zalo OA Webhook, Secret Token, OA Access Token -->
+          <div class="space-y-4 text-xs">
+            <!-- Webhook URL -->
+            <div>
+              <label class="block font-extrabold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>Zalo OA Webhook URL (Dán vào Zalo Developers Console) <span class="text-red-500">*</span></span>
+                <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Endpoint nhận Webhook</span>
+              </label>
+              <div class="flex gap-2">
+                <input type="text" id="zalo-webhook-url" readonly class="flex-1 p-3 rounded-xl border border-blue-200 font-mono text-xs bg-slate-50 text-slate-700 select-all" placeholder="https://domain-cua-ban/api/zalo/webhook">
+                <button type="button" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shrink-0 cursor-pointer transition-colors flex items-center gap-1.5" onclick="SettingsPage.copyZaloWebhookUrl()">
+                  <i class="fa-solid fa-copy"></i>
+                  <span>Sao chép</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1.5">Copy đường dẫn này dán vào mục <b>Webhook URL</b> trong Cổng <i>Zalo Developers &rarr; Ứng dụng &rarr; Webhook</i>.</p>
+            </div>
+
+            <!-- Secret Token & OA Access Token -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label class="block font-extrabold text-slate-800 mb-1.5 flex items-center justify-between">
+                  <span>Secret Token (Xác thực Webhook) <span class="text-red-500">*</span></span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="text-blue-600 hover:underline font-bold text-[11px] cursor-pointer" onclick="SettingsPage.generateZaloSecretToken()">
+                      <i class="fa-solid fa-arrows-rotate mr-1"></i>Tạo ngẫu nhiên
+                    </button>
+                    <button type="button" class="text-blue-600 hover:underline font-bold text-[11px] cursor-pointer" onclick="SettingsPage.toggleTokenVisibility('zalo-secret-token', 'icon-toggle-zalo-sec')">
+                      <i class="fa-solid fa-eye mr-1" id="icon-toggle-zalo-sec"></i><span>Ẩn/Hiện</span>
+                    </button>
+                  </div>
+                </label>
+                <div class="relative">
+                  <input type="password" id="zalo-secret-token" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="Secret Token để xác thực dữ liệu webhook...">
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Mã token dùng để xác thực request gửi từ Zalo OA, ngăn chặn giả mạo.</p>
+              </div>
+
+              <div>
+                <label class="block font-extrabold text-slate-800 mb-1.5 flex items-center justify-between">
+                  <span>OA Access Token (Gửi phản hồi tự động) <span class="text-red-500">*</span></span>
+                  <button type="button" class="text-blue-600 hover:underline font-bold text-[11px] cursor-pointer" onclick="SettingsPage.toggleTokenVisibility('zalo-access-token', 'icon-toggle-zalo-token')">
+                    <i class="fa-solid fa-eye mr-1" id="icon-toggle-zalo-token"></i><span>Ẩn/Hiện</span>
+                  </button>
+                </label>
+                <div class="relative">
+                  <input type="password" id="zalo-access-token" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="OA Access Token lấy từ Zalo OA...">
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Access Token của Official Account để gửi tin nhắn xác nhận mã phiếu PYC cho người gửi.</p>
+              </div>
+            </div>
+
+            <!-- Optional: App ID & Secret Key -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Zalo App ID (Tùy chọn)</label>
+                <input type="text" id="zalo-app-id" class="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs bg-slate-50 focus:bg-white" placeholder="Ví dụ: 1234567890123456789">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Zalo App Secret Key (Tùy chọn)</label>
+                <input type="password" id="zalo-secret-key" class="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs bg-slate-50 focus:bg-white" placeholder="Secret Key của App Zalo Developers">
+              </div>
+            </div>
+
+            <!-- Tùy chọn sự kiện Zalo OA -->
+            <div class="bg-blue-50/40 rounded-2xl p-4 border border-blue-100 space-y-3 mt-4">
+              <h5 class="font-extrabold text-blue-900 text-xs uppercase tracking-wider">Cấu hình phản hồi & tự động hóa Bot 3 Zalo:</h5>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex items-center gap-2.5 font-bold text-slate-700 cursor-pointer">
+                  <input type="checkbox" id="zalo-enable-toggle" checked class="w-4 h-4 text-blue-600 rounded">
+                  <span>Bật Bot 3 Zalo OA tiếp nhận phản ánh</span>
+                </label>
+                <label class="flex items-center gap-2.5 font-semibold text-slate-700 cursor-pointer">
+                  <input type="checkbox" id="zalo-opt-auto-reply" checked class="w-4 h-4 text-blue-600 rounded">
+                  <span>Tự động phản hồi tin nhắn cấp mã phiếu [PYC]</span>
+                </label>
+                <label class="flex items-center gap-2.5 font-semibold text-slate-700 cursor-pointer">
+                  <input type="checkbox" id="zalo-opt-tracking" checked class="w-4 h-4 text-blue-600 rounded">
+                  <span>Cho phép người dùng gõ mã PYC để tra cứu tiến độ</span>
+                </label>
+                <label class="flex items-center gap-2.5 font-semibold text-slate-700 cursor-pointer">
+                  <input type="checkbox" id="zalo-opt-forward-tele" checked class="w-4 h-4 text-blue-600 rounded">
+                  <span>Chuyển tiếp phản ánh Zalo sang Telegram Bot 1</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Cấu hình Gửi Email Tự Động (Hoàn tất & Đánh giá dịch vụ) -->
         <div class="bg-white rounded-3xl border border-emerald-200 shadow-xs p-6 sm:p-8 space-y-6">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-100 pb-5 gap-4">
             <div class="flex items-center gap-3">
@@ -574,6 +730,76 @@ const SettingsPage = {
     }
   },
 
+  // Các hàm tiện ích cho BOT 3: ZALO OA
+  copyZaloWebhookUrl() {
+    const input = document.getElementById('zalo-webhook-url');
+    const url = input ? input.value : `${window.location.origin}/api/zalo/webhook`;
+    navigator.clipboard.writeText(url).then(() => {
+      Utils.showToast('✅ Đã sao chép Zalo OA Webhook URL vào bộ nhớ tạm!', 'success', 3500);
+    }).catch(() => {
+      if (input) {
+        input.select();
+        document.execCommand('copy');
+        Utils.showToast('✅ Đã sao chép Zalo OA Webhook URL!', 'success', 3500);
+      }
+    });
+  },
+
+  generateZaloSecretToken() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = 'nsg_sec_';
+    for (let i = 0; i < 24; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const input = document.getElementById('zalo-secret-token');
+    if (input) {
+      input.value = token;
+      input.type = 'text';
+      setTimeout(() => { input.type = 'password'; }, 3000);
+      Utils.showToast('Đã tạo Secret Token ngẫu nhiên mới!', 'info', 3000);
+    }
+  },
+
+  async testZaloOA() {
+    const tokenInput = document.getElementById('zalo-access-token');
+    const secretInput = document.getElementById('zalo-secret-token');
+    const btn = document.getElementById('btn-test-zalo');
+
+    const accessToken = tokenInput ? tokenInput.value.trim() : '';
+    const secretToken = secretInput ? secretInput.value.trim() : '';
+
+    if (!accessToken) {
+      Utils.showToast('Vui lòng nhập OA Access Token trước khi kiểm tra kết nối!', 'warning', 4000);
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang test...';
+    }
+
+    Utils.showToast('Đang kiểm tra kết nối tới Zalo Official Account...', 'info', 3000);
+
+    try {
+      await this.saveSettings(false);
+      const res = await ApiService.testZaloOA(accessToken, secretToken);
+      if (res && res.success) {
+        SoundService.playSuccess();
+        const oaName = res.oaInfo?.name ? `(${res.oaInfo.name})` : '';
+        Utils.showToast(`✅ KẾT NỐI ZALO OA THÀNH CÔNG ${oaName}! Bot 3 đã sẵn sàng hoạt động.`, 'success', 6000);
+      } else {
+        throw new Error(res?.error || res?.message || 'Kiểm tra lại OA Access Token hoặc quyền của ứng dụng.');
+      }
+    } catch (e) {
+      Utils.showToast('❌ Lỗi kết nối Zalo OA: ' + e.message, 'error', 6000);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane text-blue-600"></i><span>Test Bot 3 Zalo OA</span>';
+      }
+    }
+  },
+
   async saveSettings(showSuccessToast = true) {
     const tokenInput = document.getElementById('tele-bot-token');
     const chatIdInput = document.getElementById('tele-chat-id');
@@ -585,6 +811,17 @@ const SettingsPage = {
     const optAssign = document.getElementById('tele-opt-assign');
     const optReview = document.getElementById('tele-opt-review');
     const optRating = document.getElementById('tele-opt-rating');
+
+    // Zalo inputs
+    const zaloToggle = document.getElementById('zalo-enable-toggle');
+    const zaloWebhook = document.getElementById('zalo-webhook-url');
+    const zaloSecretToken = document.getElementById('zalo-secret-token');
+    const zaloAccessToken = document.getElementById('zalo-access-token');
+    const zaloAppId = document.getElementById('zalo-app-id');
+    const zaloSecretKey = document.getElementById('zalo-secret-key');
+    const zaloAutoReply = document.getElementById('zalo-opt-auto-reply');
+    const zaloTracking = document.getElementById('zalo-opt-tracking');
+    const zaloForwardTele = document.getElementById('zalo-opt-forward-tele');
 
     // Email inputs
     const emailToggle = document.getElementById('email-enable-toggle');
@@ -607,6 +844,19 @@ const SettingsPage = {
       updatedAt: new Date().toISOString()
     };
 
+    const newZaloConfig = {
+      isEnabled: zaloToggle ? zaloToggle.checked : true,
+      webhookUrl: zaloWebhook ? zaloWebhook.value.trim() : `${window.location.origin}/api/zalo/webhook`,
+      secretToken: zaloSecretToken ? zaloSecretToken.value.trim() : '',
+      accessToken: zaloAccessToken ? zaloAccessToken.value.trim() : '',
+      appId: zaloAppId ? zaloAppId.value.trim() : '',
+      secretKey: zaloSecretKey ? zaloSecretKey.value.trim() : '',
+      autoReply: zaloAutoReply ? zaloAutoReply.checked : true,
+      allowTracking: zaloTracking ? zaloTracking.checked : true,
+      forwardToTelegram: zaloForwardTele ? zaloForwardTele.checked : true,
+      updatedAt: new Date().toISOString()
+    };
+
     const newEmailConfig = {
       isEnabled: emailToggle ? emailToggle.checked : true,
       webhookUrl: emailWebhook ? emailWebhook.value.trim() : '',
@@ -618,16 +868,18 @@ const SettingsPage = {
     };
 
     this.config = newConfig;
+    this.zaloConfig = newZaloConfig;
     this.emailConfig = newEmailConfig;
 
     await Promise.all([
       ApiService.saveTelegramConfig(newConfig),
+      ApiService.saveZaloConfig(newZaloConfig),
       ApiService.saveEmailConfig(newEmailConfig)
     ]);
 
     if (showSuccessToast) {
       SoundService.playSuccess();
-      Utils.showToast('Đã lưu cấu hình hệ thống, Telegram & Email thành công!', 'success', 3000);
+      Utils.showToast('Đã lưu cấu hình hệ thống, Telegram Bots, Zalo OA & Email thành công!', 'success', 3000);
     }
   }
 };
