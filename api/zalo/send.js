@@ -115,6 +115,23 @@ module.exports = async (req, res) => {
       .filter(r => r.status === 'fulfilled' && r.value.success)
       .map(r => r.value);
 
+    // Ghi nhận nhật ký gửi tin Zalo vào Firestore để theo dõi
+    try {
+      fetch(`https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/zalo_delivery_logs?key=${FIRESTORE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: {
+            timestamp: { stringValue: new Date().toISOString() },
+            successCount: { integerValue: String(successful.length) },
+            targets: { stringValue: targetIds.join(', ') },
+            successTargets: { stringValue: successful.map(s => s.targetId).join(', ') },
+            preview: { stringValue: cleanMsg.substring(0, 100) }
+          }
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
     if (successful.length > 0) {
       return res.status(200).json({
         success: true,

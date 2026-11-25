@@ -3,15 +3,15 @@
  * Đảm bảo luôn tải phiên bản mới nhất từ máy chủ, chỉ dùng cache khi thực sự mất mạng (Offline)
  */
 
-const CACHE_NAME = 'nsg-support-cache-v8';
+const CACHE_NAME = 'nsg-support-cache-v9';
 
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Installed v8');
+  console.log('[ServiceWorker] Installed v9');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activating v8 & clearing all stale caches');
+  console.log('[ServiceWorker] Activating v9 & clearing all stale caches');
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(
