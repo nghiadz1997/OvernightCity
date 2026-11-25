@@ -269,11 +269,13 @@ const ApiService = {
         console.warn('Lỗi ghi activity log:', logErr);
       }
 
-      // Gửi thông báo Telegram tự động tới Ban Quản lý / Nhóm kỹ thuật (KÈM ẢNH NẾU CÓ)
+      // Gửi thông báo Telegram & Zalo tự động tới Ban Quản lý / Nhóm kỹ thuật (KÈM ẢNH NẾU CÓ)
+      let teleMsg = '';
+      let firstImage = null;
+
       try {
         const priorityIcon = reportData.priority === 'KHẨN CẤP' ? '🚨 KHẨN CẤP' : reportData.priority === 'CAO' ? '🟠 CAO' : '🔵 ' + (reportData.priority || 'BÌNH THƯỜNG');
         const escape = (txt) => (Utils.escapeHtml ? Utils.escapeHtml(txt) : String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-        let teleMsg = '';
 
         if (reportData.reportType === 'DRIVER') {
           const tripPlate = escape(reportData.tripLicensePlate || reportData.plate || reportData.licensePlate || '');
@@ -350,27 +352,25 @@ const ApiService = {
             `👉 <i>Vui lòng đăng nhập hệ thống để tiếp nhận & phân công xử lý.</i>`;
         }
 
-        let firstImage = null;
         if (Array.isArray(reportData.attachments) && reportData.attachments.length > 0) {
           const imgAtt = reportData.attachments.find(a => (a.mimetype && a.mimetype.startsWith('image/')) || (a.url && (a.url.startsWith('data:image') || a.url.endsWith('.jpg') || a.url.endsWith('.png'))));
           if (imgAtt) firstImage = imgAtt.url;
         }
 
-        this.sendTelegramNotification(teleMsg, null, null, firstImage);
-      } catch (teleErr) {
-        console.warn('Lỗi gửi Telegram tự động:', teleErr);
-      }
+        // 1. Gửi Telegram
+        this.sendTelegramNotification(teleMsg, null, null, firstImage).catch(teleErr => {
+          console.warn('[ApiService] Lỗi gửi Telegram:', teleErr);
+        });
 
-      // Tự động bắn thông báo sang Zalo Bot (Website gửi phản ánh -> Zalo nhận thông báo để xem tức thì)
-      try {
+        // 2. Gửi Zalo Bot (Đồng thời tới Nhóm Zalo và Cá nhân)
         const zaloConfig = this.getZaloConfig();
         if (zaloConfig.isEnabled !== false && zaloConfig.notifyOnNewReport !== false) {
-          this.sendZaloNotification(teleMsg, null, zaloConfig.recipientId || null, firstImage).catch(err => {
-            console.warn('[ApiService] Lỗi gửi Zalo Notification:', err);
+          this.sendZaloNotification(teleMsg, null, zaloConfig.recipientId || null, firstImage).catch(zaloErr => {
+            console.warn('[ApiService] Lỗi gửi Zalo Notification:', zaloErr);
           });
         }
-      } catch (zaloErr) {
-        console.warn('Lỗi gửi Zalo Bot tự động:', zaloErr);
+      } catch (notifErr) {
+        console.warn('Lỗi xử lý thông báo tự động Telegram / Zalo:', notifErr);
       }
 
       // Tạo thông báo lưu vào collection notifications và broadcast Realtime chuông thông báo
@@ -1599,15 +1599,24 @@ const ApiService = {
   // BOT 3: ZALO BOT - NHẬN THÔNG BÁO PHẢN ÁNH (GIỐNG TELEGRAM)
   // ==========================================
   getZaloConfig() {
+    const defaultGroupChatId = 'zgr-ea719633836b6a35337a';
+    const defaultPersonalId = 'edadf78409cbe095b9da';
     const saved = localStorage.getItem('nsg_zalo_config');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (!parsed.groupChatId) parsed.groupChatId = defaultGroupChatId;
+        if (!parsed.recipientId) parsed.recipientId = `${defaultGroupChatId}, ${defaultPersonalId}`;
+        return parsed;
+      } catch (e) {}
     }
     const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://phananh.nsgpc.edu.vn';
     return {
       isEnabled: true,
       botToken: '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD',
-      recipientId: '',
+      groupChatId: defaultGroupChatId,
+      recipientId: `${defaultGroupChatId}, ${defaultPersonalId}`,
+      lastChatId: defaultPersonalId,
       accessToken: '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD',
       webhookUrl: `${origin}/api/zalo/webhook`,
       secretToken: 'nsg_zalo_sec_2026',
@@ -1625,6 +1634,8 @@ const ApiService = {
       const doc = await db.collection('system_settings').doc('zalo').get();
       if (doc.exists) {
         const data = doc.data();
+        if (!data.groupChatId) data.groupChatId = 'zgr-ea719633836b6a35337a';
+        if (!data.recipientId) data.recipientId = 'zgr-ea719633836b6a35337a, edadf78409cbe095b9da';
         localStorage.setItem('nsg_zalo_config', JSON.stringify(data));
         return data;
       }
@@ -1647,7 +1658,7 @@ const ApiService = {
     try {
       await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify(config)
       });
     } catch (e) {}
@@ -1661,6 +1672,7 @@ const ApiService = {
 
     const token = (customToken || config.botToken || config.accessToken || '').trim();
     let recipientId = (customRecipientId || config.recipientId || '').trim();
+    let groupChatId = (config.groupChatId || 'zgr-ea719633836b6a35337a').trim();
 
     // Làm sạch HTML phù hợp cho Zalo: chuyển br/p thành xuống dòng, loại bỏ các thẻ div/span không hỗ trợ
     let cleanMsg = (messageText || '')
@@ -1672,7 +1684,7 @@ const ApiService = {
       .replace(/<div[^>]*>/gi, '')
       .replace(/<\/div>/gi, '');
 
-    // 1. Gửi qua Backend Server Relay NGAY LẬP TỨC (tốc độ cao, không bị CORS, server tự động đọc Chat ID từ Firestore nếu thiếu)
+    // 1. Gửi qua Backend Server Relay NGAY LẬP TỨC (tốc độ cao, không bị CORS, server tự động gửi thẳng vào Nhóm Zalo & Cá nhân)
     try {
       const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
         method: 'POST',
@@ -1680,9 +1692,8 @@ const ApiService = {
         body: JSON.stringify({
           message: cleanMsg,
           recipientId: recipientId || undefined,
-          token: token || undefined,
-          photo: photoData || undefined,
-          webhookUrl: config.webhookUrl || undefined
+          groupChatId: groupChatId || undefined,
+          token: token || undefined
         })
       });
 
@@ -1690,7 +1701,7 @@ const ApiService = {
       if (backendRes.ok && contentType.includes('application/json')) {
         const backendData = await backendRes.json();
         if (backendData.success) {
-          console.log('[Zalo] Gửi thông báo thành công qua Backend Relay');
+          console.log('[Zalo] Gửi thông báo thành công qua Backend Relay:', backendData);
           return { success: true, data: backendData.result };
         }
         return { success: false, error: backendData.error || backendData.message };
@@ -1705,12 +1716,12 @@ const ApiService = {
     };
   },
 
-  async testZalo(botToken, recipientId) {
+  async testZalo(botToken, recipientId, groupChatId) {
     try {
       const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: botToken, recipientId: recipientId })
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ token: botToken, recipientId: recipientId, groupChatId: groupChatId })
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -1728,7 +1739,7 @@ const ApiService = {
   },
 
   async testZaloOA(accessToken, secretToken) {
-    return await this.testZalo(accessToken, '');
+    return await this.testZalo(accessToken, '', '');
   },
 
   async sendCompletionEmail(item, code, senderEmail, senderName, reviewNote = '') {

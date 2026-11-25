@@ -28,53 +28,68 @@ module.exports = async (req, res) => {
       const chat = message.chat || {};
       const sender = body.sender || {};
 
-      const chatId = String(chat.id || from.id || sender.id || body.chat_id || body.user_id_by_app || '').trim();
+      const rawChatId = String(chat.id || from.id || sender.id || body.chat_id || body.user_id_by_app || '').trim();
       const senderName = from.display_name || from.first_name || sender.name || 'Quản lý NSG';
       const text = (message.text || body.text || '').trim();
 
-      console.log(`[ZaloWebhook] Incoming message from chatId: ${chatId} (${senderName}):`, text);
+      console.log(`[ZaloWebhook] Incoming message from chatId: ${rawChatId} (${senderName}):`, text);
 
-      if (chatId) {
+      if (rawChatId) {
+        const isGroup = rawChatId.startsWith('zgr-');
         // Lưu Chat ID vào Firestore qua REST API
         try {
-          const patchUrl = `https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/system_settings/zalo?updateMask.fieldPaths=lastChatId&updateMask.fieldPaths=lastSenderName&updateMask.fieldPaths=lastActiveAt&key=${FIRESTORE_API_KEY}`;
+          const updateFields = {
+            lastActiveAt: { stringValue: new Date().toISOString() },
+            lastSenderName: { stringValue: String(senderName) }
+          };
+          const mask = ['updateMask.fieldPaths=lastActiveAt', 'updateMask.fieldPaths=lastSenderName'];
+
+          if (isGroup) {
+            updateFields.groupChatId = { stringValue: rawChatId };
+            mask.push('updateMask.fieldPaths=groupChatId');
+          } else {
+            updateFields.lastChatId = { stringValue: rawChatId };
+            mask.push('updateMask.fieldPaths=lastChatId');
+          }
+
+          const patchUrl = `https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/system_settings/zalo?${mask.join('&')}&key=${FIRESTORE_API_KEY}`;
           await fetch(patchUrl, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                lastChatId: { stringValue: String(chatId) },
-                lastSenderName: { stringValue: String(senderName) },
-                lastActiveAt: { stringValue: new Date().toISOString() }
-              }
-            })
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ fields: updateFields })
           });
-          console.log(`[ZaloWebhook] Persisted Chat ID ${chatId} to Cloud Firestore.`);
+          console.log(`[ZaloWebhook] Persisted Chat ID ${rawChatId} (${isGroup ? 'GROUP' : 'PERSONAL'}) to Cloud Firestore.`);
         } catch (dbErr) {
           console.warn('[ZaloWebhook] Error persisting to Firestore:', dbErr.message);
         }
 
-        // Tự động trả lời chào mừng và gửi Chat ID về Zalo cho người dùng
+        // Tự động trả lời chào mừng và xác nhận kết nối
         const botToken = process.env.ZALO_BOT_TOKEN || DEFAULT_BOT_TOKEN;
-        const replyText = `👋 Xin chào <b>${senderName}</b>!\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `🤖 <b>Bot Phản Ánh NSG</b> đã kết nối thành công với tài khoản Zalo của bạn.\n` +
-          `📌 <b>Chat ID của bạn:</b> <code>${chatId}</code>\n` +
-          `✅ Hệ thống đã tự động lưu Chat ID này!\n` +
-          `👉 Bạn hãy quay lại trang web NSG Support, vào Cài đặt và bấm <b>"Lấy Chat ID tự động"</b> để hoàn tất kết nối nhận thông báo sự cố nhé!`;
+        const replyText = isGroup
+          ? `👋 Xin chào các thành viên nhóm!\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🤖 <b>Bot Phản Ánh NSG</b> đã kết nối thành công với Nhóm Zalo này.\n` +
+            `📌 <b>Group Chat ID:</b> <code>${rawChatId}</code>\n` +
+            `✅ Hệ thống website đã sẵn sàng tự động bắn mọi thông báo phản ánh sự cố mới vào nhóm này!`
+          : `👋 Xin chào <b>${senderName}</b>!\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🤖 <b>Bot Phản Ánh NSG</b> đã kết nối thành công với tài khoản Zalo của bạn.\n` +
+            `📌 <b>Chat ID của bạn:</b> <code>${rawChatId}</code>\n` +
+            `✅ Hệ thống đã tự động lưu Chat ID này!\n` +
+            `👉 Mọi phản ánh mới từ Website sẽ được gửi tức thì đến bạn.`;
 
         await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
           body: JSON.stringify({
-            chat_id: chatId,
+            chat_id: rawChatId,
             text: replyText,
             parse_mode: 'html'
           })
         }).catch(e => console.warn('[ZaloWebhook] Auto-reply error:', e.message));
       }
 
-      return res.status(200).json({ ok: true, chatId: chatId || null });
+      return res.status(200).json({ ok: true, chatId: rawChatId || null });
     } catch (err) {
       console.error('[ZaloWebhook] Handler error:', err.message);
       return res.status(200).json({ ok: false, error: err.message });

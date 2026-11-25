@@ -3,6 +3,8 @@ const axios = require('axios');
 const FIRESTORE_API_KEY = 'AIzaSyA-Ikh0okAVnGJ9IClc1qI5sR3tYFKRnqY';
 const FIRESTORE_DOC_URL = `https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/system_settings/zalo?key=${FIRESTORE_API_KEY}`;
 const DEFAULT_BOT_TOKEN = '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD';
+const DEFAULT_GROUP_ID = 'zgr-ea719633836b6a35337a';
+const DEFAULT_PERSONAL_ID = 'edadf78409cbe095b9da';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,8 +23,9 @@ module.exports = async (req, res) => {
 
       const config = {
         botToken: fields.botToken?.stringValue || DEFAULT_BOT_TOKEN,
-        recipientId: fields.recipientId?.stringValue || '',
-        lastChatId: fields.lastChatId?.stringValue || '',
+        groupChatId: fields.groupChatId?.stringValue || DEFAULT_GROUP_ID,
+        recipientId: fields.recipientId?.stringValue || `${DEFAULT_GROUP_ID}, ${DEFAULT_PERSONAL_ID}`,
+        lastChatId: fields.lastChatId?.stringValue || DEFAULT_PERSONAL_ID,
         lastSenderName: fields.lastSenderName?.stringValue || '',
         isEnabled: fields.isEnabled?.booleanValue !== false,
         webhookUrl: fields.webhookUrl?.stringValue || 'https://phananh.nsgpc.edu.vn/api/zalo/webhook',
@@ -38,8 +41,9 @@ module.exports = async (req, res) => {
         success: true,
         config: {
           botToken: DEFAULT_BOT_TOKEN,
-          recipientId: '',
-          lastChatId: '',
+          groupChatId: DEFAULT_GROUP_ID,
+          recipientId: `${DEFAULT_GROUP_ID}, ${DEFAULT_PERSONAL_ID}`,
+          lastChatId: DEFAULT_PERSONAL_ID,
           lastSenderName: '',
           isEnabled: true,
           webhookUrl: 'https://phananh.nsgpc.edu.vn/api/zalo/webhook'
@@ -55,17 +59,21 @@ module.exports = async (req, res) => {
       const patchFields = {};
       const updateMask = [];
 
-      if (cfg.lastChatId) {
-        patchFields.lastChatId = { stringValue: String(cfg.lastChatId) };
-        updateMask.push('updateMask.fieldPaths=lastChatId');
-      }
-      if (cfg.lastSenderName) {
-        patchFields.lastSenderName = { stringValue: String(cfg.lastSenderName) };
-        updateMask.push('updateMask.fieldPaths=lastSenderName');
+      if (cfg.groupChatId !== undefined) {
+        patchFields.groupChatId = { stringValue: String(cfg.groupChatId) };
+        updateMask.push('updateMask.fieldPaths=groupChatId');
       }
       if (cfg.recipientId !== undefined) {
         patchFields.recipientId = { stringValue: String(cfg.recipientId) };
         updateMask.push('updateMask.fieldPaths=recipientId');
+      }
+      if (cfg.lastChatId !== undefined) {
+        patchFields.lastChatId = { stringValue: String(cfg.lastChatId) };
+        updateMask.push('updateMask.fieldPaths=lastChatId');
+      }
+      if (cfg.lastSenderName !== undefined) {
+        patchFields.lastSenderName = { stringValue: String(cfg.lastSenderName) };
+        updateMask.push('updateMask.fieldPaths=lastSenderName');
       }
       if (cfg.botToken !== undefined) {
         patchFields.botToken = { stringValue: String(cfg.botToken) };

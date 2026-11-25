@@ -85,6 +85,7 @@ const SettingsPage = {
     // Zalo Bot Config (Nhận thông báo như Telegram)
     const zaloToggle = document.getElementById('zalo-enable-toggle');
     const zaloBotToken = document.getElementById('zalo-bot-token');
+    const zaloGroupChatId = document.getElementById('zalo-group-chat-id');
     const zaloRecipientId = document.getElementById('zalo-recipient-id');
     const zaloWebhook = document.getElementById('zalo-webhook-url');
     const zaloSecretToken = document.getElementById('zalo-secret-token');
@@ -94,9 +95,13 @@ const SettingsPage = {
 
     const defaultWebhook = `${window.location.origin}/api/zalo/webhook`;
     const defaultBotToken = '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD';
+    const defaultGroupChatId = 'zgr-ea719633836b6a35337a';
+    const defaultPersonalId = 'edadf78409cbe095b9da';
+
     if (zaloToggle) zaloToggle.checked = this.zaloConfig.isEnabled !== false;
     if (zaloBotToken) zaloBotToken.value = this.zaloConfig.botToken || this.zaloConfig.accessToken || defaultBotToken;
-    if (zaloRecipientId) zaloRecipientId.value = this.zaloConfig.recipientId || this.zaloConfig.lastChatId || '';
+    if (zaloGroupChatId) zaloGroupChatId.value = this.zaloConfig.groupChatId || defaultGroupChatId;
+    if (zaloRecipientId) zaloRecipientId.value = this.zaloConfig.recipientId || this.zaloConfig.lastChatId || defaultPersonalId;
     if (zaloWebhook) zaloWebhook.value = this.zaloConfig.webhookUrl || defaultWebhook;
     if (zaloSecretToken) zaloSecretToken.value = this.zaloConfig.secretToken || '';
     if (zaloOptNewReport) zaloOptNewReport.checked = this.zaloConfig.notifyOnNewReport !== false;
@@ -290,20 +295,20 @@ const SettingsPage = {
             </button>
           </div>
 
-          <!-- Card Hướng dẫn kết nối Bot Zalo & Bắt Chat ID tự động -->
+          <!-- Card Hướng dẫn kết nối Bot Zalo vào Nhóm & Bắt Chat ID tự động -->
           <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div class="flex items-start gap-3">
               <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shrink-0 shadow-sm">
-                <i class="fa-solid fa-robot"></i>
+                <i class="fa-solid fa-users"></i>
               </div>
               <div>
-                <p class="font-extrabold text-blue-900 flex items-center gap-2">
-                  <span>Tên Bot: Bot Phản Ánh NSG</span>
+                <p class="font-extrabold text-blue-900 flex items-center gap-2 flex-wrap">
+                  <span>Bot Phản Ánh NSG:</span>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-200/70 text-blue-800 border border-blue-300">bot.ZHOTlNLQ</span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">ID: 3863228952293192329</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">Nhóm: zgr-ea719633836b6a35337a</span>
                 </p>
                 <p class="text-[11px] text-slate-600 mt-1">
-                  👉 <b>Cách kích hoạt nhận tin:</b> Mở ứng dụng Zalo, tìm bot <b>Bot Phản Ánh NSG</b> (hoặc tìm <code>bot.ZHOTlNLQ</code>) và nhắn bất kỳ tin gì (hoặc gõ <code>/start</code>). Hệ thống sẽ tự động bắt Chat ID của bạn!
+                  👉 <b>Đã thêm Bot vào nhóm Zalo!</b> Website sẽ chủ động gửi báo hỏng sự cố thẳng vào Nhóm Zalo qua Bot Token + Group Chat ID. Bạn cũng có thể nhắn tin cho bot để nhận tin cá nhân.
                 </p>
               </div>
             </div>
@@ -313,27 +318,39 @@ const SettingsPage = {
             </button>
           </div>
 
-          <!-- Form inputs Zalo Bot Token & Zalo ID nhận tin -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+          <!-- Form inputs Zalo Bot Token, ID Nhóm & ID Cá nhân -->
+          <div class="space-y-4 text-xs">
             <div>
               <label class="block font-extrabold text-slate-800 mb-1.5 flex items-center justify-between">
-                <span>Zalo Bot Token / OA Access Token <span class="text-red-500">*</span></span>
+                <span>Zalo Bot Token (HTTP API) <span class="text-red-500">*</span></span>
                 <button type="button" class="text-blue-600 hover:underline font-bold text-[11px] cursor-pointer" onclick="SettingsPage.toggleTokenVisibility('zalo-bot-token', 'icon-toggle-zalo-token')">
                   <i class="fa-solid fa-eye mr-1" id="icon-toggle-zalo-token"></i><span>Ẩn/Hiện</span>
                 </button>
               </label>
               <div class="relative">
-                <input type="password" id="zalo-bot-token" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="Token Zalo Bot hoặc OA Access Token...">
+                <input type="password" id="zalo-bot-token" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="Token Zalo Bot: 3863228952293192329:EyTeNor...">
               </div>
-              <p class="text-[11px] text-slate-400 mt-1.5">Mã API Token dùng để Bot gửi thông báo vào tài khoản Zalo của bạn.</p>
+              <p class="text-[11px] text-slate-400 mt-1.5">Mã HTTP API Token dùng để Bot gửi thông báo vào Zalo.</p>
             </div>
 
-            <div>
-              <label class="block font-extrabold text-slate-800 mb-1.5">
-                Zalo User ID / Số điện thoại nhận tin <span class="text-red-500">*</span>
-              </label>
-              <input type="text" id="zalo-recipient-id" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="Ví dụ: 0912345678 hoặc Zalo User ID của bạn...">
-              <p class="text-[11px] text-slate-400 mt-1.5">Nhập số điện thoại đăng ký Zalo hoặc Zalo User ID của bạn để nhận tin nhắn sự cố mới.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-extrabold text-blue-900 mb-1.5 flex items-center gap-1.5">
+                  <i class="fa-solid fa-users text-blue-600"></i>
+                  <span>ID Nhóm Zalo (Group Chat ID) <span class="text-red-500">*</span></span>
+                </label>
+                <input type="text" id="zalo-group-chat-id" class="w-full p-3 rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/30 focus:bg-white transition-colors font-bold text-blue-950" placeholder="zgr-ea719633836b6a35337a">
+                <p class="text-[11px] text-blue-600 font-semibold mt-1">📌 Báo hỏng sự cố từ website sẽ tự động bắn vào nhóm này.</p>
+              </div>
+
+              <div>
+                <label class="block font-extrabold text-slate-800 mb-1.5 flex items-center gap-1.5">
+                  <i class="fa-solid fa-user-shield text-slate-600"></i>
+                  <span>ID Zalo Cá nhân (Personal Chat ID)</span>
+                </label>
+                <input type="text" id="zalo-recipient-id" class="w-full p-3 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 font-mono text-xs bg-blue-50/20 focus:bg-white transition-colors" placeholder="edadf78409cbe095b9da">
+                <p class="text-[11px] text-slate-400 mt-1.5">Nhận thêm thông báo riêng về Zalo cá nhân của quản trị viên.</p>
+              </div>
             </div>
           </div>
 
@@ -760,10 +777,12 @@ const SettingsPage = {
 
   async testZalo() {
     const tokenInput = document.getElementById('zalo-bot-token');
+    const groupInput = document.getElementById('zalo-group-chat-id');
     const recipientInput = document.getElementById('zalo-recipient-id');
     const btn = document.getElementById('btn-test-zalo');
 
     const botToken = tokenInput ? tokenInput.value.trim() : '';
+    let groupChatId = groupInput ? groupInput.value.trim() : '';
     let recipientId = recipientInput ? recipientInput.value.trim() : '';
 
     if (btn) {
@@ -771,17 +790,14 @@ const SettingsPage = {
       btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang test...';
     }
 
-    Utils.showToast('Đang gửi tin nhắn thử nghiệm tới Zalo (Cá nhân & Nhóm)...', 'info', 3000);
+    Utils.showToast('Đang gửi tin nhắn thử nghiệm tới Zalo (Nhóm & Cá nhân)...', 'info', 3000);
 
     try {
       await this.saveSettings(false);
-      const res = await ApiService.testZalo(botToken, recipientId);
+      const res = await ApiService.testZalo(botToken, recipientId, groupChatId);
       if (res && res.success) {
         SoundService.playSuccess();
-        if (res.recipients && res.recipients.length > 0 && recipientInput) {
-          recipientInput.value = res.recipients.join(', ');
-        }
-        Utils.showToast(res.message || '✅ GỬI THÀNH CÔNG TỚI ZALO! Vui lòng mở Zalo để kiểm tra.', 'success', 6000);
+        Utils.showToast(res.message || '✅ ĐÃ GỬI THÀNH CÔNG VÀO NHÓM ZALO! Vui lòng mở Zalo để kiểm tra.', 'success', 6000);
       } else {
         throw new Error(res?.error || res?.message || 'Kiểm tra lại Bot Token hoặc ID người nhận.');
       }
@@ -807,15 +823,21 @@ const SettingsPage = {
         try {
           const db = window.firebase.firestore();
           const doc = await db.collection('system_settings').doc('zalo').get();
-          if (doc.exists && doc.data()?.lastChatId) {
+          if (doc.exists) {
             const data = doc.data();
-            const input = document.getElementById('zalo-recipient-id');
-            if (input) input.value = data.lastChatId;
-            this.zaloConfig.recipientId = data.lastChatId;
-            this.zaloConfig.lastChatId = data.lastChatId;
+            const groupInput = document.getElementById('zalo-group-chat-id');
+            const personalInput = document.getElementById('zalo-recipient-id');
+            if (data.groupChatId && groupInput) groupInput.value = data.groupChatId;
+            if (data.lastChatId) {
+              if (data.lastChatId.startsWith('zgr-')) {
+                if (groupInput) groupInput.value = data.lastChatId;
+              } else {
+                if (personalInput) personalInput.value = data.lastChatId;
+              }
+            }
             await this.saveSettings(false);
             SoundService.playSuccess();
-            Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${data.lastChatId} (${data.lastSenderName || 'Quản lý'})`, 'success', 6000);
+            Utils.showToast(`✅ Đã đồng bộ Chat ID Zalo thành công! (Nhóm: ${data.groupChatId || 'zgr-ea719633836b6a35337a'})`, 'success', 6000);
             return;
           }
         } catch (fsErr) {
@@ -830,16 +852,14 @@ const SettingsPage = {
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
           const cfg = json.config || {};
-          if (cfg.lastChatId) {
-            const input = document.getElementById('zalo-recipient-id');
-            if (input) input.value = cfg.lastChatId;
-            this.zaloConfig.recipientId = cfg.lastChatId;
-            this.zaloConfig.lastChatId = cfg.lastChatId;
-            await this.saveSettings(false);
-            SoundService.playSuccess();
-            Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${cfg.lastChatId} (${cfg.lastSenderName || 'Quản lý'})`, 'success', 6000);
-            return;
-          }
+          const groupInput = document.getElementById('zalo-group-chat-id');
+          const personalInput = document.getElementById('zalo-recipient-id');
+          if (cfg.groupChatId && groupInput) groupInput.value = cfg.groupChatId;
+          if (cfg.lastChatId && personalInput) personalInput.value = cfg.lastChatId;
+          await this.saveSettings(false);
+          SoundService.playSuccess();
+          Utils.showToast(`✅ Đã đồng bộ Chat ID Zalo thành công! (Nhóm: ${cfg.groupChatId || 'zgr-ea719633836b6a35337a'})`, 'success', 6000);
+          return;
         }
       } catch (apiErr) {
         console.warn('[SettingsPage] Error checking /api/zalo/config:', apiErr);
@@ -866,12 +886,17 @@ const SettingsPage = {
     // Zalo inputs
     const zaloToggle = document.getElementById('zalo-enable-toggle');
     const zaloBotToken = document.getElementById('zalo-bot-token');
+    const zaloGroupChatId = document.getElementById('zalo-group-chat-id');
     const zaloRecipientId = document.getElementById('zalo-recipient-id');
     const zaloWebhook = document.getElementById('zalo-webhook-url');
     const zaloSecretToken = document.getElementById('zalo-secret-token');
     const zaloOptNewReport = document.getElementById('zalo-opt-new-report');
     const zaloOptReview = document.getElementById('zalo-opt-review');
     const zaloOptRating = document.getElementById('zalo-opt-rating');
+
+    const gId = zaloGroupChatId ? zaloGroupChatId.value.trim() : 'zgr-ea719633836b6a35337a';
+    const pId = zaloRecipientId ? zaloRecipientId.value.trim() : 'edadf78409cbe095b9da';
+    const combinedRecipients = [gId, pId].filter(Boolean).join(', ') || 'zgr-ea719633836b6a35337a, edadf78409cbe095b9da';
 
     // Email inputs
     const emailToggle = document.getElementById('email-enable-toggle');
@@ -898,7 +923,9 @@ const SettingsPage = {
       isEnabled: zaloToggle ? zaloToggle.checked : true,
       botToken: zaloBotToken ? zaloBotToken.value.trim() : '',
       accessToken: zaloBotToken ? zaloBotToken.value.trim() : '',
-      recipientId: zaloRecipientId ? zaloRecipientId.value.trim() : '',
+      groupChatId: gId,
+      recipientId: combinedRecipients,
+      lastChatId: pId,
       webhookUrl: zaloWebhook ? zaloWebhook.value.trim() : `${window.location.origin}/api/zalo/webhook`,
       secretToken: zaloSecretToken ? zaloSecretToken.value.trim() : '',
       notifyOnNewReport: zaloOptNewReport ? zaloOptNewReport.checked : true,
