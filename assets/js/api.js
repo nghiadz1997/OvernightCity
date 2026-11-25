@@ -363,10 +363,7 @@ const ApiService = {
 
       // Tự động bắn thông báo sang Zalo Bot (Website gửi phản ánh -> Zalo nhận thông báo để xem tức thì)
       try {
-        let zaloConfig = this.getZaloConfig();
-        if (!zaloConfig.recipientId) {
-          try { zaloConfig = await this.loadZaloConfig(); } catch (e) {}
-        }
+        const zaloConfig = this.getZaloConfig();
         if (zaloConfig.isEnabled !== false && zaloConfig.notifyOnNewReport !== false) {
           this.sendZaloNotification(teleMsg, null, zaloConfig.recipientId || null, firstImage).catch(err => {
             console.warn('[ApiService] Lỗi gửi Zalo Notification:', err);
@@ -1658,12 +1655,6 @@ const ApiService = {
 
   async sendZaloNotification(messageText, customToken = null, customRecipientId = null, photoData = null) {
     let config = this.getZaloConfig();
-    if (!customRecipientId && !config.recipientId) {
-      try {
-        config = await this.loadZaloConfig();
-      } catch (e) {}
-    }
-
     if (config.isEnabled === false && !customToken) {
       return { success: false, reason: 'DISABLED' };
     }
@@ -1681,7 +1672,7 @@ const ApiService = {
       .replace(/<div[^>]*>/gi, '')
       .replace(/<\/div>/gi, '');
 
-    // 1. Gửi qua Backend Server Relay (Bảo mật tuyệt đối, không lộ token, không bị CORS, tự động đọc recipientId từ Firestore nếu thiếu)
+    // 1. Gửi qua Backend Server Relay NGAY LẬP TỨC (tốc độ cao, không bị CORS, server tự động đọc Chat ID từ Firestore nếu thiếu)
     try {
       const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
         method: 'POST',
