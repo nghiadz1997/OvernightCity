@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
     try {
       const resp = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({
           chat_id: recipient,
           text: message,
@@ -60,7 +60,7 @@ module.exports = async (req, res) => {
         const cleanText = (message || '').replace(/<[^>]*>/g, '');
         const retryResp = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
           body: JSON.stringify({
             chat_id: recipient,
             text: cleanText
