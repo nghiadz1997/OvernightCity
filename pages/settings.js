@@ -93,9 +93,10 @@ const SettingsPage = {
     const zaloOptRating = document.getElementById('zalo-opt-rating');
 
     const defaultWebhook = `${window.location.origin}/api/zalo/webhook`;
+    const defaultBotToken = '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD';
     if (zaloToggle) zaloToggle.checked = this.zaloConfig.isEnabled !== false;
-    if (zaloBotToken) zaloBotToken.value = this.zaloConfig.botToken || this.zaloConfig.accessToken || '';
-    if (zaloRecipientId) zaloRecipientId.value = this.zaloConfig.recipientId || '';
+    if (zaloBotToken) zaloBotToken.value = this.zaloConfig.botToken || this.zaloConfig.accessToken || defaultBotToken;
+    if (zaloRecipientId) zaloRecipientId.value = this.zaloConfig.recipientId || this.zaloConfig.lastChatId || '';
     if (zaloWebhook) zaloWebhook.value = this.zaloConfig.webhookUrl || defaultWebhook;
     if (zaloSecretToken) zaloSecretToken.value = this.zaloConfig.secretToken || '';
     if (zaloOptNewReport) zaloOptNewReport.checked = this.zaloConfig.notifyOnNewReport !== false;
@@ -286,6 +287,29 @@ const SettingsPage = {
             <button type="button" id="btn-test-zalo" class="px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0" onclick="SettingsPage.testZalo()">
               <i class="fa-solid fa-paper-plane text-blue-600"></i>
               <span>Test Bot Zalo</span>
+            </button>
+          </div>
+
+          <!-- Card Hướng dẫn kết nối Bot Zalo & Bắt Chat ID tự động -->
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shrink-0 shadow-sm">
+                <i class="fa-solid fa-robot"></i>
+              </div>
+              <div>
+                <p class="font-extrabold text-blue-900 flex items-center gap-2">
+                  <span>Tên Bot: Bot Phản Ánh NSG</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-200/70 text-blue-800 border border-blue-300">bot.ZHOTlNLQ</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">ID: 3863228952293192329</span>
+                </p>
+                <p class="text-[11px] text-slate-600 mt-1">
+                  👉 <b>Cách kích hoạt nhận tin:</b> Mở ứng dụng Zalo, tìm bot <b>Bot Phản Ánh NSG</b> (hoặc tìm <code>bot.ZHOTlNLQ</code>) và nhắn bất kỳ tin gì (hoặc gõ <code>/start</code>). Hệ thống sẽ tự động bắt Chat ID của bạn!
+                </p>
+              </div>
+            </div>
+            <button type="button" class="w-full sm:w-auto px-3.5 py-2.5 bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs rounded-xl border border-blue-300 shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0 transition-all" onclick="SettingsPage.fetchCapturedZaloChatId()">
+              <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
+              <span>Lấy Chat ID tự động</span>
             </button>
           </div>
 
@@ -775,6 +799,47 @@ const SettingsPage = {
 
   async testZaloOA() {
     return this.testZalo();
+  },
+
+  async fetchCapturedZaloChatId() {
+    Utils.showToast('Đang kiểm tra tin nhắn mới từ Bot Zalo...', 'info', 2000);
+    try {
+      // 1. Thử gọi backend /api/zalo/config
+      const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/config`);
+      if (res.ok) {
+        const json = await res.json();
+        const cfg = json.config || {};
+        if (cfg.lastChatId) {
+          const input = document.getElementById('zalo-recipient-id');
+          if (input) input.value = cfg.lastChatId;
+          this.zaloConfig.recipientId = cfg.lastChatId;
+          this.zaloConfig.lastChatId = cfg.lastChatId;
+          await this.saveSettings(false);
+          Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${cfg.lastChatId} (${cfg.lastSenderName || 'Quản lý'})`, 'success', 5000);
+          return;
+        }
+      }
+
+      // 2. Thử đọc trực tiếp từ Firestore nếu backend không phản hồi
+      if (window.firebase && window.firebase.firestore) {
+        const db = window.firebase.firestore();
+        const doc = await db.collection('system_settings').doc('zalo').get();
+        if (doc.exists && doc.data()?.lastChatId) {
+          const data = doc.data();
+          const input = document.getElementById('zalo-recipient-id');
+          if (input) input.value = data.lastChatId;
+          this.zaloConfig.recipientId = data.lastChatId;
+          this.zaloConfig.lastChatId = data.lastChatId;
+          await this.saveSettings(false);
+          Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${data.lastChatId} (${data.lastSenderName || 'Quản lý'})`, 'success', 5000);
+          return;
+        }
+      }
+
+      Utils.showToast('Chưa có tin nhắn nào đến Bot. Hãy mở Zalo, tìm bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ) và nhắn tin "/start", sau đó bấm lại nút này!', 'warning', 6000);
+    } catch (e) {
+      Utils.showToast('Lỗi kiểm tra Chat ID: ' + e.message, 'error', 4000);
+    }
   },
 
   async saveSettings(showSuccessToast = true) {
