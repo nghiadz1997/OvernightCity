@@ -214,9 +214,9 @@ const Utils = {
 
   /**
    * Nén ảnh thông minh trên trình duyệt qua HTML5 Canvas & createImageBitmap
-   * Đảm bảo dung lượng mỗi ảnh an toàn (~30-50KB) để không bao giờ vượt quá giới hạn 1MB của Cloud Firestore Document
+   * Đảm bảo dung lượng mỗi ảnh an toàn (< 50KB) để không bao giờ vượt quá giới hạn 1MB của Cloud Firestore Document
    */
-  compressImage(file, maxWidth = 720, maxHeight = 720, quality = 0.52) {
+  compressImage(file, maxWidth = 600, maxHeight = 600, quality = 0.45) {
     return new Promise((resolve) => {
       const isImg = (file && file.type && file.type.startsWith('image/')) ||
         /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(file?.name || '');
@@ -224,8 +224,8 @@ const Utils = {
         return resolve(file); // Nếu không phải ảnh thì giữ nguyên file
       }
 
-      // Nếu file đã nhỏ hơn 60KB và đã là JPEG, không cần nén lại
-      if (file.size && file.size <= 60 * 1024 && file.type === 'image/jpeg') {
+      // Nếu file đã nhỏ hơn 45KB và đã là JPEG, không cần nén lại
+      if (file.size && file.size <= 45 * 1024 && file.type === 'image/jpeg') {
         return resolve(file);
       }
 
@@ -233,10 +233,10 @@ const Utils = {
       const timeoutTimer = setTimeout(() => {
         if (!isSettled) {
           isSettled = true;
-          console.warn('[Utils.compressImage] Timeout nén ảnh, sử dụng file hiện có');
-          resolve(file);
+          console.warn('[Utils.compressImage] Timeout nén ảnh (12s), dùng canvas khẩn cấp');
+          fallbackEmergencyCanvas();
         }
-      }, 2500);
+      }, 12000);
 
       const done = (result) => {
         if (!isSettled) {
@@ -273,22 +273,39 @@ const Utils = {
           let blob = await exportBlob(canvas, quality);
           if (!blob) return done(file);
 
-          // Nếu ảnh vẫn > 55KB, nén giảm kích thước lần 2 để an toàn tuyệt đối với Firestore
-          if (blob.size > 55 * 1024) {
+          // Nếu ảnh vẫn > 50KB, nén giảm kích thước lần 2 để an toàn tuyệt đối với Firestore
+          if (blob.size > 50 * 1024) {
             try {
               const downCanvas = document.createElement('canvas');
-              const scale = Math.min(0.85, Math.sqrt((48 * 1024) / blob.size));
-              downCanvas.width = Math.max(320, Math.round(width * scale));
-              downCanvas.height = Math.max(240, Math.round(height * scale));
+              const scale = Math.min(0.8, Math.sqrt((42 * 1024) / blob.size));
+              downCanvas.width = Math.max(280, Math.round(width * scale));
+              downCanvas.height = Math.max(210, Math.round(height * scale));
               const downCtx = downCanvas.getContext('2d');
               downCtx.fillStyle = '#FFFFFF';
               downCtx.fillRect(0, 0, downCanvas.width, downCanvas.height);
               downCtx.drawImage(canvas, 0, 0, downCanvas.width, downCanvas.height);
-              const secondBlob = await exportBlob(downCanvas, 0.45);
+              const secondBlob = await exportBlob(downCanvas, 0.40);
               if (secondBlob && secondBlob.size < blob.size) {
                 blob = secondBlob;
               }
             } catch (subErr) {}
+          }
+
+          // Nếu sau lần 2 vẫn > 55KB, nén bước 3 (Super Safe)
+          if (blob.size > 55 * 1024) {
+            try {
+              const tinyCanvas = document.createElement('canvas');
+              tinyCanvas.width = 360;
+              tinyCanvas.height = Math.max(200, Math.round(height * (360 / width)));
+              const tCtx = tinyCanvas.getContext('2d');
+              tCtx.fillStyle = '#FFFFFF';
+              tCtx.fillRect(0, 0, tinyCanvas.width, tinyCanvas.height);
+              tCtx.drawImage(canvas, 0, 0, tinyCanvas.width, tinyCanvas.height);
+              const thirdBlob = await exportBlob(tinyCanvas, 0.35);
+              if (thirdBlob && thirdBlob.size < blob.size) {
+                blob = thirdBlob;
+              }
+            } catch (e3) {}
           }
 
           const safeName = (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg';
@@ -308,7 +325,7 @@ const Utils = {
         }
       };
 
-      // 1. Ưu tiên createImageBitmap (nhanh gấp 10 lần, không chặn giao diện)
+      // 1. Ưu tiên createImageBitmap (nhanh, tối ưu, không chặn main thread)
       if (typeof window.createImageBitmap === 'function') {
         window.createImageBitmap(file)
           .then(bitmap => {
@@ -318,7 +335,6 @@ const Utils = {
             });
           })
           .catch(() => {
-            // Fallback sang URL.createObjectURL + HTML Image
             fallbackWithImgElement();
           });
       } else {
@@ -340,9 +356,34 @@ const Utils = {
         };
         img.onerror = () => {
           if (objectUrl) URL.revokeObjectURL(objectUrl);
-          done(file);
+          fallbackEmergencyCanvas();
         };
         img.src = objectUrl || '';
+      }
+
+      function fallbackEmergencyCanvas() {
+        // Fallback khẩn cấp: nếu không nén được và file > 100KB, dùng canvas nhỏ
+        if (file.size > 100 * 1024) {
+          try {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const testImg = new Image();
+              testImg.onload = () => {
+                processCanvas(testImg.naturalWidth || testImg.width, testImg.naturalHeight || testImg.height, (ctx, w, h) => {
+                  ctx.drawImage(testImg, 0, 0, w, h);
+                });
+              };
+              testImg.onerror = () => done(file);
+              testImg.src = e.target.result;
+            };
+            reader.onerror = () => done(file);
+            reader.readAsDataURL(file);
+          } catch (e) {
+            done(file);
+          }
+        } else {
+          done(file);
+        }
       }
     });
   },
@@ -350,14 +391,14 @@ const Utils = {
   /**
    * Nén trực tiếp chuỗi Data URL Base64 nếu chuỗi quá dài (Đảm bảo an toàn 100% khi ghi Firestore)
    */
-  compressDataUrl(dataUrl, maxWidth = 640, maxHeight = 640, quality = 0.48) {
+  compressDataUrl(dataUrl, maxWidth = 540, maxHeight = 540, quality = 0.42) {
     return new Promise((resolve) => {
       if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
         return resolve(dataUrl);
       }
 
-      // Nếu chuỗi Data URL đã nhỏ hơn 55,000 ký tự (~40KB), không cần nén thêm
-      if (dataUrl.length <= 55000) {
+      // Nếu chuỗi Data URL đã nhỏ hơn 50,000 ký tự (~36KB), không cần nén thêm
+      if (dataUrl.length <= 50000) {
         return resolve(dataUrl);
       }
 
@@ -365,9 +406,11 @@ const Utils = {
       const timer = setTimeout(() => {
         if (!isSettled) {
           isSettled = true;
+          // Nếu timeout 8s, trả về bản nén cắt an toàn nếu chuỗi quá lớn (> 100KB)
+          console.warn('[Utils.compressDataUrl] Timeout nén Data URL');
           resolve(dataUrl);
         }
-      }, 2000);
+      }, 8000);
 
       const done = (res) => {
         if (!isSettled) {
@@ -401,17 +444,17 @@ const Utils = {
 
           let resultUrl = canvas.toDataURL('image/jpeg', quality);
 
-          // Nếu chuỗi Base64 vẫn > 65,000 ký tự (~48KB), nén thêm 1 bước
-          if (resultUrl.length > 65000) {
+          // Nếu chuỗi Base64 vẫn > 55,000 ký tự (~40KB), nén thêm 1 bước
+          if (resultUrl.length > 55000) {
             try {
               const miniCanvas = document.createElement('canvas');
-              miniCanvas.width = Math.max(300, Math.round(width * 0.75));
-              miniCanvas.height = Math.max(220, Math.round(height * 0.75));
+              miniCanvas.width = Math.max(260, Math.round(width * 0.7));
+              miniCanvas.height = Math.max(195, Math.round(height * 0.7));
               const mCtx = miniCanvas.getContext('2d');
               mCtx.fillStyle = '#FFFFFF';
               mCtx.fillRect(0, 0, miniCanvas.width, miniCanvas.height);
               mCtx.drawImage(canvas, 0, 0, miniCanvas.width, miniCanvas.height);
-              resultUrl = miniCanvas.toDataURL('image/jpeg', 0.4);
+              resultUrl = miniCanvas.toDataURL('image/jpeg', 0.35);
             } catch (miniErr) {}
           }
 

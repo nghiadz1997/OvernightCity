@@ -766,8 +766,19 @@ const SettingsPage = {
     const botToken = tokenInput ? tokenInput.value.trim() : '';
     const recipientId = recipientInput ? recipientInput.value.trim() : '';
 
-    if (!botToken || !recipientId) {
-      Utils.showToast('Vui lòng nhập Zalo Bot Token và Zalo ID/SĐT nhận tin trước khi test!', 'warning', 4000);
+    if (!botToken) {
+      Utils.showToast('Vui lòng nhập Zalo Bot Token trước khi test!', 'warning', 4000);
+      return;
+    }
+
+    if (!recipientId) {
+      Utils.showToast('Vui lòng nhập Chat ID người nhận hoặc bấm "Lấy Chat ID tự động"!', 'warning', 4000);
+      return;
+    }
+
+    // Cảnh báo thân thiện nếu người dùng nhập số điện thoại thay vì Chat ID
+    if (/^(0|84)?[0-9]{9,10}$/.test(recipientId.replace(/\s+/g, '')) && recipientId.length <= 11) {
+      Utils.showToast(`⚠️ "${recipientId}" là số điện thoại. Chat ID Zalo Bot là dãy số ID do Bot cấp. Hãy mở Zalo nhắn cho bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ) rồi bấm "Lấy Chat ID tự động"!`, 'warning', 7000);
       return;
     }
 
@@ -804,39 +815,50 @@ const SettingsPage = {
   async fetchCapturedZaloChatId() {
     Utils.showToast('Đang kiểm tra tin nhắn mới từ Bot Zalo...', 'info', 2000);
     try {
-      // 1. Thử gọi backend /api/zalo/config
-      const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/config`);
-      if (res.ok) {
-        const json = await res.json();
-        const cfg = json.config || {};
-        if (cfg.lastChatId) {
-          const input = document.getElementById('zalo-recipient-id');
-          if (input) input.value = cfg.lastChatId;
-          this.zaloConfig.recipientId = cfg.lastChatId;
-          this.zaloConfig.lastChatId = cfg.lastChatId;
-          await this.saveSettings(false);
-          Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${cfg.lastChatId} (${cfg.lastSenderName || 'Quản lý'})`, 'success', 5000);
-          return;
-        }
-      }
-
-      // 2. Thử đọc trực tiếp từ Firestore nếu backend không phản hồi
+      // 1. Ưu tiên đọc trực tiếp từ Cloud Firestore
       if (window.firebase && window.firebase.firestore) {
-        const db = window.firebase.firestore();
-        const doc = await db.collection('system_settings').doc('zalo').get();
-        if (doc.exists && doc.data()?.lastChatId) {
-          const data = doc.data();
-          const input = document.getElementById('zalo-recipient-id');
-          if (input) input.value = data.lastChatId;
-          this.zaloConfig.recipientId = data.lastChatId;
-          this.zaloConfig.lastChatId = data.lastChatId;
-          await this.saveSettings(false);
-          Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${data.lastChatId} (${data.lastSenderName || 'Quản lý'})`, 'success', 5000);
-          return;
+        try {
+          const db = window.firebase.firestore();
+          const doc = await db.collection('system_settings').doc('zalo').get();
+          if (doc.exists && doc.data()?.lastChatId) {
+            const data = doc.data();
+            const input = document.getElementById('zalo-recipient-id');
+            if (input) input.value = data.lastChatId;
+            this.zaloConfig.recipientId = data.lastChatId;
+            this.zaloConfig.lastChatId = data.lastChatId;
+            await this.saveSettings(false);
+            SoundService.playSuccess();
+            Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${data.lastChatId} (${data.lastSenderName || 'Quản lý'})`, 'success', 6000);
+            return;
+          }
+        } catch (fsErr) {
+          console.warn('[SettingsPage] Error reading Firestore for lastChatId:', fsErr);
         }
       }
 
-      Utils.showToast('Chưa có tin nhắn nào đến Bot. Hãy mở Zalo, tìm bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ) và nhắn tin "/start", sau đó bấm lại nút này!', 'warning', 6000);
+      // 2. Thử gọi backend /api/zalo/config
+      try {
+        const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/config`);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const json = await res.json();
+          const cfg = json.config || {};
+          if (cfg.lastChatId) {
+            const input = document.getElementById('zalo-recipient-id');
+            if (input) input.value = cfg.lastChatId;
+            this.zaloConfig.recipientId = cfg.lastChatId;
+            this.zaloConfig.lastChatId = cfg.lastChatId;
+            await this.saveSettings(false);
+            SoundService.playSuccess();
+            Utils.showToast(`✅ Đã bắt được Chat ID Zalo: ${cfg.lastChatId} (${cfg.lastSenderName || 'Quản lý'})`, 'success', 6000);
+            return;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[SettingsPage] Error checking /api/zalo/config:', apiErr);
+      }
+
+      Utils.showToast('Chưa có tin nhắn nào đến Bot. Hãy mở Zalo, tìm bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ) và nhắn tin "/start", sau đó bấm lại nút này!', 'warning', 7000);
     } catch (e) {
       Utils.showToast('Lỗi kiểm tra Chat ID: ' + e.message, 'error', 4000);
     }
