@@ -1685,7 +1685,7 @@ const ApiService = {
     try {
       const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({
           message: cleanMsg,
           recipientId: recipientId || undefined,
