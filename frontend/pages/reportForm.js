@@ -1230,8 +1230,10 @@ const ReportFormPage = {
         Utils.showToast('Tối đa đính kèm 5 tệp / ảnh!', 'warning');
         break;
       }
-      if (f.type.startsWith('image/')) {
-        const compressed = await Utils.compressImage(f);
+      const isImg = (f.type && f.type.startsWith('image/')) ||
+        /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name || '');
+      if (isImg && window.Utils && typeof Utils.compressImage === 'function') {
+        const compressed = await Utils.compressImage(f, 800, 800, 0.58);
         this.selectedFiles.push(compressed);
       } else {
         this.selectedFiles.push(f);

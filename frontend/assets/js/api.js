@@ -39,7 +39,7 @@ const ApiService = {
   /**
    * Đảm bảo Document Payload không bao giờ vượt quá giới hạn 1,048,576 bytes của Cloud Firestore
    */
-  async sanitizeDocPayload(payload, maxByteLimit = 850000) {
+  async sanitizeDocPayload(payload, maxByteLimit = 750000) {
     if (!payload || typeof payload !== 'object') return payload;
     try {
       let jsonStr = JSON.stringify(payload);
@@ -50,15 +50,15 @@ const ApiService = {
       }
 
       console.warn(`[ApiService] Payload size (${totalBytes} bytes) vượt ngưỡng an toàn (${maxByteLimit} bytes). Đang tự động nén tối ưu...`);
-      const cloned = { ...payload };
+      const cloned = JSON.parse(jsonStr);
 
       // 1. Tối ưu hóa attachments
       if (Array.isArray(cloned.attachments) && cloned.attachments.length > 0) {
         const newAttachments = [];
         for (let att of cloned.attachments) {
-          if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:image/') && att.url.length > 70000) {
+          if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:') && att.url.length > 50000) {
             try {
-              const compressedUrl = await Utils.compressDataUrl(att.url, 800, 800, 0.5);
+              const compressedUrl = await Utils.compressDataUrl(att.url, 680, 680, 0.48);
               newAttachments.push({ ...att, url: compressedUrl, size: Math.round(compressedUrl.length * 0.75) });
             } catch (e) {
               newAttachments.push(att);
@@ -75,9 +75,9 @@ const ApiService = {
         if (Array.isArray(cloned[photoKey]) && cloned[photoKey].length > 0) {
           const newPhotos = [];
           for (let photoUrl of cloned[photoKey]) {
-            if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('data:image/') && photoUrl.length > 70000) {
+            if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('data:') && photoUrl.length > 50000) {
               try {
-                const compUrl = await Utils.compressDataUrl(photoUrl, 800, 800, 0.5);
+                const compUrl = await Utils.compressDataUrl(photoUrl, 680, 680, 0.48);
                 newPhotos.push(compUrl);
               } catch (e) {
                 newPhotos.push(photoUrl);
@@ -90,11 +90,59 @@ const ApiService = {
         }
       }
 
-      // 3. Nếu sau khi nén ảnh mà vẫn quá lớn (> 950KB) do số lượng ảnh quá nhiều, cắt bớt ảnh phụ để không bị crash Firebase
+      // 3. Đo lại dung lượng sau lần nén 1
       jsonStr = JSON.stringify(cloned);
       totalBytes = (new Blob([jsonStr])).size;
-      if (totalBytes > 950000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 2) {
-        cloned.attachments = cloned.attachments.slice(0, 2);
+
+      // 4. Nếu sau lần nén 1 vẫn > 750,000 bytes, nén sâu lần 2
+      if (totalBytes > 750000) {
+        if (Array.isArray(cloned.attachments)) {
+          for (let i = 0; i < cloned.attachments.length; i++) {
+            const att = cloned.attachments[i];
+            if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:')) {
+              try {
+                const miniUrl = await Utils.compressDataUrl(att.url, 520, 520, 0.4);
+                cloned.attachments[i] = { ...att, url: miniUrl, size: Math.round(miniUrl.length * 0.75) };
+              } catch (e) {}
+            }
+          }
+        }
+        for (let photoKey of ['afterPhotos', 'beforePhotos', 'photos']) {
+          if (Array.isArray(cloned[photoKey])) {
+            for (let i = 0; i < cloned[photoKey].length; i++) {
+              const pUrl = cloned[photoKey][i];
+              if (pUrl && typeof pUrl === 'string' && pUrl.startsWith('data:')) {
+                try {
+                  cloned[photoKey][i] = await Utils.compressDataUrl(pUrl, 520, 520, 0.4);
+                } catch (e) {}
+              }
+            }
+          }
+        }
+        jsonStr = JSON.stringify(cloned);
+        totalBytes = (new Blob([jsonStr])).size;
+      }
+
+      // 5. Nếu tổng dung lượng vẫn vượt ngưỡng an toàn (ví dụ người dùng gửi quá nhiều ảnh lớn)
+      // Cắt giảm số ảnh phụ từ cuối danh sách cho tới khi dung lượng < 800,000 bytes
+      while (totalBytes > 800000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 2) {
+        cloned.attachments.pop();
+        jsonStr = JSON.stringify(cloned);
+        totalBytes = (new Blob([jsonStr])).size;
+      }
+      while (totalBytes > 800000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 1) {
+        cloned.attachments.pop();
+        jsonStr = JSON.stringify(cloned);
+        totalBytes = (new Blob([jsonStr])).size;
+      }
+
+      // 6. Chốt chặn cuối cùng (Fail-safe): Không bao giờ để document vượt quá 900KB
+      if (totalBytes > 900000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 0) {
+        cloned.attachments[0] = {
+          name: cloned.attachments[0].name || 'photo.jpg',
+          url: '',
+          note: 'Dung lượng ảnh vượt quá 1MB của Firestore, đã tự động lược bớt để đảm bảo gửi phản ánh thành công.'
+        };
       }
 
       return cloned;
@@ -476,17 +524,20 @@ const ApiService = {
 
     for (let i = 0; i < fileList.length; i++) {
       let f = fileList[i];
-      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng < 80KB
-      if (f.type && f.type.startsWith('image/') && window.Utils && typeof Utils.compressImage === 'function') {
+      const isImg = (f.type && f.type.startsWith('image/')) ||
+        /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name || '');
+
+      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng an toàn (< 60KB)
+      if (isImg && window.Utils && typeof Utils.compressImage === 'function') {
         try {
-          f = await Utils.compressImage(f, 960, 960, 0.65);
+          f = await Utils.compressImage(f, 800, 800, 0.58);
         } catch (compErr) {
           console.warn('[ApiService] Nén ảnh lỗi, dùng file gốc:', compErr);
         }
       }
 
       // Đọc sang Base64 Data URL với safety timeout 5s chống treo
-      const dataUrl = await new Promise((resolve) => {
+      let dataUrl = await new Promise((resolve) => {
         let isDone = false;
         const timer = setTimeout(() => {
           if (!isDone) {
@@ -523,11 +574,18 @@ const ApiService = {
       });
 
       if (dataUrl) {
+        // Kiểm tra an toàn: nếu chuỗi Data URL vẫn lớn hơn 90,000 ký tự (~67KB), nén thêm một lần nữa
+        if (typeof dataUrl === 'string' && dataUrl.length > 90000 && window.Utils && typeof Utils.compressDataUrl === 'function') {
+          try {
+            dataUrl = await Utils.compressDataUrl(dataUrl, 720, 720, 0.5);
+          } catch (e) {}
+        }
+
         files.push({
           name: f.name || `photo_${i + 1}.jpg`,
           url: dataUrl,
-          size: f.size || Math.round(dataUrl.length * 0.75),
-          mimetype: f.type || 'image/jpeg'
+          size: Math.round(dataUrl.length * 0.75),
+          mimetype: 'image/jpeg'
         });
       }
     }

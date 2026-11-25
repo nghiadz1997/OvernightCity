@@ -27,11 +27,14 @@ const AuthService = {
             }
           } catch (pErr) {}
 
-          window.firebase.auth().onAuthStateChanged(async (fbUser) => {
+            window.firebase.auth().onAuthStateChanged(async (fbUser) => {
             if (fbUser) {
               console.log('[AuthService] Firebase User detected:', fbUser.email);
-              let role = 'USER';
-              let departmentName = 'Cán bộ / Giảng viên';
+              const emailLower = (fbUser.email || '').toLowerCase().trim();
+              const isSuper = AuthService.isSuperAdminEmail(emailLower);
+
+              let role = isSuper ? 'SUPER_ADMIN' : 'USER';
+              let departmentName = isSuper ? 'Ban Quản trị & Giám hiệu' : 'Cán bộ / Giảng viên';
               let displayName = fbUser.displayName || fbUser.email.split('@')[0];
               let phone = '';
 
@@ -41,7 +44,7 @@ const AuthService = {
                   const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
                   if (userDoc.exists) {
                     const data = userDoc.data();
-                    if (data.isActive === false) {
+                    if (data.isActive === false && !isSuper) {
                       console.warn('[AuthService] Tài khoản bị khóa, tự động đăng xuất...');
                       await window.firebase.auth().signOut().catch(() => {});
                       this.currentUser = null;
@@ -52,15 +55,31 @@ const AuthService = {
                       }
                       return;
                     }
-                    role = data.role || 'USER';
-                    departmentName = data.departmentName || departmentName;
+                    if (isSuper) {
+                      role = 'SUPER_ADMIN';
+                      departmentName = (data.departmentName && data.departmentName !== 'Cán bộ / Giảng viên') ? data.departmentName : 'Ban Quản trị & Giám hiệu';
+                      if (data.role !== 'SUPER_ADMIN') {
+                        window.firebase.firestore().collection('users').doc(fbUser.uid).set({
+                          role: 'SUPER_ADMIN',
+                          departmentName: departmentName
+                        }, { merge: true }).catch(() => {});
+                      }
+                    } else {
+                      role = data.role || 'USER';
+                      departmentName = data.departmentName || departmentName;
+                    }
                     displayName = data.displayName || displayName;
                     phone = data.phone || phone;
                   } else {
                     // Nếu chưa có record trong Firestore, khởi tạo ngay
-                    if (fbUser.email && fbUser.email.includes('admin')) role = 'SUPER_ADMIN';
-                    else if (fbUser.email && fbUser.email.includes('truongphong')) role = 'MANAGER';
-                    else if (fbUser.email && fbUser.email.includes('ktv')) role = 'STAFF';
+                    if (isSuper) {
+                      role = 'SUPER_ADMIN';
+                      departmentName = 'Ban Quản trị & Giám hiệu';
+                    } else if (emailLower.includes('truongphong')) {
+                      role = 'MANAGER';
+                    } else if (emailLower.includes('ktv')) {
+                      role = 'STAFF';
+                    }
 
                     await window.firebase.firestore().collection('users').doc(fbUser.uid).set({
                       uid: fbUser.uid,
@@ -96,11 +115,51 @@ const AuthService = {
             this.isInitialized = true;
             this.notifyListeners();
           });
+
+          // Tự động kiểm tra và nâng quyền SUPER_ADMIN cho trongnghia@nsg.edu.vn trên Firestore
+          if (window.firebase && window.firebase.firestore) {
+            setTimeout(() => {
+              try {
+                window.firebase.firestore().collection('users').get().then(snap => {
+                  snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (d && d.email && AuthService.isSuperAdminEmail(d.email) && d.role !== 'SUPER_ADMIN') {
+                      docSnap.ref.set({
+                        role: 'SUPER_ADMIN',
+                        departmentName: 'Ban Quản trị & Giám hiệu'
+                      }, { merge: true }).catch(() => {});
+                    }
+                  });
+                }).catch(() => {});
+              } catch (e) {}
+            }, 600);
+          }
         }
       }
     } catch (e) {
       console.warn('[AuthService] Firebase Auth init warning:', e);
     }
+  },
+
+  /**
+   * Kiểm tra xem một email hoặc username có thuộc diện Super Admin tối cao hay không
+   */
+  isSuperAdminEmail(email) {
+    if (!email) return false;
+    const clean = String(email).toLowerCase().trim();
+    const superAdminList = [
+      'trongnghia@nsg.edu.vn',
+      'trongnghia',
+      'admin@nsg.edu.vn',
+      'superadmin@nsg.edu.vn',
+      'admin@nsg.vn'
+    ];
+    if (superAdminList.includes(clean)) return true;
+    if (clean.startsWith('trongnghia@') || clean === 'trongnghia') return true;
+    if (clean.includes('trongnghia')) return true;
+    if (clean.startsWith('superadmin@') || clean.startsWith('admin@')) return true;
+    if (clean.includes('superadmin') || clean.includes('admin')) return true;
+    return false;
   },
 
   getCurrentUser() {
@@ -275,8 +334,9 @@ const AuthService = {
       const fbUser = userCredential.user;
 
       // Lấy thông tin hồ sơ và phân quyền (RBAC Role) từ Cloud Firestore
-      let role = 'USER';
-      let departmentName = 'Cán bộ / Giảng viên';
+      const isSuper = this.isSuperAdminEmail(normalizedEmail) || (fbUser.email && this.isSuperAdminEmail(fbUser.email));
+      let role = isSuper ? 'SUPER_ADMIN' : 'USER';
+      let departmentName = isSuper ? 'Ban Quản trị & Giám hiệu' : 'Cán bộ / Giảng viên';
       let displayName = fbUser.displayName || normalizedEmail.split('@')[0];
       let phone = '';
 
@@ -285,19 +345,35 @@ const AuthService = {
           const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
           if (userDoc.exists) {
             const data = userDoc.data();
-            if (data.isActive === false) {
+            if (data.isActive === false && !isSuper) {
               await window.firebase.auth().signOut().catch(() => {});
               throw new Error('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ Quản trị viên để được mở lại.');
             }
-            role = data.role || 'USER';
-            departmentName = data.departmentName || departmentName;
+            if (isSuper) {
+              role = 'SUPER_ADMIN';
+              departmentName = (data.departmentName && data.departmentName !== 'Cán bộ / Giảng viên') ? data.departmentName : 'Ban Quản trị & Giám hiệu';
+              if (data.role !== 'SUPER_ADMIN') {
+                window.firebase.firestore().collection('users').doc(fbUser.uid).set({
+                  role: 'SUPER_ADMIN',
+                  departmentName: departmentName
+                }, { merge: true }).catch(() => {});
+              }
+            } else {
+              role = data.role || 'USER';
+              departmentName = data.departmentName || departmentName;
+            }
             displayName = data.displayName || displayName;
             phone = data.phone || '';
           } else {
             // Tự động đồng bộ document người dùng nếu chưa có trong Firestore
-            if (normalizedEmail.includes('admin')) role = 'SUPER_ADMIN';
-            else if (normalizedEmail.includes('truongphong')) role = 'MANAGER';
-            else if (normalizedEmail.includes('ktv')) role = 'STAFF';
+            if (isSuper) {
+              role = 'SUPER_ADMIN';
+              departmentName = 'Ban Quản trị & Giám hiệu';
+            } else if (normalizedEmail.includes('truongphong')) {
+              role = 'MANAGER';
+            } else if (normalizedEmail.includes('ktv')) {
+              role = 'STAFF';
+            }
 
             await window.firebase.firestore().collection('users').doc(fbUser.uid).set({
               uid: fbUser.uid,
@@ -434,8 +510,11 @@ const AuthService = {
       const userCredential = await window.firebase.auth().signInWithPopup(provider);
       const fbUser = userCredential.user;
 
-      let role = 'USER';
-      let departmentName = 'Cán bộ / Giảng viên / Sinh viên';
+      const googleEmail = (fbUser.email || '').toLowerCase().trim();
+      const isSuper = this.isSuperAdminEmail(googleEmail);
+
+      let role = isSuper ? 'SUPER_ADMIN' : 'USER';
+      let departmentName = isSuper ? 'Ban Quản trị & Giám hiệu' : 'Cán bộ / Giảng viên / Sinh viên';
       let displayName = fbUser.displayName || fbUser.email.split('@')[0];
       let phone = '';
 
@@ -444,8 +523,19 @@ const AuthService = {
           const userDoc = await window.firebase.firestore().collection('users').doc(fbUser.uid).get();
           if (userDoc.exists) {
             const data = userDoc.data();
-            role = data.role || 'USER';
-            departmentName = data.departmentName || departmentName;
+            if (isSuper) {
+              role = 'SUPER_ADMIN';
+              departmentName = (data.departmentName && data.departmentName !== 'Cán bộ / Giảng viên' && data.departmentName !== 'Cán bộ / Giảng viên / Sinh viên') ? data.departmentName : 'Ban Quản trị & Giám hiệu';
+              if (data.role !== 'SUPER_ADMIN') {
+                window.firebase.firestore().collection('users').doc(fbUser.uid).set({
+                  role: 'SUPER_ADMIN',
+                  departmentName: departmentName
+                }, { merge: true }).catch(() => {});
+              }
+            } else {
+              role = data.role || 'USER';
+              departmentName = data.departmentName || departmentName;
+            }
             displayName = data.displayName || displayName;
             phone = data.phone || phone;
           } else {
@@ -454,7 +544,7 @@ const AuthService = {
               email: fbUser.email,
               displayName: displayName,
               photoURL: fbUser.photoURL || '',
-              role: 'USER',
+              role: role,
               departmentName: departmentName,
               isActive: true,
               createdAt: new Date().toISOString()
@@ -545,6 +635,12 @@ const AuthService = {
     }
 
     try {
+      // Tự động gán quyền SUPER_ADMIN nếu email thuộc danh sách đặc quyền
+      if (this.isSuperAdminEmail(email)) {
+        role = 'SUPER_ADMIN';
+        departmentName = 'Ban Quản trị & Giám hiệu';
+      }
+
       // 1. Tạo tài khoản trong Firebase Authentication
       const userCredential = await window.firebase.auth().createUserWithEmailAndPassword(email, password);
       const fbUser = userCredential.user;

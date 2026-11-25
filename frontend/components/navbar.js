@@ -92,7 +92,7 @@ const NavbarComponent = {
                     <img src="${user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + user.displayName}" class="w-8 h-8 rounded-lg bg-blue-100 border border-slate-200" alt="Avatar">
                     <div class="hidden md:block text-left">
                       <div class="text-xs font-bold text-slate-800 leading-tight">${user.displayName}</div>
-                      <div class="text-[10px] text-blue-600 font-semibold">${user.role}</div>
+                      <div class="text-[10px] text-blue-600 font-semibold">${AuthService.getRoleLabel ? AuthService.getRoleLabel(user.role) : user.role}</div>
                     </div>
                     <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
                   </button>
@@ -102,7 +102,7 @@ const NavbarComponent = {
                     <div class="px-4 py-2 border-b border-slate-100">
                       <p class="text-xs text-slate-400">Đang đăng nhập với vai trò:</p>
                       <p class="text-sm font-bold text-slate-800">${user.displayName}</p>
-                      <p class="text-xs text-blue-600 font-medium">${user.departmentName || user.role}</p>
+                      <p class="text-xs text-blue-600 font-medium">${user.departmentName || (AuthService.getRoleLabel ? AuthService.getRoleLabel(user.role) : user.role)}</p>
                     </div>
 
                     <!-- Real User Menu -->
