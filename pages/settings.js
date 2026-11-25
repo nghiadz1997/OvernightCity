@@ -764,37 +764,24 @@ const SettingsPage = {
     const btn = document.getElementById('btn-test-zalo');
 
     const botToken = tokenInput ? tokenInput.value.trim() : '';
-    const recipientId = recipientInput ? recipientInput.value.trim() : '';
-
-    if (!botToken) {
-      Utils.showToast('Vui lòng nhập Zalo Bot Token trước khi test!', 'warning', 4000);
-      return;
-    }
-
-    if (!recipientId) {
-      Utils.showToast('Vui lòng nhập Chat ID người nhận hoặc bấm "Lấy Chat ID tự động"!', 'warning', 4000);
-      return;
-    }
-
-    // Cảnh báo thân thiện nếu người dùng nhập số điện thoại thay vì Chat ID
-    if (/^(0|84)?[0-9]{9,10}$/.test(recipientId.replace(/\s+/g, '')) && recipientId.length <= 11) {
-      Utils.showToast(`⚠️ "${recipientId}" là số điện thoại. Chat ID Zalo Bot là dãy số ID do Bot cấp. Hãy mở Zalo nhắn cho bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ) rồi bấm "Lấy Chat ID tự động"!`, 'warning', 7000);
-      return;
-    }
+    let recipientId = recipientInput ? recipientInput.value.trim() : '';
 
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang test...';
     }
 
-    Utils.showToast('Đang gửi tin nhắn thử nghiệm tới Zalo của bạn...', 'info', 3000);
+    Utils.showToast('Đang gửi tin nhắn thử nghiệm tới Zalo (Cá nhân & Nhóm)...', 'info', 3000);
 
     try {
       await this.saveSettings(false);
       const res = await ApiService.testZalo(botToken, recipientId);
       if (res && res.success) {
         SoundService.playSuccess();
-        Utils.showToast('✅ GỬI THÀNH CÔNG TỚI ZALO! Hãy mở ứng dụng Zalo trên điện thoại/máy tính để xem thông báo.', 'success', 6000);
+        if (res.recipients && res.recipients.length > 0 && recipientInput) {
+          recipientInput.value = res.recipients.join(', ');
+        }
+        Utils.showToast(res.message || '✅ GỬI THÀNH CÔNG TỚI ZALO! Vui lòng mở Zalo để kiểm tra.', 'success', 6000);
       } else {
         throw new Error(res?.error || res?.message || 'Kiểm tra lại Bot Token hoặc ID người nhận.');
       }
