@@ -2,6 +2,14 @@
   "outputDirectory": "frontend",
   "rewrites": [
     {
+      "source": "/api/zalo/:match*",
+      "destination": "/api/zalo/:match*"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

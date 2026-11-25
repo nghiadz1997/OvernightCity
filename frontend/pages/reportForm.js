@@ -1198,15 +1198,15 @@ const ReportFormPage = {
     return `
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-          <span>Hình ảnh / Video / Tệp đính kèm (Tối đa 5 tệp)</span>
-          <span class="text-[11px] text-slate-400 font-normal">Hỗ trợ JPG, PNG, MP4, PDF, DOCX (&lt;10MB)</span>
+          <span>Hình ảnh sự cố đính kèm (Tối đa 5 ảnh)</span>
+          <span class="text-[11px] text-slate-400 font-normal">Hỗ trợ JPG, PNG, WEBP, chụp ảnh trực tiếp</span>
         </label>
         <div class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors bg-slate-50/60 cursor-pointer" onclick="document.getElementById('rep-file-input').click()">
           <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-600 mb-2"></i>
-          <p class="text-xs font-bold text-slate-700">Nhấn để chụp ảnh hoặc chọn tệp từ máy tính / điện thoại</p>
-          <p class="text-[11px] text-slate-500 mt-1">Ảnh sẽ được tự động nén tối ưu trước khi gửi để đảm bảo tốc độ</p>
+          <p class="text-xs font-bold text-slate-700">Nhấn để chụp ảnh hoặc chọn ảnh từ máy tính / điện thoại</p>
+          <p class="text-[11px] text-slate-500 mt-1">Ảnh sẽ được tự động nén siêu nhẹ trước khi gửi để đảm bảo tốc độ</p>
         </div>
-        <input type="file" id="rep-file-input" multiple accept="image/*,video/*,application/pdf,.doc,.docx" class="hidden" onchange="ReportFormPage.handleFileSelect(event)">
+        <input type="file" id="rep-file-input" multiple accept="image/*" class="hidden" onchange="ReportFormPage.handleFileSelect(event)">
 
         <!-- Previews -->
         <div id="file-previews-container" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
@@ -1220,21 +1220,31 @@ const ReportFormPage = {
 
     const container = document.getElementById('file-previews-container');
     if (container) {
-      container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang nén & tối ưu hóa tệp ảnh...</div>';
+      container.innerHTML = '<div class="col-span-full text-xs text-blue-600 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang nén & tối ưu hóa ảnh...</div>';
     }
 
     if (!this.selectedFiles) this.selectedFiles = [];
 
     for (const f of newFiles) {
       if (this.selectedFiles.length >= 5) {
-        Utils.showToast('Tối đa đính kèm 5 tệp / ảnh!', 'warning');
+        Utils.showToast('Tối đa đính kèm 5 ảnh sự cố!', 'warning');
         break;
       }
       const isImg = (f.type && f.type.startsWith('image/')) ||
         /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name || '');
-      if (isImg && window.Utils && typeof Utils.compressImage === 'function') {
-        const compressed = await Utils.compressImage(f, 720, 720, 0.52);
-        this.selectedFiles.push(compressed);
+      
+      if (!isImg) {
+        Utils.showToast(`Tệp "${f.name}" không phải hình ảnh. Hệ thống chỉ hỗ trợ đính kèm ảnh (JPG, PNG, WEBP).`, 'warning');
+        continue;
+      }
+
+      if (window.Utils && typeof Utils.compressImage === 'function') {
+        try {
+          const compressed = await Utils.compressImage(f, 600, 600, 0.45);
+          this.selectedFiles.push(compressed);
+        } catch (err) {
+          this.selectedFiles.push(f);
+        }
       } else {
         this.selectedFiles.push(f);
       }
