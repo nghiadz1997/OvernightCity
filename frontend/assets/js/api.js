@@ -358,6 +358,16 @@ const ApiService = {
         console.warn('Lỗi gửi Telegram tự động:', teleErr);
       }
 
+      // Tự động bắn thông báo sang Zalo Bot (Website gửi phản ánh -> Zalo nhận thông báo để xem tức thì)
+      try {
+        const zaloConfig = this.getZaloConfig();
+        if (zaloConfig.isEnabled !== false && zaloConfig.notifyOnNewReport !== false) {
+          this.sendZaloNotification(teleMsg, null, null, firstImage);
+        }
+      } catch (zaloErr) {
+        console.warn('Lỗi gửi Zalo Bot tự động:', zaloErr);
+      }
+
       // Tạo thông báo lưu vào collection notifications và broadcast Realtime chuông thông báo
       try {
         const notiDoc = {
@@ -504,8 +514,14 @@ const ApiService = {
               await this.sendTelegramNotification(teleMsg, cfg.bot2Token, cfg.bot2ChatId, null, 'REVIEW');
             }
           }
+
+          // Bắn thông báo đánh giá sang Zalo Bot
+          const zaloCfg = this.getZaloConfig();
+          if (zaloCfg.isEnabled !== false && zaloCfg.notifyOnRating !== false) {
+            await this.sendZaloNotification(teleMsg, null, null);
+          }
         } catch (tgErr) {
-          console.warn('[ApiService] Lỗi gửi thông báo đánh giá về Telegram:', tgErr);
+          console.warn('[ApiService] Lỗi gửi thông báo đánh giá về Telegram / Zalo:', tgErr);
         }
 
         return { success: true, data: updatedItem };
@@ -998,8 +1014,14 @@ const ApiService = {
             `👉 <i>Trưởng phòng & Ban Giám Hiệu vui lòng kiểm tra và duyệt nghiệm thu.</i>`;
 
           this.sendTelegramNotification(teleMsg, null, null, afterPhoto, 'REVIEW');
+
+          // Bắn thông báo nghiệm thu sang Zalo Bot
+          const zaloCfg = this.getZaloConfig();
+          if (zaloCfg.isEnabled !== false && zaloCfg.notifyOnReview !== false) {
+            this.sendZaloNotification(teleMsg, null, null, afterPhoto);
+          }
         } catch (teleErr) {
-          console.warn('Lỗi gửi Telegram khi gửi nghiệm thu:', teleErr);
+          console.warn('Lỗi gửi Telegram / Zalo khi gửi nghiệm thu:', teleErr);
         }
       }
 
@@ -1568,7 +1590,7 @@ const ApiService = {
   },
 
   // ==========================================
-  // BOT 3: ZALO OA - CẤU HÌNH & TEST KẾT NỐI
+  // BOT 3: ZALO BOT - NHẬN THÔNG BÁO PHẢN ÁNH (GIỐNG TELEGRAM)
   // ==========================================
   getZaloConfig() {
     const saved = localStorage.getItem('nsg_zalo_config');
@@ -1578,14 +1600,16 @@ const ApiService = {
     const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://localhost:5000';
     return {
       isEnabled: true,
+      botToken: '',
+      recipientId: '',
+      accessToken: '',
       webhookUrl: `${origin}/api/zalo/webhook`,
       secretToken: 'nsg_zalo_sec_2026',
-      accessToken: '',
+      notifyOnNewReport: true,
+      notifyOnReview: true,
+      notifyOnRating: true,
       appId: '',
-      secretKey: '',
-      autoReply: true,
-      allowTracking: true,
-      forwardToTelegram: true
+      secretKey: ''
     };
   },
 
@@ -1599,7 +1623,7 @@ const ApiService = {
         return data;
       }
     } catch (e) {
-      console.warn('[ApiService] Không thể tải Zalo OA config từ Firestore:', e);
+      console.warn('[ApiService] Không thể tải Zalo config từ Firestore:', e);
     }
     return this.getZaloConfig();
   },
@@ -1609,9 +1633,9 @@ const ApiService = {
     if (window.firebase && window.firebase.firestore) {
       try {
         await window.firebase.firestore().collection('system_settings').doc('zalo').set(config, { merge: true });
-        console.log('[ApiService] Đã đồng bộ Zalo OA config lên Firestore');
+        console.log('[ApiService] Đã đồng bộ Zalo config lên Firestore');
       } catch (err) {
-        console.warn('Lỗi lưu Zalo OA config lên Firestore:', err);
+        console.warn('Lỗi lưu Zalo config lên Firestore:', err);
       }
     }
     try {
@@ -1623,31 +1647,104 @@ const ApiService = {
     } catch (e) {}
   },
 
-  async testZaloOA(accessToken, secretToken) {
+  async sendZaloNotification(messageText, customToken = null, customRecipientId = null, photoData = null) {
+    let config = this.getZaloConfig();
+    if (!customToken && (!config.botToken && !config.accessToken)) {
+      try {
+        config = await this.loadZaloConfig();
+      } catch (e) {}
+    }
+
+    if (config.isEnabled === false && !customToken) {
+      return { success: false, reason: 'DISABLED' };
+    }
+
+    const token = (customToken || config.botToken || config.accessToken || '').trim();
+    const recipientId = (customRecipientId || config.recipientId || '').trim();
+
+    if (!token || !recipientId) {
+      return { success: false, reason: 'MISSING_CREDENTIALS' };
+    }
+
+    // Làm sạch HTML cho Zalo
+    const cleanMsg = (messageText || '')
+      .replace(/<b>(.*?)<\/b>/gi, '$1')
+      .replace(/<i>(.*?)<\/i>/gi, '$1')
+      .replace(/<code>(.*?)<\/code>/gi, '$1')
+      .replace(/<[^>]*>/g, '');
+
+    // 1. Thử gửi qua Backend Server Relay trước (Bảo mật tuyệt đối, không lộ token, không bị CORS)
+    try {
+      const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: cleanMsg,
+          recipientId: recipientId,
+          token: token,
+          photo: photoData || undefined,
+          webhookUrl: config.webhookUrl || undefined
+        })
+      });
+
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        if (backendData.success) {
+          console.log('[Zalo] Gửi thông báo thành công qua Backend Relay');
+          return { success: true, data: backendData.result };
+        }
+      }
+    } catch (backendErr) {
+      // Backend offline, fallback sang chế độ gọi trực tiếp
+    }
+
+    // 2. Chế độ gửi trực tiếp từ Client (OpenAPI)
+    try {
+      const response = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'access_token': token
+        },
+        body: JSON.stringify({
+          recipient: { user_id: recipientId },
+          message: { text: cleanMsg }
+        })
+      });
+      const data = await response.json();
+      return { success: data.error === 0, data };
+    } catch (directErr) {
+      console.warn('[Zalo] Direct API call error:', directErr);
+      return { success: false, error: directErr.message };
+    }
+  },
+
+  async testZalo(botToken, recipientId) {
     try {
       const res = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, secretToken })
+        body: JSON.stringify({ token: botToken, recipientId: recipientId })
       });
       if (res.ok) {
         const json = await res.json();
         return json;
       }
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Lỗi kiểm tra Zalo OA.');
+      throw new Error(err.message || 'Lỗi kiểm tra Zalo Bot.');
     } catch (err) {
-      if (!accessToken) throw new Error('Vui lòng nhập OA Access Token trước khi kiểm tra.');
-      const response = await fetch(`https://openapi.zalo.me/v2.0/oa/getoa`, {
-        headers: { 'access_token': accessToken }
-      }).catch(() => null);
-      if (response && response.ok) {
-        const data = await response.json();
-        if (data.error === 0) return { success: true, oaInfo: data.data };
-        throw new Error(data.message || 'Mã lỗi từ Zalo: ' + data.error);
-      }
-      return { success: true, message: 'Đã gửi yêu cầu kiểm tra thử nghiệm Zalo OA.' };
+      const testMsg = `🚀 [NSG SUPPORT] KIỂM TRA KẾT NỐI ZALO BOT THÀNH CÔNG!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏰ Thời gian: ${new Date().toLocaleString('vi-VN')}\n` +
+        `📱 Website NSG gửi phản ánh -> Bot Zalo nhận thông báo để bạn mở xem tức thì!`;
+      const result = await this.sendZaloNotification(testMsg, botToken, recipientId);
+      if (result.success) return { success: true, message: 'Đã gửi tin nhắn thử nghiệm tới Zalo của bạn!' };
+      throw new Error(result.error || err.message);
     }
+  },
+
+  async testZaloOA(accessToken, secretToken) {
+    return await this.testZalo(accessToken, '');
   },
 
   async sendCompletionEmail(item, code, senderEmail, senderName, reviewNote = '') {

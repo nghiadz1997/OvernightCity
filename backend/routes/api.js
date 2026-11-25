@@ -145,25 +145,44 @@ router.post('/zalo/webhook', async (req, res) => {
   }
 });
 
-// 3. Test kết nối Zalo OA Token & Secret
+// 3. Test gửi thông báo thử nghiệm tới Zalo Bot / Zalo cá nhân
 router.post('/zalo/test', async (req, res) => {
   try {
-    const { accessToken, secretToken } = req.body || {};
-    const result = await zaloProvider.testConnection(accessToken, secretToken);
+    const { token, recipientId, accessToken, secretToken } = req.body || {};
+    const useToken = token || accessToken;
+    if (recipientId) {
+      const result = await zaloProvider.testNotification(useToken, recipientId);
+      return res.status(200).json(result);
+    }
+    const result = await zaloProvider.testConnection(useToken, secretToken);
     return res.status(200).json(result);
   } catch (err) {
     return res.status(400).json({ success: false, message: err.message });
   }
 });
 
-// 4. Lấy & Cập nhật cấu hình Zalo OA
+// 4. Gửi thông báo Zalo qua Server Relay (Tương tự Telegram Relay)
+router.post('/zalo/send', async (req, res) => {
+  try {
+    const { message, recipientId, token, photo } = req.body || {};
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Thiếu nội dung tin nhắn.' });
+    }
+    const result = await zaloProvider.sendNotification(message, token, recipientId, photo);
+    return res.status(200).json({ success: true, result });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Lấy & Cập nhật cấu hình Zalo OA / Bot
 router.get('/zalo/config', (req, res) => {
   res.json({ success: true, config: zaloProvider.getConfig() });
 });
 
 router.post('/zalo/config', (req, res) => {
   zaloProvider.updateConfig(req.body || {});
-  res.json({ success: true, message: 'Cập nhật cấu hình Zalo OA thành công' });
+  res.json({ success: true, message: 'Cập nhật cấu hình Zalo Bot thành công' });
 });
 
 // ==========================================
