@@ -363,9 +363,14 @@ const ApiService = {
 
       // Tự động bắn thông báo sang Zalo Bot (Website gửi phản ánh -> Zalo nhận thông báo để xem tức thì)
       try {
-        const zaloConfig = this.getZaloConfig();
+        let zaloConfig = this.getZaloConfig();
+        if (!zaloConfig.recipientId) {
+          try { zaloConfig = await this.loadZaloConfig(); } catch (e) {}
+        }
         if (zaloConfig.isEnabled !== false && zaloConfig.notifyOnNewReport !== false) {
-          this.sendZaloNotification(teleMsg, null, null, firstImage);
+          this.sendZaloNotification(teleMsg, null, zaloConfig.recipientId || null, firstImage).catch(err => {
+            console.warn('[ApiService] Lỗi gửi Zalo Notification:', err);
+          });
         }
       } catch (zaloErr) {
         console.warn('Lỗi gửi Zalo Bot tự động:', zaloErr);
@@ -1653,7 +1658,7 @@ const ApiService = {
 
   async sendZaloNotification(messageText, customToken = null, customRecipientId = null, photoData = null) {
     let config = this.getZaloConfig();
-    if (!customToken && (!config.botToken && !config.accessToken)) {
+    if (!customRecipientId && !config.recipientId) {
       try {
         config = await this.loadZaloConfig();
       } catch (e) {}
@@ -1664,27 +1669,27 @@ const ApiService = {
     }
 
     const token = (customToken || config.botToken || config.accessToken || '').trim();
-    const recipientId = (customRecipientId || config.recipientId || '').trim();
+    let recipientId = (customRecipientId || config.recipientId || '').trim();
 
-    if (!token || !recipientId) {
-      return { success: false, reason: 'MISSING_CREDENTIALS' };
-    }
-
-    // Làm sạch HTML phù hợp cho Zalo
-    const cleanMsg = (messageText || '')
+    // Làm sạch HTML phù hợp cho Zalo: chuyển br/p thành xuống dòng, loại bỏ các thẻ div/span không hỗ trợ
+    let cleanMsg = (messageText || '')
       .replace(/<br\s*[\/]?>/gi, '\n')
       .replace(/<\/p>/gi, '\n')
-      .replace(/<[^>]*>/g, '');
+      .replace(/<p[^>]*>/gi, '')
+      .replace(/<span[^>]*>/gi, '')
+      .replace(/<\/span>/gi, '')
+      .replace(/<div[^>]*>/gi, '')
+      .replace(/<\/div>/gi, '');
 
-    // 1. Thử gửi qua Backend Server Relay trước (Bảo mật tuyệt đối, không lộ token, không bị CORS)
+    // 1. Gửi qua Backend Server Relay (Bảo mật tuyệt đối, không lộ token, không bị CORS, tự động đọc recipientId từ Firestore nếu thiếu)
     try {
       const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: cleanMsg,
-          recipientId: recipientId,
-          token: token,
+          recipientId: recipientId || undefined,
+          token: token || undefined,
           photo: photoData || undefined,
           webhookUrl: config.webhookUrl || undefined
         })

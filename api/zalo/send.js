@@ -1,4 +1,5 @@
 const DEFAULT_BOT_TOKEN = '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD';
+const FIRESTORE_API_KEY = 'AIzaSyA-Ikh0okAVnGJ9IClc1qI5sR3tYFKRnqY';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,10 +17,26 @@ module.exports = async (req, res) => {
   try {
     const { message, recipientId, token } = req.body || {};
     const botToken = (token || process.env.ZALO_BOT_TOKEN || DEFAULT_BOT_TOKEN).trim();
-    const recipient = (recipientId || '').trim();
+    let recipient = (recipientId || '').trim();
+
+    // Fallback thông minh: Nếu không có recipientId hoặc là số điện thoại, tự động đọc từ Firestore system_settings/zalo
+    if (!recipient || (/^[0-9]{9,11}$/.test(recipient) && recipient.startsWith('0'))) {
+      try {
+        const fsRes = await fetch(`https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/system_settings/zalo?key=${FIRESTORE_API_KEY}`);
+        if (fsRes.ok) {
+          const fsData = await fsRes.json();
+          const realChatId = fsData.fields?.recipientId?.stringValue || fsData.fields?.lastChatId?.stringValue || '';
+          if (realChatId && (!realChatId.startsWith('0') || realChatId.length > 11)) {
+            recipient = realChatId;
+          }
+        }
+      } catch (fsErr) {
+        console.warn('[ZaloSend] Fallback Firestore error:', fsErr.message);
+      }
+    }
 
     if (!message || !recipient || !botToken) {
-      return res.status(400).json({ success: false, message: 'Thiếu thông tin gửi tin nhắn Zalo.' });
+      return res.status(400).json({ success: false, message: 'Thiếu thông tin người nhận Zalo (Chat ID).' });
     }
 
     try {
