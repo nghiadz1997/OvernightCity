@@ -123,7 +123,19 @@ const createReport = async (req, res) => {
       assignedToName: null,
       assignedBy: null,
       assignedByName: null,
-      attachments: attachments || [],
+      // Giới hạn an toàn tuyệt đối cho attachments để không vượt quá 1MB của Firestore
+      attachments: (Array.isArray(attachments) ? attachments : [])
+        .slice(0, 5)
+        .map((att, idx) => {
+          if (!att) return null;
+          return {
+            name: att.name || `photo_${idx + 1}.jpg`,
+            url: att.url || '',
+            mimetype: att.mimetype || 'image/jpeg',
+            size: att.size || (att.url ? Math.round(att.url.length * 0.75) : 0)
+          };
+        })
+        .filter(Boolean),
       beforePhotos: [],
       afterPhotos: [],
       handoverDocs: [],

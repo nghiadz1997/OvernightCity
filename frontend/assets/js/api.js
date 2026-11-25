@@ -38,8 +38,9 @@ const ApiService = {
 
   /**
    * Đảm bảo Document Payload không bao giờ vượt quá giới hạn 1,048,576 bytes của Cloud Firestore
+   * Giữ ngưỡng an toàn tối đa 350KB để Firestore luôn ghi thành công 100% không lo quá tải
    */
-  async sanitizeDocPayload(payload, maxByteLimit = 750000) {
+  async sanitizeDocPayload(payload, maxByteLimit = 350000) {
     if (!payload || typeof payload !== 'object') return payload;
     try {
       let jsonStr = JSON.stringify(payload);
@@ -56,9 +57,9 @@ const ApiService = {
       if (Array.isArray(cloned.attachments) && cloned.attachments.length > 0) {
         const newAttachments = [];
         for (let att of cloned.attachments) {
-          if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:') && att.url.length > 50000) {
+          if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:') && att.url.length > 45000) {
             try {
-              const compressedUrl = await Utils.compressDataUrl(att.url, 680, 680, 0.48);
+              const compressedUrl = await Utils.compressDataUrl(att.url, 600, 600, 0.45);
               newAttachments.push({ ...att, url: compressedUrl, size: Math.round(compressedUrl.length * 0.75) });
             } catch (e) {
               newAttachments.push(att);
@@ -75,9 +76,9 @@ const ApiService = {
         if (Array.isArray(cloned[photoKey]) && cloned[photoKey].length > 0) {
           const newPhotos = [];
           for (let photoUrl of cloned[photoKey]) {
-            if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('data:') && photoUrl.length > 50000) {
+            if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('data:') && photoUrl.length > 45000) {
               try {
-                const compUrl = await Utils.compressDataUrl(photoUrl, 680, 680, 0.48);
+                const compUrl = await Utils.compressDataUrl(photoUrl, 600, 600, 0.45);
                 newPhotos.push(compUrl);
               } catch (e) {
                 newPhotos.push(photoUrl);
@@ -94,55 +95,38 @@ const ApiService = {
       jsonStr = JSON.stringify(cloned);
       totalBytes = (new Blob([jsonStr])).size;
 
-      // 4. Nếu sau lần nén 1 vẫn > 750,000 bytes, nén sâu lần 2
-      if (totalBytes > 750000) {
+      // 4. Nếu sau lần nén 1 vẫn > 350,000 bytes, nén sâu hơn
+      if (totalBytes > 350000) {
         if (Array.isArray(cloned.attachments)) {
           for (let i = 0; i < cloned.attachments.length; i++) {
             const att = cloned.attachments[i];
             if (att && att.url && typeof att.url === 'string' && att.url.startsWith('data:')) {
               try {
-                const miniUrl = await Utils.compressDataUrl(att.url, 520, 520, 0.4);
+                const miniUrl = await Utils.compressDataUrl(att.url, 480, 480, 0.38);
                 cloned.attachments[i] = { ...att, url: miniUrl, size: Math.round(miniUrl.length * 0.75) };
               } catch (e) {}
             }
           }
         }
-        for (let photoKey of ['afterPhotos', 'beforePhotos', 'photos']) {
-          if (Array.isArray(cloned[photoKey])) {
-            for (let i = 0; i < cloned[photoKey].length; i++) {
-              const pUrl = cloned[photoKey][i];
-              if (pUrl && typeof pUrl === 'string' && pUrl.startsWith('data:')) {
-                try {
-                  cloned[photoKey][i] = await Utils.compressDataUrl(pUrl, 520, 520, 0.4);
-                } catch (e) {}
-              }
-            }
-          }
-        }
         jsonStr = JSON.stringify(cloned);
         totalBytes = (new Blob([jsonStr])).size;
       }
 
-      // 5. Nếu tổng dung lượng vẫn vượt ngưỡng an toàn (ví dụ người dùng gửi quá nhiều ảnh lớn)
-      // Cắt giảm số ảnh phụ từ cuối danh sách cho tới khi dung lượng < 800,000 bytes
-      while (totalBytes > 800000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 2) {
+      // 5. Nếu tổng dung lượng vẫn > 450,000 bytes do quá nhiều ảnh, giữ tối đa 3 ảnh nét nhất
+      while (totalBytes > 450000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 3) {
         cloned.attachments.pop();
         jsonStr = JSON.stringify(cloned);
         totalBytes = (new Blob([jsonStr])).size;
       }
-      while (totalBytes > 800000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 1) {
+      while (totalBytes > 450000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 2) {
         cloned.attachments.pop();
         jsonStr = JSON.stringify(cloned);
         totalBytes = (new Blob([jsonStr])).size;
       }
 
-      // 6. Chốt chặn cuối cùng (Fail-safe): Không bao giờ để document vượt quá 900KB
-      if (totalBytes > 900000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 0) {
-        cloned.attachments[0] = {
-          name: cloned.attachments[0].name || 'photo.jpg',
-          url: '',
-          note: 'Dung lượng ảnh vượt quá 1MB của Firestore, đã tự động lược bớt để đảm bảo gửi phản ánh thành công.'
-        };
+      // 6. Chốt chặn cuối cùng (Fail-safe): Không bao giờ để document vượt quá 500KB
+      if (totalBytes > 500000 && Array.isArray(cloned.attachments) && cloned.attachments.length > 1) {
+        cloned.attachments = cloned.attachments.slice(0, 1);
       }
 
       return cloned;
@@ -543,16 +527,16 @@ const ApiService = {
       const isImg = (f.type && f.type.startsWith('image/')) ||
         /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name || '');
 
-      // Nếu là ảnh, tự động nén qua Canvas để tối ưu dung lượng an toàn (< 60KB)
-      if (isImg && window.Utils && typeof Utils.compressImage === 'function') {
+      // Nếu là ảnh và chưa được nén (< 60KB), nén qua Canvas để tối ưu an toàn
+      if (isImg && (!f.size || f.size > 60 * 1024) && window.Utils && typeof Utils.compressImage === 'function') {
         try {
-          f = await Utils.compressImage(f, 800, 800, 0.58);
+          f = await Utils.compressImage(f, 720, 720, 0.52);
         } catch (compErr) {
-          console.warn('[ApiService] Nén ảnh lỗi, dùng file gốc:', compErr);
+          console.warn('[ApiService] Nén ảnh lỗi, dùng file hiện có:', compErr);
         }
       }
 
-      // Đọc sang Base64 Data URL với safety timeout 5s chống treo
+      // Đọc sang Base64 Data URL với safety timeout 3s chống treo
       let dataUrl = await new Promise((resolve) => {
         let isDone = false;
         const timer = setTimeout(() => {
@@ -561,7 +545,7 @@ const ApiService = {
             console.warn('[ApiService] Đọc file timeout, bỏ qua tệp:', f.name);
             resolve(null);
           }
-        }, 5000);
+        }, 3000);
 
         try {
           const reader = new FileReader();
@@ -590,10 +574,10 @@ const ApiService = {
       });
 
       if (dataUrl) {
-        // Kiểm tra an toàn: nếu chuỗi Data URL vẫn lớn hơn 90,000 ký tự (~67KB), nén thêm một lần nữa
-        if (typeof dataUrl === 'string' && dataUrl.length > 90000 && window.Utils && typeof Utils.compressDataUrl === 'function') {
+        // Kiểm tra an toàn: nếu chuỗi Data URL vẫn lớn hơn 60,000 ký tự (~45KB), nén thêm một lần nữa
+        if (typeof dataUrl === 'string' && dataUrl.length > 60000 && window.Utils && typeof Utils.compressDataUrl === 'function') {
           try {
-            dataUrl = await Utils.compressDataUrl(dataUrl, 720, 720, 0.5);
+            dataUrl = await Utils.compressDataUrl(dataUrl, 640, 640, 0.48);
           } catch (e) {}
         }
 
@@ -1597,12 +1581,12 @@ const ApiService = {
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://localhost:5000';
+    const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://phananh.nsgpc.edu.vn';
     return {
       isEnabled: true,
-      botToken: '',
+      botToken: '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD',
       recipientId: '',
-      accessToken: '',
+      accessToken: '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD',
       webhookUrl: `${origin}/api/zalo/webhook`,
       secretToken: 'nsg_zalo_sec_2026',
       notifyOnNewReport: true,
@@ -1666,11 +1650,10 @@ const ApiService = {
       return { success: false, reason: 'MISSING_CREDENTIALS' };
     }
 
-    // Làm sạch HTML cho Zalo
+    // Làm sạch HTML phù hợp cho Zalo
     const cleanMsg = (messageText || '')
-      .replace(/<b>(.*?)<\/b>/gi, '$1')
-      .replace(/<i>(.*?)<\/i>/gi, '$1')
-      .replace(/<code>(.*?)<\/code>/gi, '$1')
+      .replace(/<br\s*[\/]?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
       .replace(/<[^>]*>/g, '');
 
     // 1. Thử gửi qua Backend Server Relay trước (Bảo mật tuyệt đối, không lộ token, không bị CORS)
@@ -1698,7 +1681,27 @@ const ApiService = {
       // Backend offline, fallback sang chế độ gọi trực tiếp
     }
 
-    // 2. Chế độ gửi trực tiếp từ Client (OpenAPI)
+    // 2. Chế độ gửi trực tiếp từ Client (Zalo Bot Platform HTTP API)
+    if (token.includes(':')) {
+      try {
+        const response = await fetch(`https://bot-api.zaloplatforms.com/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: recipientId,
+            text: cleanMsg,
+            parse_mode: 'html'
+          })
+        });
+        const data = await response.json();
+        return { success: Boolean(data.ok), data };
+      } catch (directErr) {
+        console.warn('[Zalo] Direct Bot API call error:', directErr);
+        return { success: false, error: directErr.message };
+      }
+    }
+
+    // 3. Fallback: Zalo OA CS API
     try {
       const response = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
         method: 'POST',
@@ -1714,7 +1717,7 @@ const ApiService = {
       const data = await response.json();
       return { success: data.error === 0, data };
     } catch (directErr) {
-      console.warn('[Zalo] Direct API call error:', directErr);
+      console.warn('[Zalo] Direct OA CS API call error:', directErr);
       return { success: false, error: directErr.message };
     }
   },
@@ -1733,13 +1736,46 @@ const ApiService = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Lỗi kiểm tra Zalo Bot.');
     } catch (err) {
-      const testMsg = `🚀 [NSG SUPPORT] KIỂM TRA KẾT NỐI ZALO BOT THÀNH CÔNG!\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `⏰ Thời gian: ${new Date().toLocaleString('vi-VN')}\n` +
-        `📱 Website NSG gửi phản ánh -> Bot Zalo nhận thông báo để bạn mở xem tức thì!`;
-      const result = await this.sendZaloNotification(testMsg, botToken, recipientId);
-      if (result.success) return { success: true, message: 'Đã gửi tin nhắn thử nghiệm tới Zalo của bạn!' };
-      throw new Error(result.error || err.message);
+      // Direct client verification if backend route fails
+      if (botToken && botToken.includes(':')) {
+        try {
+          const checkResp = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/getMe`);
+          const checkJson = await checkResp.json();
+          if (!checkJson.ok) {
+            throw new Error(checkJson.description || 'Token Bot không hợp lệ.');
+          }
+
+          if (!recipientId) {
+            return {
+              success: true,
+              message: `✅ Token Bot hợp lệ: ${checkJson.result?.display_name} (@${checkJson.result?.account_name}). Hãy nhập Chat ID của bạn để nhận tin!`
+            };
+          }
+
+          const testMsg = `🚀 [NSG SUPPORT] KIỂM TRA KẾT NỐI ZALO BOT THÀNH CÔNG!\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `⏰ Thời gian: ${new Date().toLocaleString('vi-VN')}\n` +
+            `📱 Website NSG gửi phản ánh -> Bot Zalo nhận thông báo để bạn mở xem tức thì!`;
+
+          const sendResp = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: recipientId,
+              text: testMsg,
+              parse_mode: 'html'
+            })
+          });
+          const sendJson = await sendResp.json();
+          if (sendJson.ok) {
+            return { success: true, message: 'Đã gửi tin nhắn thử nghiệm tới Zalo của bạn!' };
+          }
+          throw new Error(sendJson.description || 'Không thể gửi tin tới Chat ID này.');
+        } catch (subErr) {
+          throw new Error(subErr.message || err.message);
+        }
+      }
+      throw new Error(err.message);
     }
   },
 

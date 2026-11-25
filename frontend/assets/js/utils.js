@@ -213,10 +213,10 @@ const Utils = {
   },
 
   /**
-   * Nén ảnh thông minh trên trình duyệt qua HTML5 Canvas
-   * Đảm bảo dung lượng mỗi ảnh an toàn (~35-65KB) để không bao giờ vượt quá giới hạn 1MB của Cloud Firestore Document
+   * Nén ảnh thông minh trên trình duyệt qua HTML5 Canvas & createImageBitmap
+   * Đảm bảo dung lượng mỗi ảnh an toàn (~30-50KB) để không bao giờ vượt quá giới hạn 1MB của Cloud Firestore Document
    */
-  compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.58) {
+  compressImage(file, maxWidth = 720, maxHeight = 720, quality = 0.52) {
     return new Promise((resolve) => {
       const isImg = (file && file.type && file.type.startsWith('image/')) ||
         /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(file?.name || '');
@@ -224,15 +224,19 @@ const Utils = {
         return resolve(file); // Nếu không phải ảnh thì giữ nguyên file
       }
 
-      // Giới hạn thời gian tối đa 4 giây để chống treo trình duyệt
+      // Nếu file đã nhỏ hơn 60KB và đã là JPEG, không cần nén lại
+      if (file.size && file.size <= 60 * 1024 && file.type === 'image/jpeg') {
+        return resolve(file);
+      }
+
       let isSettled = false;
       const timeoutTimer = setTimeout(() => {
         if (!isSettled) {
           isSettled = true;
-          console.warn('[Utils.compressImage] Timeout nén ảnh, sử dụng file gốc');
+          console.warn('[Utils.compressImage] Timeout nén ảnh, sử dụng file hiện có');
           resolve(file);
         }
-      }, 4000);
+      }, 2500);
 
       const done = (result) => {
         if (!isSettled) {
@@ -242,91 +246,118 @@ const Utils = {
         }
       };
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result;
-        if (!dataUrl) return done(file);
+      const processCanvas = async (sourceWidth, sourceHeight, drawCallback) => {
+        try {
+          let width = sourceWidth;
+          let height = sourceHeight;
+
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          drawCallback(ctx, width, height);
+
+          const exportBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
+          let blob = await exportBlob(canvas, quality);
+          if (!blob) return done(file);
+
+          // Nếu ảnh vẫn > 55KB, nén giảm kích thước lần 2 để an toàn tuyệt đối với Firestore
+          if (blob.size > 55 * 1024) {
+            try {
+              const downCanvas = document.createElement('canvas');
+              const scale = Math.min(0.85, Math.sqrt((48 * 1024) / blob.size));
+              downCanvas.width = Math.max(320, Math.round(width * scale));
+              downCanvas.height = Math.max(240, Math.round(height * scale));
+              const downCtx = downCanvas.getContext('2d');
+              downCtx.fillStyle = '#FFFFFF';
+              downCtx.fillRect(0, 0, downCanvas.width, downCanvas.height);
+              downCtx.drawImage(canvas, 0, 0, downCanvas.width, downCanvas.height);
+              const secondBlob = await exportBlob(downCanvas, 0.45);
+              if (secondBlob && secondBlob.size < blob.size) {
+                blob = secondBlob;
+              }
+            } catch (subErr) {}
+          }
+
+          const safeName = (file.name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg';
+          try {
+            const compressedFile = new File([blob], safeName, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            done(compressedFile);
+          } catch (fileErr) {
+            blob.name = safeName;
+            done(blob);
+          }
+        } catch (err) {
+          console.warn('[Utils.compressImage] processCanvas error:', err);
+          done(file);
+        }
+      };
+
+      // 1. Ưu tiên createImageBitmap (nhanh gấp 10 lần, không chặn giao diện)
+      if (typeof window.createImageBitmap === 'function') {
+        window.createImageBitmap(file)
+          .then(bitmap => {
+            processCanvas(bitmap.width, bitmap.height, (ctx, w, h) => {
+              ctx.drawImage(bitmap, 0, 0, w, h);
+              if (bitmap.close) bitmap.close();
+            });
+          })
+          .catch(() => {
+            // Fallback sang URL.createObjectURL + HTML Image
+            fallbackWithImgElement();
+          });
+      } else {
+        fallbackWithImgElement();
+      }
+
+      function fallbackWithImgElement() {
+        let objectUrl = null;
+        try {
+          objectUrl = URL.createObjectURL(file);
+        } catch (e) {}
 
         const img = new Image();
         img.onload = () => {
-          try {
-            let width = img.naturalWidth || img.width;
-            let height = img.naturalHeight || img.height;
-
-            if (width > maxWidth || height > maxHeight) {
-              if (width > height) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              } else {
-                width = Math.round((width * maxHeight) / height);
-                height = maxHeight;
-              }
-            }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            // Vẽ nền trắng chống lỗi PNG trong suốt thành nền đen
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-
-            const exportBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
-
-            exportBlob(canvas, quality).then(async (blob) => {
-              if (!blob) return done(file);
-
-              // Tối ưu lần 2 nếu dung lượng vẫn > 75KB để an toàn tuyệt đối với Firestore
-              let finalBlob = blob;
-              if (blob.size > 75 * 1024) {
-                try {
-                  const downCanvas = document.createElement('canvas');
-                  const scale = Math.min(1, Math.sqrt((65 * 1024) / blob.size));
-                  downCanvas.width = Math.max(320, Math.round(width * scale));
-                  downCanvas.height = Math.max(240, Math.round(height * scale));
-                  const downCtx = downCanvas.getContext('2d');
-                  downCtx.fillStyle = '#FFFFFF';
-                  downCtx.fillRect(0, 0, downCanvas.width, downCanvas.height);
-                  downCtx.drawImage(canvas, 0, 0, downCanvas.width, downCanvas.height);
-                  const secondBlob = await exportBlob(downCanvas, 0.48);
-                  if (secondBlob && secondBlob.size < blob.size) {
-                    finalBlob = secondBlob;
-                  }
-                } catch (subErr) {}
-              }
-
-              try {
-                const safeName = (file.name || 'image').replace(/\.[^/.]+$/, '') + '.jpg';
-                const compressedFile = new File([finalBlob], safeName, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now()
-                });
-                done(compressedFile);
-              } catch (fileErr) {
-                finalBlob.name = (file.name || 'image').replace(/\.[^/.]+$/, '') + '.jpg';
-                done(finalBlob);
-              }
-            }).catch(() => done(file));
-          } catch (canvasErr) {
-            console.warn('[Utils.compressImage] Canvas error:', canvasErr);
-            done(file);
-          }
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          processCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height, (ctx, w, h) => {
+            ctx.drawImage(img, 0, 0, w, h);
+          });
         };
-        img.onerror = () => done(file);
-        img.src = dataUrl;
-      };
-      reader.onerror = () => done(file);
-      reader.readAsDataURL(file);
+        img.onerror = () => {
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          done(file);
+        };
+        img.src = objectUrl || '';
+      }
     });
   },
 
   /**
    * Nén trực tiếp chuỗi Data URL Base64 nếu chuỗi quá dài (Đảm bảo an toàn 100% khi ghi Firestore)
    */
-  compressDataUrl(dataUrl, maxWidth = 720, maxHeight = 720, quality = 0.5) {
+  compressDataUrl(dataUrl, maxWidth = 640, maxHeight = 640, quality = 0.48) {
     return new Promise((resolve) => {
       if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+        return resolve(dataUrl);
+      }
+
+      // Nếu chuỗi Data URL đã nhỏ hơn 55,000 ký tự (~40KB), không cần nén thêm
+      if (dataUrl.length <= 55000) {
         return resolve(dataUrl);
       }
 
@@ -336,7 +367,7 @@ const Utils = {
           isSettled = true;
           resolve(dataUrl);
         }
-      }, 4000);
+      }, 2000);
 
       const done = (res) => {
         if (!isSettled) {
@@ -370,17 +401,17 @@ const Utils = {
 
           let resultUrl = canvas.toDataURL('image/jpeg', quality);
 
-          // Nếu chuỗi Base64 vẫn > 80,000 ký tự (~60KB), nén thêm một bước
-          if (resultUrl.length > 80000 && (width > 480 || height > 480)) {
+          // Nếu chuỗi Base64 vẫn > 65,000 ký tự (~48KB), nén thêm 1 bước
+          if (resultUrl.length > 65000) {
             try {
               const miniCanvas = document.createElement('canvas');
-              miniCanvas.width = Math.round(width * 0.75);
-              miniCanvas.height = Math.round(height * 0.75);
+              miniCanvas.width = Math.max(300, Math.round(width * 0.75));
+              miniCanvas.height = Math.max(220, Math.round(height * 0.75));
               const mCtx = miniCanvas.getContext('2d');
               mCtx.fillStyle = '#FFFFFF';
               mCtx.fillRect(0, 0, miniCanvas.width, miniCanvas.height);
               mCtx.drawImage(canvas, 0, 0, miniCanvas.width, miniCanvas.height);
-              resultUrl = miniCanvas.toDataURL('image/jpeg', 0.42);
+              resultUrl = miniCanvas.toDataURL('image/jpeg', 0.4);
             } catch (miniErr) {}
           }
 
