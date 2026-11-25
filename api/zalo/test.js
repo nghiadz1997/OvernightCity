@@ -1,4 +1,5 @@
 const DEFAULT_BOT_TOKEN = '3863228952293192329:EyTeNorFotUgHoxJcVdKganYZzHENQKlmrGbzJrFuPUgbqJtNVDTkQxsQHAcKhcD';
+const FIRESTORE_API_KEY = 'AIzaSyA-Ikh0okAVnGJ9IClc1qI5sR3tYFKRnqY';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,63 +42,81 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 2. Nếu chưa nhập Recipient ID
-    const recipient = (recipientId || '').trim();
-    if (!recipient) {
+    // 2. Phân tích danh sách Chat ID
+    let rawInput = (recipientId || '').trim();
+    let targetIds = rawInput.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+
+    // Nếu để trống hoặc là số điện thoại, tự động nạp các Chat ID từ Firestore
+    if (targetIds.length === 0 || targetIds.every(id => /^[0-9]{9,11}$/.test(id) && id.startsWith('0'))) {
+      try {
+        const fsRes = await fetch(`https://firestore.googleapis.com/v1/projects/qttbcsvcsc/databases/(default)/documents/system_settings/zalo?key=${FIRESTORE_API_KEY}`);
+        if (fsRes.ok) {
+          const fsData = await fsRes.json();
+          const rId = fsData.fields?.recipientId?.stringValue || '';
+          const lId = fsData.fields?.lastChatId?.stringValue || '';
+          const fallbackIds = [rId, lId, 'edadf78409cbe095b9da', 'zgr-ea719633836b6a35337a']
+            .flatMap(s => (s || '').split(/[,;\s]+/))
+            .map(s => s.trim())
+            .filter(id => id && (!id.startsWith('0') || id.length > 11));
+          targetIds = [...new Set(fallbackIds)];
+        }
+      } catch (e) {}
+    }
+
+    if (targetIds.length === 0) {
+      targetIds = ['edadf78409cbe095b9da', 'zgr-ea719633836b6a35337a'];
+    }
+
+    // 3. Gửi tin nhắn thử nghiệm tới tất cả các Chat ID
+    const sendTestMsg = async (targetId) => {
+      const isGroup = targetId.startsWith('zgr-');
+      const channelLabel = isGroup ? `Nhóm Zalo (ID: ${targetId})` : `Zalo Cá nhân (ID: ${targetId})`;
+      const testMsg = `🚀 <b>[NSG SUPPORT] KIỂM TRA KẾT NỐI ZALO BOT THÀNH CÔNG!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🤖 <b>Bot gửi tin:</b> ${botInfo.display_name || 'Bot Phản Ánh NSG'} (@${botInfo.account_name})\n` +
+        `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
+        `📱 <b>Kênh nhận:</b> ${channelLabel}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👉 Khi có phản ánh mới từ Website, hệ thống sẽ tự động gửi thông báo đến đây để bạn mở xem tức thì!`;
+
+      try {
+        const sendRes = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify({
+            chat_id: targetId,
+            text: testMsg,
+            parse_mode: 'html'
+          })
+        });
+
+        const sendJson = await sendRes.json();
+        return { success: Boolean(sendJson?.ok), targetId, isGroup, result: sendJson?.result, error: sendJson?.description };
+      } catch (err) {
+        return { success: false, targetId, isGroup, error: err.message };
+      }
+    };
+
+    const results = await Promise.allSettled(targetIds.map(id => sendTestMsg(id)));
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).map(r => r.value);
+
+    if (successful.length > 0) {
+      const channels = successful.map(s => s.isGroup ? 'Nhóm Zalo' : 'Zalo Cá nhân').join(' & ');
       return res.status(200).json({
         success: true,
+        sentCount: successful.length,
+        message: `✅ Đã gửi thông báo thử nghiệm thành công tới: ${channels}! Vui lòng mở Zalo để kiểm tra.`,
         bot: botInfo,
-        message: `✅ Token Bot hợp lệ: ${botInfo.display_name || botInfo.account_name} (@${botInfo.account_name}). Hãy nhập Chat ID của bạn hoặc bấm "Lấy Chat ID tự động"!`
+        recipients: successful.map(s => s.targetId)
       });
     }
 
-    // 3. Nếu người dùng nhập số điện thoại thay vì Chat ID
-    if (/^(0|84)?[0-9]{9,10}$/.test(recipient.replace(/\s+/g, '')) && recipient.length <= 11) {
-      return res.status(400).json({
-        success: false,
-        message: `⚠️ Bạn đang nhập số điện thoại ("${recipient}"). Chat ID Zalo Bot là dãy số định danh do Bot cung cấp. Vui lòng mở Zalo, tìm bot "Bot Phản Ánh NSG" (bot.ZHOTlNLQ), nhắn tin "/start", sau đó bấm "Lấy Chat ID tự động"!`
-      });
-    }
-
-    // 4. Gửi tin nhắn thử nghiệm
-    const testMsg = `🚀 <b>[NSG SUPPORT] KIỂM TRA KẾT NỐI ZALO BOT THÀNH CÔNG!</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🤖 <b>Bot gửi tin:</b> ${botInfo.display_name || 'Bot Phản Ánh NSG'} (@${botInfo.account_name})\n` +
-      `⏰ <b>Thời gian:</b> ${new Date().toLocaleString('vi-VN')}\n` +
-      `📱 <b>Kênh nhận:</b> Zalo Bot Realtime (Chat ID: <code>${recipient}</code>)\n` +
-      `👉 Khi có phản ánh mới từ Website, hệ thống sẽ tự động gửi thông báo đến đây để bạn mở xem tức thì!`;
-
-    try {
-      const sendRes = await fetch(`https://bot-api.zaloplatforms.com/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: recipient,
-          text: testMsg,
-          parse_mode: 'html'
-        })
-      });
-
-      const sendJson = await sendRes.json();
-      if (sendJson && sendJson.ok) {
-        return res.status(200).json({
-          success: true,
-          message: '✅ Đã gửi thông báo thử nghiệm thành công tới Zalo! Vui lòng mở Zalo để kiểm tra.',
-          bot: botInfo
-        });
-      }
-
-      return res.status(400).json({
-        success: false,
-        message: sendJson?.description || 'Không thể gửi tin tới Chat ID này. Vui lòng kiểm tra lại.'
-      });
-    } catch (sendErr) {
-      return res.status(400).json({
-        success: false,
-        message: `Lỗi gửi tin: ${sendErr.message}. Đảm bảo bạn đã mở Zalo và nhắn tin cho Bot ít nhất 1 lần để mở cuộc trò chuyện.`
-      });
-    }
+    const firstErr = results.find(r => r.status === 'fulfilled' && !r.value.success)?.value?.error || 'Lỗi gửi tin tới Chat ID';
+    return res.status(400).json({
+      success: false,
+      message: `Không thể gửi tin tới Chat ID. Chi tiết: ${firstErr}`
+    });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
