@@ -6,8 +6,36 @@
       "destination": "/api/zalo/:match*"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/api/:match*",
+      "destination": "/api/:match*"
+    },
+    {
+      "source": "/frontend/api/:match*",
+      "destination": "/api/:match*"
+    },
+    {
+      "source": "/frontend/assets/:match*",
+      "destination": "/assets/:match*"
+    },
+    {
+      "source": "/frontend/components/:match*",
+      "destination": "/components/:match*"
+    },
+    {
+      "source": "/frontend/pages/:match*",
+      "destination": "/pages/:match*"
+    },
+    {
+      "source": "/frontend/service-worker.js",
+      "destination": "/service-worker.js"
+    },
+    {
+      "source": "/frontend/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
+      "source": "/frontend/(.*)",
+      "destination": "/$1"
     },
     {
       "source": "/(.*)",
