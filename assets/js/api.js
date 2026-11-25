@@ -357,18 +357,15 @@ const ApiService = {
           if (imgAtt) firstImage = imgAtt.url;
         }
 
-        // 1. Gửi Telegram
-        this.sendTelegramNotification(teleMsg, null, null, firstImage).catch(teleErr => {
-          console.warn('[ApiService] Lỗi gửi Telegram:', teleErr);
-        });
-
-        // 2. Gửi Zalo Bot (Đồng thời tới Nhóm Zalo và Cá nhân)
-        const zaloConfig = this.getZaloConfig();
-        if (zaloConfig.isEnabled !== false && zaloConfig.notifyOnNewReport !== false) {
-          this.sendZaloNotification(teleMsg, null, zaloConfig.recipientId || null, firstImage).catch(zaloErr => {
+        // Gửi đồng thời tới cả Telegram Bots và Zalo Bot (Nhóm & Cá nhân)
+        await Promise.allSettled([
+          this.sendTelegramNotification(teleMsg, null, null, firstImage).catch(teleErr => {
+            console.warn('[ApiService] Lỗi gửi Telegram:', teleErr);
+          }),
+          this.sendZaloNotification(teleMsg, null, null, firstImage).catch(zaloErr => {
             console.warn('[ApiService] Lỗi gửi Zalo Notification:', zaloErr);
-          });
-        }
+          })
+        ]);
       } catch (notifErr) {
         console.warn('Lỗi xử lý thông báo tự động Telegram / Zalo:', notifErr);
       }
@@ -1665,16 +1662,6 @@ const ApiService = {
   },
 
   async sendZaloNotification(messageText, customToken = null, customRecipientId = null, photoData = null) {
-    let config = this.getZaloConfig();
-    if (config.isEnabled === false && !customToken) {
-      return { success: false, reason: 'DISABLED' };
-    }
-
-    const token = (customToken || config.botToken || config.accessToken || '').trim();
-    let recipientId = (customRecipientId || config.recipientId || '').trim();
-    let groupChatId = (config.groupChatId || 'zgr-ea719633836b6a35337a').trim();
-
-    // Làm sạch HTML phù hợp cho Zalo: chuyển br/p thành xuống dòng, loại bỏ các thẻ div/span không hỗ trợ
     let cleanMsg = (messageText || '')
       .replace(/<br\s*[\/]?>/gi, '\n')
       .replace(/<\/p>/gi, '\n')
@@ -1684,6 +1671,18 @@ const ApiService = {
       .replace(/<div[^>]*>/gi, '')
       .replace(/<\/div>/gi, '');
 
+    if (!cleanMsg) {
+      return { success: false, reason: 'EMPTY_MESSAGE' };
+    }
+
+    const defaultGroupChatId = 'zgr-ea719633836b6a35337a';
+    const defaultPersonalId = 'edadf78409cbe095b9da';
+
+    let config = this.getZaloConfig();
+    const token = (customToken || config.botToken || config.accessToken || '').trim();
+    let recipientId = (customRecipientId || config.recipientId || '').trim();
+    let groupChatId = (config.groupChatId || defaultGroupChatId).trim();
+
     // 1. Gửi qua Backend Server Relay NGAY LẬP TỨC (tốc độ cao, không bị CORS, server tự động gửi thẳng vào Nhóm Zalo & Cá nhân)
     try {
       const backendRes = await fetch(`${window.APP_CONFIG.apiBaseUrl}/zalo/send`, {
@@ -1691,8 +1690,8 @@ const ApiService = {
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({
           message: cleanMsg,
-          recipientId: recipientId || undefined,
-          groupChatId: groupChatId || undefined,
+          recipientId: recipientId || `${defaultGroupChatId}, ${defaultPersonalId}`,
+          groupChatId: groupChatId || defaultGroupChatId,
           token: token || undefined
         })
       });

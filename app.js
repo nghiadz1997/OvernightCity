@@ -329,7 +329,20 @@ const App = {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js')
-          .then((reg) => console.log('[PWA] Service Worker registered with scope:', reg.scope))
+          .then((reg) => {
+            console.log('[PWA] Service Worker registered with scope:', reg.scope);
+            reg.onupdatefound = () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.onstatechange = () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] Phiên bản mới đã sẵn sàng. Tự động làm mới cache...');
+                    window.location.reload();
+                  }
+                };
+              }
+            };
+          })
           .catch((err) => console.warn('[PWA] Service Worker registration failed:', err));
       });
     }
